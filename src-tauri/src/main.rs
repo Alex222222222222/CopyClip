@@ -17,7 +17,8 @@ fn on_button_clicked() -> String {
 
 use std::{ sync::Mutex};
 
-use app::{systray, config::{ConfigMutex,Config}};
+use app::{systray, config, config::{ConfigMutex,Config}};
+use tauri::Manager;
 
 fn main() {
     let tray = systray::create_tray();
@@ -27,6 +28,15 @@ fn main() {
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .system_tray(tray)
         .on_system_tray_event(systray::handle_tray_event)
+        .setup(|app| {
+            // TODO load the config info from the config file
+            let config = config::load_config(app);
+            let app_handle = app.handle();
+            let config_mutex = app_handle.state::<ConfigMutex>();
+            let mut config_mutex = config_mutex.config.lock().unwrap();
+            *config_mutex = config;
+            Ok(())
+        })
         // TODO load the config info from the config file
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
