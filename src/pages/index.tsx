@@ -1,14 +1,9 @@
-import { invoke } from "@tauri-apps/api/tauri"
 import type { NextPage } from "next"
 import Head from "next/head"
-import Image from "next/image"
-import { useState } from "react"
-
-import { Card } from "@/components/Card"
-import { CardButton } from "@/components/CardButton"
-import { useGlobalShortcut } from "@/hooks/tauri/shortcuts"
 
 const Home: NextPage = () => {
+  /*
+  // Tauri Invoke Example
   const [buttonDesc, setButtonDesc] = useState<string>(
     "Waiting to be clicked. This calls 'on_button_clicked' from Rust.",
   )
@@ -23,6 +18,7 @@ const Home: NextPage = () => {
   useGlobalShortcut("CommandOrControl+P", () => {
     console.log("Ctrl+P was pressed!")
   })
+  */
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -32,6 +28,7 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
+      {/* Uncomment this to add main 
       <main className="flex flex-1 flex-col items-center justify-center py-8">
         <h1 className="m-0 text-center text-6xl">
           Welcome to{" "}
@@ -78,7 +75,9 @@ const Home: NextPage = () => {
           />
         </div>
       </main>
+      */}
 
+      {/* Uncomment this to add a footer
       <footer className="flex flex-1 flex-grow-0 items-center justify-center border-t border-gray-200 py-4">
         <div>
           <a
@@ -99,6 +98,7 @@ const Home: NextPage = () => {
           </a>
         </div>
       </footer>
+      */}
     </div>
   )
 }

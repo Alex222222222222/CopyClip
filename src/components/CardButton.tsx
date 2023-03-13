@@ -1,3 +1,4 @@
+/*
 interface CardButtonProps {
   onClick: () => void
   title: string
@@ -17,3 +18,4 @@ export const CardButton: React.FC<CardButtonProps> = ({
     <p className="m-0 text-xl">{description}</p>
   </button>
 )
+*/
