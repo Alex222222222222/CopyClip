@@ -1,3 +1,4 @@
+/*
 interface CardProps {
   url: string
   title: string
@@ -15,3 +16,4 @@ export const Card: React.FC<CardProps> = ({ url, title, description }: CardProps
     <p className="m-0 text-xl">{description}</p>
   </a>
 )
+*/
