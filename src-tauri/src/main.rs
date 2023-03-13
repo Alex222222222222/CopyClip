@@ -3,8 +3,6 @@
     windows_subsystem = "windows"
 )]
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 /*
 #[tauri::command]
 fn on_button_clicked() -> String {
