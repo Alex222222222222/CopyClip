@@ -3,8 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
+/*
 #[tauri::command]
 fn on_button_clicked() -> String {
     let start = SystemTime::now();
@@ -14,10 +13,11 @@ fn on_button_clicked() -> String {
         .as_millis();
     format!("on_button_clicked called from Rust! (timestamp: {since_the_epoch}ms)")
 }
+*/
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![on_button_clicked])
+        // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
