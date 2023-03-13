@@ -37,7 +37,7 @@ fn main() {
             *config_mutex = config;
             Ok(())
         })
-        // TODO load the config info from the config file
+        // TODO create the sqlite3 connection to the database.
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app_handle, event| match event {

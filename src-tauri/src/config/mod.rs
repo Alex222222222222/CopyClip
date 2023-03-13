@@ -1,7 +1,7 @@
 use std::{sync::Mutex, fs};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, App};
+use tauri::{App};
 
 pub struct  ConfigMutex{
       pub config: Mutex<Config>,
@@ -9,7 +9,7 @@ pub struct  ConfigMutex{
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
-    pub clips_to_show: usize,
+    pub clips_to_show: i64,
 }
 
 pub fn load_config(app: &App) -> Config {
