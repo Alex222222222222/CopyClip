@@ -3,9 +3,6 @@
 name: Lint Rust
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
     paths-ignore:
       - "src/**"
@@ -31,6 +28,18 @@ jobs:
 
       - name: Checkout repository code
         uses: actions/checkout@v3
+
+      - name: set up rust cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
