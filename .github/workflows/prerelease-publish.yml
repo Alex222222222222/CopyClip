@@ -3,9 +3,10 @@
 name: Pre-release Publish
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: [Pre-release Build]
     types:
-      - closed
+      - completed
 
 jobs:
   publish:
@@ -16,13 +17,8 @@ jobs:
       - name: Checkout repository code
         uses: actions/checkout@v3
 
-      - name: Wait for build to succeed
-        uses: lewagon/wait-on-check-action@v1.3.1
-        with:
-          ref: 'master'
-          running-workflow-name: 'Publish the package'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+      - name: make out directory
+        run: mkdir out
       
       - uses: actions/download-artifact@v3
         with:
