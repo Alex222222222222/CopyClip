@@ -43,6 +43,17 @@ jobs:
           node-version: 16
           cache: "pnpm"
 
+      - name: set up rust cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Install dependencies from lockfile
         run: pnpm install --frozen-lockfile
 
