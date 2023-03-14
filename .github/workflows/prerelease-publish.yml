@@ -20,6 +20,7 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.1
         with:
           ref: ${{ github.sha }}
+          running-workflow-name: 'Pre-release Build'
           check-regexp: 'build for pre-release .*'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
