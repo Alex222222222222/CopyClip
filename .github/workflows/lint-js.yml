@@ -3,9 +3,6 @@
 name: Lint Node.js
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
     paths-ignore:
       - "src-tauri/**"
