@@ -8,7 +8,8 @@ on:
       - closed
 
 jobs:
-  if_merged:
+  build:
+    name: build for pre-release
     if: github.event.pull_request.merged == true
     strategy:
       fail-fast: true
@@ -53,8 +54,51 @@ jobs:
       
       - name: pnpm build
         run: pnpm build
-
-      - uses: actions/upload-artifact@v3
+      
+      - if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.os }}-prerelease
-          path: src-tauri/target/release/bundle
+          path: src-tauri/target/release/bundle/msi
+
+      - if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-prerelease
+          path: src-tauri/target/release/bundle/dmg
+
+      - if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-prerelease
+          path: src-tauri/target/release/bundle/deb/
+
+  publish:
+    if: github.event.pull_request.merged == true
+    name: Publish the package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v3
+
+      - name: Wait for build to succeed
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: master
+          check-name: 'build for pre-release'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+      
+      - uses: actions/download-artifact@v3
+        with:
+          path: out
+      
+      - uses: marvinpinto/action-automatic-releases@latest
+          with:
+            repo_token: "${{ secrets.GITHUB_TOKEN }}"
+            automatic_release_tag: "latest"
+            prerelease: true
+            title: "Development Build"
+            files: |
+              LICENSE
+              out/*
