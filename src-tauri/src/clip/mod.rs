@@ -41,6 +41,8 @@ struct ClipCache{
       // need a daemon thread to do this
 }
 
+// TODO try to update the tray menu when the clips change
+
 impl ClipData {
       pub fn get_clip(&mut self, id: i64) -> Option<Clip> {
             // if the clip is in the cache, return it
