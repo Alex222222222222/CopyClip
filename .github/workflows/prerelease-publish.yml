@@ -19,9 +19,21 @@ jobs:
       - name: make out directory
         run: mkdir out
       
-      - uses: actions/download-artifact@v3
+      - name: Download artifact
+        uses: dawidd6/action-download-artifact@v2
         with:
+          # Optional, GitHub token, a Personal Access Token with `public_repo` scope if needed
+          # Required, if the artifact is from a different repo
+          # Required, if the repo is private a Personal Access Token with `repo` scope is needed
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          # Optional, workflow file name or ID
+          # If not specified, will be inferred from run_id (if run_id is specified), or will be the current workflow
+          workflow: prerelease-build.yml
+          # Optional, a directory where to extract artifact(s), defaults to the current directory
           path: out
+          # Optional, choose to skip unpacking the downloaded artifact(s)
+          # default false
+          skip_unpack: true
       
       - uses: marvinpinto/action-automatic-releases@latest
         with:
