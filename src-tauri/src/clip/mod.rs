@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use sqlite::{State, Value};
 use tauri::{AppHandle, Manager};
 
+use crate::config::ConfigMutex;
+
 #[derive(Debug, Clone, Serialize, Deserialize,Default)]
 pub struct Clip{
       pub text: String, // the text of the clip
@@ -15,7 +17,7 @@ pub struct Clip{
 #[derive(Debug, Clone, Serialize, Deserialize,Default)]
 pub struct Clips{
       pub current_clip: i64, // the id of the current clip
-      pub num : i64, // the number of clips in the database
+      pub whole_list_of_ids: Vec<i64>, // the ids of all the clips, well sorted
       cached_clips: HashMap<i64,ClipCache>, // the clips that are currently in the cache
 }
 
@@ -44,6 +46,30 @@ struct ClipCache{
 // TODO try to update the tray menu when the clips change
 
 impl ClipData {
+      pub fn get_id_pos_in_whole_list_of_ids(&self, id: i64) -> Option<i64> {
+            // get the position of the id in the whole list of ids
+            // if the id is not in the list, return None
+            // use binary search
+            
+            let mut min = 0;
+            let mut max = self.clips.whole_list_of_ids.len();
+            while min < max {
+                  let mid = (min + max) / 2;
+                  if self.clips.whole_list_of_ids[mid] < id {
+                        min = mid + 1;
+                  } else {
+                        max = mid;
+                  }
+            }
+            if min == self.clips.whole_list_of_ids.len() {
+                  return None;
+            }
+            if self.clips.whole_list_of_ids[min] == id {
+                  return Some(min.try_into().unwrap());
+            }
+            None
+      }
+
       pub fn get_clip(&mut self, id: i64) -> Option<Clip> {
             // if the clip is in the cache, return it
             let clip_cache = self.clips.cached_clips.get(&id);
@@ -114,7 +140,13 @@ impl ClipData {
             let mut statement = self.database_connection.as_ref().unwrap().prepare("DELETE FROM clips WHERE id = ?").unwrap();
             statement.bind((1,id)).unwrap();
             if let Ok(State::Done) = statement.next() {
-                  self.clips.num -= 1;
+                  // delete from the whole list of ids
+                  // get the position of the id in the whole list of ids
+                  let pos = self.get_id_pos_in_whole_list_of_ids(id);
+                  if pos.is_some() {
+                        let pos = pos.unwrap();
+                        self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
+                  }
                   return Ok(());
             }
 
@@ -155,7 +187,7 @@ impl ClipData {
                               add_timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64,
                         });
 
-                        self.clips.num += 1;
+                        self.clips.whole_list_of_ids.push(id);
                         return Ok(id);
                   }
             }
@@ -172,6 +204,59 @@ impl ClipData {
 
             !todo!("toggle_favorite_clip")
       }
+
+      pub fn update_tray(&mut self, app: &AppHandle) -> Result<(),String> {
+            // get the clips per page configuration
+            let config = app.state::<ConfigMutex>();
+            let config = config.config.lock().unwrap();
+            let clips_per_page = config.clips_to_show;
+
+            // get the current clip pos
+            let current_clip_pos_res = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
+            let mut current_clip_pos: i64 = 0;
+
+            // if the current clip pos is None, set the current id to the highest id
+            if current_clip_pos_res.is_none() {
+                  self.clips.current_clip = self.clips.whole_list_of_ids.last().unwrap().clone();
+                  current_clip_pos = self.clips.whole_list_of_ids.len() as i64 - 1;
+            } else {
+                  current_clip_pos = current_clip_pos_res.unwrap();
+            }
+
+            // get the current page
+            let current_page = (self.clips.whole_list_of_ids.len() as i64 - current_clip_pos) / clips_per_page;
+
+            // get the current page clips
+            let mut current_page_clips = Vec::new();
+            for i in 0..clips_per_page {
+                  let clip_id = self.clips.whole_list_of_ids.get(self.clips.whole_list_of_ids.len() - (current_page * clips_per_page + i) as usize);
+                  if clip_id.is_none() {
+                        break;
+                  }
+                  let clip_id = clip_id.unwrap();
+                  let clip = self.get_clip(*clip_id);
+                  if clip.is_none() {
+                        break;
+                  }
+                  let clip = clip.unwrap();
+                  current_page_clips.push(clip);
+            }
+
+            // get the tray clip sub menu
+            for i in 0..current_page_clips.len() {
+                  let tray_id = "tray_clip_".to_string() + &i.to_string();
+                  let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
+                  let res = tray_clip_sub_menu.set_title(current_page_clips.get(i).unwrap().text.clone());
+                  if res.is_err() {
+                        return Err("Failed to set tray clip sub menu title".to_string());
+                  }
+            }
+
+            // TODO change the current page info
+
+            Ok(())
+      }
+
 }
 
 pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
@@ -191,7 +276,7 @@ pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
 
       // create the database dir if it does not exist
       app_data_dir.push("database");
-      let database_dir = app_data_dir;
+      let database_dir = app_data_dir; // /Users/zifanhua/Library/Application Support/org.eu.huazifan.copyclip/database
       
       let connection = sqlite::open(database_dir.as_path());
       if connection.is_err() {
@@ -207,6 +292,21 @@ pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
             let mut clip_data = clip_data_mutex.clip_data.lock().unwrap();
             drop(statement);
             clip_data.database_connection = Some(connection);
+
+            // get the whole clips ids
+            let mut ids = Vec::new();
+            let mut statement = clip_data.database_connection.as_ref().unwrap().prepare("SELECT id FROM clips").unwrap();
+            while let Ok(State::Row) = statement.next() {
+                  let id = statement.read::<i64,_>("id");
+                  if id.is_err() {
+                        return Err("Failed to get id of clip".to_string());
+                  }
+                  let id = id.unwrap();
+
+                  ids.push(id);
+            }
+            drop(statement);
+            clip_data.clips.whole_list_of_ids = ids;
 
             // TODO init the cache daemon
 

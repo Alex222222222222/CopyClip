@@ -1,15 +1,16 @@
 use std::{sync::Mutex, fs};
 
 use serde::{Deserialize, Serialize};
-use tauri::{App};
+use tauri::App;
 
 pub struct  ConfigMutex{
       pub config: Mutex<Config>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    pub clips_to_show: i64,
+      // do not know how to change this, as the way to control tauri system tray is really limited
+      pub clips_to_show: i64,
 }
 
 pub fn load_config(app: &App) -> Config {
@@ -107,4 +108,12 @@ pub fn load_config(app: &App) -> Config {
       let c_json = c_json.unwrap();
 
       return c_json;
+}
+
+impl Default for Config{
+      fn default() -> Self {
+            Self {
+                  clips_to_show: 10,
+            }
+      }
 }
