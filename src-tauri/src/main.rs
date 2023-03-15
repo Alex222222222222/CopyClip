@@ -23,7 +23,7 @@ use app::{systray::{self, create_tray}, config, config::{ConfigMutex,Config}, cl
 use tauri::{Manager, ClipboardManager};
 
 fn main() {
-    let num = 10;
+    let num = Config::default().clips_to_show;
 
     tauri::Builder::default()
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
@@ -46,6 +46,20 @@ fn main() {
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
                 let mut last_clip = String::new(); // TODO get last clip from database
+
+                let clips = app_handle.state::<ClipDataMutex>();
+                let mut clip_data = clips.clip_data.lock().unwrap();
+                let last = clip_data.clips.whole_list_of_ids.last();
+                if last.is_some(){
+                    let last_t = last.unwrap();
+                    let last_t = (*last_t).clone();
+                    let t = clip_data.get_clip(last_t);
+                    if t.is_ok() {
+                        last_clip = t.unwrap().text;
+                    }
+                }
+                drop(clip_data);
+                drop(clips);
                 loop {
                     let clipboard_manager = app_handle.clipboard_manager();
                     let clip = clipboard_manager.read_text();
