@@ -18,7 +18,7 @@ tauri-build = { version = "1.2.1", features = [] }
 sqlite = "0.30.4"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.2.4", features = ["api-all", "system-tray"] }
+tauri = { version = "1.2.4", features = ["api-all", "clipboard", "system-tray"] }
 
 [features]
 # by default Tauri runs in production mode

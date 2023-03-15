@@ -158,7 +158,12 @@ impl ClipData {
 
             let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
 
-            let mut statement = self.database_connection.as_ref().unwrap().prepare("INSERT INTO clips (text, timestamp, favorite) VALUES (?, ?, ?)").unwrap();
+            let connection = &self.database_connection;
+            if connection.is_none() {
+                  return Err("Failed to get database connection".to_string());
+            }
+            let connection = connection.as_ref().unwrap();
+            let mut statement = connection.prepare("INSERT INTO clips (text, timestamp, favorite) VALUES (?, ?, ?)").unwrap();
             statement.bind::<&[(_, Value)]>(&[
                   (1, text.clone().into()),
                   (2, timestamp.into()),
@@ -287,7 +292,8 @@ pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
 
       // create the clips table if it does not exist
       let mut statement = connection.prepare("CREATE TABLE IF NOT EXISTS clips (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, timestamp INTEGER, favorite INTEGER)").unwrap();
-      if let Ok(State::Done) = statement.next() {
+      let state = statement.next();
+      if let Ok(State::Done) = state {
             let clip_data_mutex = app.state::<ClipDataMutex>();
             let mut clip_data = clip_data_mutex.clip_data.lock().unwrap();
             drop(statement);
@@ -311,6 +317,8 @@ pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
             // TODO init the cache daemon
 
             return Ok(());
+      } else if state.is_err() {
+            println!("Failed to create clips table: {:?}", state.err().unwrap().message);
       }
 
       return Err("Failed to create clips table".to_string());
