@@ -14,6 +14,8 @@ pub struct Config {
       pub clip_max_show_length: i64,
 }
 
+// TODO save config
+
 pub fn load_config(app: &App) -> Config {
       // find app data folder
       // find config file
@@ -114,7 +116,7 @@ pub fn load_config(app: &App) -> Config {
 impl Default for Config{
       fn default() -> Self {
             Self {
-                  clips_to_show: 10,
+                  clips_to_show: 20,
                   clip_max_show_length: 50,
             }
       }
