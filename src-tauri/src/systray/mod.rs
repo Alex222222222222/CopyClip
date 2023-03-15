@@ -1,10 +1,10 @@
 use tauri::{SystemTray, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, AppHandle, SystemTrayEvent, SystemTraySubmenu};
 
-pub fn create_tray() -> SystemTray {
+pub fn create_tray(num : i64) -> SystemTray {
       // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
       let notice_select = CustomMenuItem::new("notice_select".to_string(), "Select the clip you want to add to your clipboard.");
 
-      let tray_clip_submenu = create_tray_clip_submenu_menu();
+      let tray_clip_submenu = create_tray_clip_submenu_menu(num);
 
       let page_info = CustomMenuItem::new("page_info".to_string(), ""); // Total clips: 0, Current page: 0/0
       let next_page = CustomMenuItem::new("next_page".to_string(), "Next page");
@@ -74,12 +74,21 @@ fn handle_left_click(_app: &AppHandle) {
       // do nothing
 }
 
-fn create_tray_clip_submenu_menu() -> SystemTraySubmenu {
+fn create_tray_clip_submenu_menu(num :i64) -> SystemTraySubmenu {
+
       let menu = SystemTrayMenu::new();
       // first create the empty menu
       // when the user clicks on the menu, the app will populate the menu with the latest clips
 
-      let submenu = SystemTraySubmenu::new("Clips", menu);
+      let mut submenu = SystemTraySubmenu::new("Clips", menu);
+      let mut menu = SystemTrayMenu::new();
+
+      for i in 0..num {
+            let clip = CustomMenuItem::new("tray_clip_".to_string() + &i.to_string(), "");
+            menu = menu.add_item(clip);
+      }
+
+      submenu.inner = menu;
 
       submenu
 }

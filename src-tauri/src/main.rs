@@ -15,18 +15,18 @@ fn on_button_clicked() -> String {
 }
 */
 
+// TODO add way to monitor system key board
+
 use std::sync::Mutex;
 
-use app::{systray, config, config::{ConfigMutex,Config}, clip::{ClipDataMutex, ClipData, init_database_connection}};
+use app::{systray::{self, create_tray}, config, config::{ConfigMutex,Config}, clip::{ClipDataMutex, ClipData, init_database_connection}};
 use tauri::Manager;
 
 fn main() {
-    let tray = systray::create_tray();
+    let num = 10;
 
     tauri::Builder::default()
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
-        .system_tray(tray)
-        .on_system_tray_event(systray::handle_tray_event)
         .manage(ConfigMutex{config:Mutex::<Config>::default()})
         .setup(|app| {
             // load the config info from the config file
@@ -48,6 +48,8 @@ fn main() {
 
             Ok(())
         })
+        .system_tray(create_tray(num))
+        .on_system_tray_event(systray::handle_tray_event)
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app_handle, event| match event {
