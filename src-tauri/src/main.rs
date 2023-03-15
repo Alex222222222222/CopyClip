@@ -15,7 +15,7 @@ fn on_button_clicked() -> String {
 }
 */
 
-// TODO add way to monitor system key board
+// TODO add way to change the theme and the icon
 
 use std::sync::Mutex;
 
@@ -45,6 +45,7 @@ fn main() {
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
+                // TODO change the clipboard monitor method https://github.com/DoumanAsh/clipboard-master
                 let mut last_clip = String::new(); // TODO get last clip from database
 
                 let clips = app_handle.state::<ClipDataMutex>();
@@ -82,12 +83,13 @@ fn main() {
                         // TODO log error
                         println!("error: {}", res.err().unwrap());
                     }
+                    drop(clip_data);
+                    drop(clips);
                     std::thread::sleep(std::time::Duration::from_millis(1000));
                 }
             });
 
             let app_handle = app.handle();
-
             tauri::async_runtime::spawn(async move {
                 // monitor the whole list of ids len change
                 let mut last_len = 0;
@@ -106,8 +108,15 @@ fn main() {
                             println!("error: {}", res.err().unwrap());
                         }
                     }
+                    drop(clip_data);
+                    drop(clips);
                     std::thread::sleep(std::time::Duration::from_millis(1000));
                 }
+            });
+
+            let app_handle = app.handle();
+            tauri::async_runtime::spawn(async move {
+                clip::cache::cache_daemon(&app_handle);
             });
 
             Ok(())

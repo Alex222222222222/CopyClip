@@ -1,3 +1,5 @@
+pub mod cache;
+
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
@@ -52,8 +54,6 @@ struct ClipCache{
       // if a clip that is not in the latest config.clips_to_show*2 clips, and not used in the last config.clip_cache_time(default a day) seconds, remove it from the cache
       // need a daemon thread to do this
 }
-
-// TODO try to update the tray menu when the clips change
 
 impl ClipData {
       pub fn get_id_pos_in_whole_list_of_ids(&self, id: i64) -> Option<i64> {
@@ -274,7 +274,11 @@ impl ClipData {
             // get the current page clips
             let mut current_page_clips = Vec::new();
             for i in 0..clips_per_page {
-                  let clip_id = self.clips.whole_list_of_ids.get(self.clips.whole_list_of_ids.len() - (current_page * clips_per_page + i + 1) as usize);
+                  let pos = self.clips.whole_list_of_ids.len() as i64 - (current_page * clips_per_page + i + 1);
+                  if pos< 0 {
+                        break;
+                  }
+                  let clip_id = self.clips.whole_list_of_ids.get(pos as usize);
                   if clip_id.is_none() {
                         break;
                   }
@@ -288,7 +292,6 @@ impl ClipData {
             }
 
             // get the tray clip sub menu
-            let len = current_page_clips.len();
             for i in 0..current_page_clips.len() {
                   let tray_id = "tray_clip_".to_string() + &i.to_string();
                   let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
