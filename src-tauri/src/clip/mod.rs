@@ -14,11 +14,21 @@ pub struct Clip{
       pub favorite: bool, // if the clip is a favorite
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize,Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Clips{
       pub current_clip: i64, // the id of the current clip
       pub whole_list_of_ids: Vec<i64>, // the ids of all the clips, well sorted
       cached_clips: HashMap<i64,ClipCache>, // the clips that are currently in the cache
+}
+
+impl Default for Clips {
+      fn default() -> Self {
+            Self { 
+                  current_clip: -1, 
+                  whole_list_of_ids: Default::default(), 
+                  cached_clips: Default::default() 
+            }
+      }
 }
 
 #[derive(Default)]
@@ -70,7 +80,7 @@ impl ClipData {
             None
       }
 
-      pub fn get_clip(&mut self, id: i64) -> Option<Clip> {
+      pub fn get_clip(&mut self, id: i64) -> Result<Clip,String> {
             // if the clip is in the cache, return it
             let clip_cache = self.clips.cached_clips.get(&id);
             if clip_cache.is_some() {
@@ -80,32 +90,41 @@ impl ClipData {
                         clip: clip_cache.clip.clone(),
                         add_timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64,
                   });
-                  return Some(clip_cache.clip);
+                  return Ok(clip_cache.clip);
             }
 
             // if the clip is not in the cache, get it from the database
             let mut statement = self.database_connection.as_ref().unwrap().prepare("SELECT * FROM clips WHERE id = ?").unwrap();
             statement.bind((1,id)).unwrap();
-            while let Ok(State::Row) = statement.next() {
+            loop {
+                  let state = statement.next();
+                  if state.is_err() {
+                        return Err(state.err().unwrap().message.unwrap());
+                  }
+                  let state = state.unwrap();
+                  if state == State::Done {
+                        break;
+                  }
+
                   let text = statement.read::<String,_>("text");
                   if text.is_err() {
-                        return None;
+                        return Err(text.err().unwrap().message.unwrap());
                   }
 
                   let timestamp = statement.read::<i64,_>("timestamp");
                   if timestamp.is_err() {
-                        return None;
+                        return Err(timestamp.err().unwrap().message.unwrap());
                   }
 
                   let id = statement.read::<i64,_>("id");
                   if id.is_err() {
-                        return None;
+                        return Err(id.err().unwrap().message.unwrap());
                   }
                   let id = id.unwrap();
 
                   let favorite = statement.read::<i64,_>("favorite");
                   if favorite.is_err() {
-                        return None;
+                        return Err(favorite.err().unwrap().message.unwrap());
                   }
                   let favorite = favorite.unwrap() == 1;
 
@@ -120,13 +139,15 @@ impl ClipData {
                         clip: clip.clone(),
                         add_timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64,
                   });
+
+                  return Ok(clip);
             }
 
             // if the clip is not in the database, return None
-            None
+            Err("Clip not found for id: ".to_string() + &id.to_string())
       }
 
-      pub fn get_current_clip(&mut self) -> Option<Clip> {
+      pub fn get_current_clip(&mut self) -> Result<Clip,String> {
             self.get_clip(self.clips.current_clip)
       }
 
@@ -143,8 +164,21 @@ impl ClipData {
                   // delete from the whole list of ids
                   // get the position of the id in the whole list of ids
                   let pos = self.get_id_pos_in_whole_list_of_ids(id);
+                  let current_clip_pos = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
                   if pos.is_some() {
                         let pos = pos.unwrap();
+                        // if pos is before the current clip, decrease the current clip by 1
+                        // if pos is the current clip, set the current clip to -1
+                        if current_clip_pos.is_none() {
+                              self.clips.current_clip = -1;
+                        } else {
+                              let current_clip_pos = current_clip_pos.unwrap();
+                              if pos < current_clip_pos {
+                                    self.clips.current_clip = self.clips.whole_list_of_ids.get(current_clip_pos as usize - 1).unwrap().clone();
+                              } else if pos == current_clip_pos {
+                                    self.clips.current_clip = -1;
+                              }
+                        }
                         self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
                   }
                   return Ok(());
@@ -215,6 +249,7 @@ impl ClipData {
             let config = app.state::<ConfigMutex>();
             let config = config.config.lock().unwrap();
             let clips_per_page = config.clips_to_show;
+            let max_clip_length = config.clip_max_show_length;
 
             // get the current clip pos
             let current_clip_pos_res = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
@@ -222,36 +257,42 @@ impl ClipData {
 
             // if the current clip pos is None, set the current id to the highest id
             if current_clip_pos_res.is_none() {
-                  self.clips.current_clip = self.clips.whole_list_of_ids.last().unwrap().clone();
                   current_clip_pos = self.clips.whole_list_of_ids.len() as i64 - 1;
             } else {
-                  current_clip_pos = current_clip_pos_res.unwrap();
+                  let t = current_clip_pos_res.unwrap();
+                  if t < 0 {
+                        current_clip_pos = self.clips.whole_list_of_ids.len() as i64 - 1;
+                  } else {
+                        current_clip_pos = t
+                  }
+                  
             }
 
             // get the current page
-            let current_page = (self.clips.whole_list_of_ids.len() as i64 - current_clip_pos) / clips_per_page;
+            let current_page = (self.clips.whole_list_of_ids.len() as i64 - current_clip_pos - 1) / clips_per_page;
 
             // get the current page clips
             let mut current_page_clips = Vec::new();
             for i in 0..clips_per_page {
-                  let clip_id = self.clips.whole_list_of_ids.get(self.clips.whole_list_of_ids.len() - (current_page * clips_per_page + i) as usize);
+                  let clip_id = self.clips.whole_list_of_ids.get(self.clips.whole_list_of_ids.len() - (current_page * clips_per_page + i + 1) as usize);
                   if clip_id.is_none() {
                         break;
                   }
                   let clip_id = clip_id.unwrap();
                   let clip = self.get_clip(*clip_id);
-                  if clip.is_none() {
-                        break;
+                  if clip.is_err() {
+                        return Err(clip.err().unwrap());
                   }
                   let clip = clip.unwrap();
                   current_page_clips.push(clip);
             }
 
             // get the tray clip sub menu
+            let len = current_page_clips.len();
             for i in 0..current_page_clips.len() {
                   let tray_id = "tray_clip_".to_string() + &i.to_string();
                   let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
-                  let res = tray_clip_sub_menu.set_title(current_page_clips.get(i).unwrap().text.clone());
+                  let res = tray_clip_sub_menu.set_title(trim_clip_text(current_page_clips.get(i).unwrap().text.clone(), max_clip_length));
                   if res.is_err() {
                         return Err("Failed to set tray clip sub menu title".to_string());
                   }
@@ -262,6 +303,21 @@ impl ClipData {
             Ok(())
       }
 
+}
+
+pub fn trim_clip_text(text: String, l: i64) -> String {
+      if l < 3 {
+            return text;
+      }
+      if text.len() as i64 <= l {
+            return text;
+      }
+      let mut res = String::new();
+      for i in 0..(l-3) {
+            res.push(text.chars().nth(i as usize).unwrap());
+      }
+      res.push_str("...");
+      res
 }
 
 pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
@@ -318,7 +374,7 @@ pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
 
             return Ok(());
       } else if state.is_err() {
-            println!("Failed to create clips table: {:?}", state.err().unwrap().message);
+            return Err("Failed to create clips table: ".to_string() + &state.err().unwrap().message.unwrap().to_string());
       }
 
       return Err("Failed to create clips table".to_string());

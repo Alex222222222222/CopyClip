@@ -1,6 +1,8 @@
 use tauri::{SystemTray, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, AppHandle, SystemTrayEvent, SystemTraySubmenu};
 
 pub fn create_tray(num : i64) -> SystemTray {
+      // TODO set icon for tray
+
       // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
       let notice_select = CustomMenuItem::new("notice_select".to_string(), "Select the clip you want to add to your clipboard.");
 

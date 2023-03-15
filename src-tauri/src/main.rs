@@ -17,7 +17,7 @@ fn on_button_clicked() -> String {
 
 // TODO add way to monitor system key board
 
-use std::{sync::Mutex, thread};
+use std::sync::Mutex;
 
 use app::{systray::{self, create_tray}, config, config::{ConfigMutex,Config}, clip::{ClipDataMutex, ClipData, init_database_connection, self}};
 use tauri::{Manager, ClipboardManager};
@@ -38,17 +38,14 @@ fn main() {
             *config_mutex = config;
 
             // set up the database connection and create the table
-            let app_handle = app.handle();
             let res = init_database_connection(&app_handle);
             if res.is_err() {
                 return Err(res.err().unwrap().into());
             }
 
-            // set up the database connection and create the table
             let app_handle = app.handle();
-            
             tauri::async_runtime::spawn(async move {
-                let mut last_clip = String::new();
+                let mut last_clip = String::new(); // TODO get last clip from database
                 loop {
                     let clipboard_manager = app_handle.clipboard_manager();
                     let clip = clipboard_manager.read_text();
@@ -71,6 +68,31 @@ fn main() {
                         // TODO log error
                         println!("error: {}", res.err().unwrap());
                     }
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
+                }
+            });
+
+            let app_handle = app.handle();
+
+            tauri::async_runtime::spawn(async move {
+                // monitor the whole list of ids len change
+                let mut last_len = 0;
+
+                // also monitor the current clip change
+                let mut current_clip = 0;
+                loop{
+                    let clips = app_handle.state::<ClipDataMutex>();
+                    let mut clip_data = clips.clip_data.lock().unwrap();
+                    if clip_data.clips.whole_list_of_ids.len() != last_len || clip_data.clips.current_clip != current_clip {
+                        last_len = clip_data.clips.whole_list_of_ids.len();
+                        current_clip = clip_data.clips.current_clip;
+                        let res = clip_data.update_tray(&app_handle);
+                        if res.is_err() {
+                            // TODO log error
+                            println!("error: {}", res.err().unwrap());
+                        }
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
                 }
             });
 
