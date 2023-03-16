@@ -45,36 +45,14 @@ fn main() {
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
-                // TODO change the clipboard monitor method https://github.com/DoumanAsh/clipboard-master
-                // this method consume huge cpu usage
-                
+                // the daemon to monitor the system clip board change                
                 clip::monitor::monitor(&app_handle);
-
             });
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
-                // monitor the whole list of ids len change
-                let mut last_len = 0;
-
-                // also monitor the current clip change
-                let mut current_clip = 0;
-                loop{
-                    let clips = app_handle.state::<ClipDataMutex>();
-                    let mut clip_data = clips.clip_data.lock().unwrap();
-                    if clip_data.clips.whole_list_of_ids.len() != last_len || clip_data.clips.current_clip != current_clip {
-                        last_len = clip_data.clips.whole_list_of_ids.len();
-                        current_clip = clip_data.clips.current_clip;
-                        let res = clip_data.update_tray(&app_handle);
-                        if res.is_err() {
-                            // TODO log error
-                            println!("error: {}", res.err().unwrap());
-                        }
-                    }
-                    drop(clip_data);
-                    drop(clips);
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
-                }
+                // the daemon to monitor the app clips data change and trigger the tray update
+                clip::monitor::clips_data_monitor(&app_handle);
             });
 
             let app_handle = app.handle();

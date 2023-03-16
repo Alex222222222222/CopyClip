@@ -5,6 +5,8 @@
 ///   - Linux - uses x11_clipboard (require to install xcb library); TODO add the requirement to the readme
 ///   - MacOS - uses polling via NSPasteboard::changeCount as there is no event notification.
 /// 
+/// function "monitor" monitor the system keyboard change
+/// function "clips_data_monitor" monitor the app clips data change, and trigger update of the tray
 
 use clipboard_master::{Master, ClipboardHandler, CallbackResult};
 use tauri::{AppHandle, Manager, ClipboardManager};
@@ -73,4 +75,28 @@ pub fn monitor(app: &AppHandle) {
 
       let mut master = Master::new(&mut handler);
       master.run().unwrap();
+}
+
+pub fn clips_data_monitor(app: &AppHandle) {
+      // monitor the whole list of ids len change
+      let mut last_len = 0;
+
+      // also monitor the current clip change
+      let mut current_clip = 0;
+      loop{
+            let clips = app.state::<ClipDataMutex>();
+            let mut clip_data = clips.clip_data.lock().unwrap();
+            if clip_data.clips.whole_list_of_ids.len() != last_len || clip_data.clips.current_clip != current_clip {
+            last_len = clip_data.clips.whole_list_of_ids.len();
+            current_clip = clip_data.clips.current_clip;
+            let res = clip_data.update_tray(&app);
+            if res.is_err() {
+                  // TODO log error
+                  println!("error: {}", res.err().unwrap());
+            }
+            }
+            drop(clip_data);
+            drop(clips);
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+      }
 }
