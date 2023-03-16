@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod monitor;
 
 use std::collections::HashMap;
 
@@ -227,6 +228,10 @@ impl ClipData {
                         });
 
                         self.clips.whole_list_of_ids.push(id);
+
+                        // change the current clip to the last one
+                        self.clips.current_clip = id;
+
                         return Ok(id);
                   }
             }
@@ -253,16 +258,12 @@ impl ClipData {
 
             // get the current clip pos
             let current_clip_pos_res = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
-            let mut current_clip_pos: i64 = 0;
+            let mut current_clip_pos: i64 = self.clips.whole_list_of_ids.len() as i64 - 1 ;
 
             // if the current clip pos is None, set the current id to the highest id
-            if current_clip_pos_res.is_none() {
-                  current_clip_pos = self.clips.whole_list_of_ids.len() as i64 - 1;
-            } else {
+            if current_clip_pos_res.is_some() {
                   let t = current_clip_pos_res.unwrap();
-                  if t < 0 {
-                        current_clip_pos = self.clips.whole_list_of_ids.len() as i64 - 1;
-                  } else {
+                  if t >= 0 {
                         current_clip_pos = t
                   }
                   

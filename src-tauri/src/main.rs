@@ -20,7 +20,7 @@ fn on_button_clicked() -> String {
 use std::sync::Mutex;
 
 use app::{systray::{self, create_tray}, config, config::{ConfigMutex,Config}, clip::{ClipDataMutex, ClipData, init_database_connection, self}};
-use tauri::{Manager, ClipboardManager};
+use tauri::Manager;
 
 fn main() {
     let num = Config::default().clips_to_show;
@@ -46,47 +46,10 @@ fn main() {
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
                 // TODO change the clipboard monitor method https://github.com/DoumanAsh/clipboard-master
-                let mut last_clip = String::new(); // TODO get last clip from database
+                // this method consume huge cpu usage
+                
+                clip::monitor::monitor(&app_handle);
 
-                let clips = app_handle.state::<ClipDataMutex>();
-                let mut clip_data = clips.clip_data.lock().unwrap();
-                let last = clip_data.clips.whole_list_of_ids.last();
-                if last.is_some(){
-                    let last_t = last.unwrap();
-                    let last_t = (*last_t).clone();
-                    let t = clip_data.get_clip(last_t);
-                    if t.is_ok() {
-                        last_clip = t.unwrap().text;
-                    }
-                }
-                drop(clip_data);
-                drop(clips);
-                loop {
-                    let clipboard_manager = app_handle.clipboard_manager();
-                    let clip = clipboard_manager.read_text();
-                    if clip.is_err() {
-                        continue;
-                    }
-                    let clip = clip.unwrap();
-                    if clip.is_none() {
-                        continue;
-                    }
-                    let clip = clip.unwrap();
-                    if clip == last_clip {
-                        continue;
-                    }
-                    last_clip = clip.clone();
-                    let clips = app_handle.state::<ClipDataMutex>();
-                    let mut clip_data = clips.clip_data.lock().unwrap();
-                    let res = clip_data.new_clip(clip);
-                    if res.is_err() {
-                        // TODO log error
-                        println!("error: {}", res.err().unwrap());
-                    }
-                    drop(clip_data);
-                    drop(clips);
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
-                }
             });
 
             let app_handle = app.handle();
