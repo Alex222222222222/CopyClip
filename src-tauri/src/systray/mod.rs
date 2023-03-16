@@ -40,23 +40,23 @@ pub fn create_tray(num : i64) -> SystemTray {
 pub fn handle_tray_event(app: &AppHandle,event: SystemTrayEvent) {
       match event {
             SystemTrayEvent::MenuItemClick { tray_id, id, .. } => handle_menu_item_click(app, tray_id, id),
-            SystemTrayEvent::LeftClick { 
+            SystemTrayEvent::LeftClick {
                   // tray_id, 
                   // position, 
                   // size , 
-                  .. 
+                  ..
             } => handle_left_click(app),
-            SystemTrayEvent::RightClick { 
+            SystemTrayEvent::RightClick {
                   // tray_id, 
                   // position, 
                   // size , 
-                  .. 
+                  ..
             } => handle_left_click(app),
-            SystemTrayEvent::DoubleClick { 
+            SystemTrayEvent::DoubleClick {
                   // tray_id, 
                   // position, 
                   // size, 
-                  .. 
+                  ..
             } => handle_left_click(app),
             _ => todo!(),
       }
