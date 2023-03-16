@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod monitor;
+pub mod database;
 
 use std::collections::HashMap;
 
@@ -437,62 +438,4 @@ pub fn trim_clip_text(text: String, l: i64) -> String {
       }
       res.push_str("...");
       res
-}
-
-pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
-      // get the app data dir
-      let app_data_dir = app.path_resolver().app_data_dir();
-      if app_data_dir.is_none() {
-            return Err("Failed to get app data dir".to_string());
-      }
-      let mut app_data_dir = app_data_dir.unwrap();
-
-      // if the app data dir does not exist, create it
-      if app_data_dir.exists() == false {
-            if let Err(_) = std::fs::create_dir_all(&app_data_dir) {
-                  return Err("Failed to create app data dir".to_string());
-            }
-      }
-
-      // create the database dir if it does not exist
-      app_data_dir.push("database");
-      let database_dir = app_data_dir; // /Users/zifanhua/Library/Application Support/org.eu.huazifan.copyclip/database
-      
-      let connection = sqlite::open(database_dir.as_path());
-      if connection.is_err() {
-            return Err("Failed to open database".to_string());
-      }
-
-      let connection = connection.unwrap();
-
-      // create the clips table if it does not exist
-      let mut statement = connection.prepare("CREATE TABLE IF NOT EXISTS clips (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, timestamp INTEGER, favorite INTEGER)").unwrap();
-      let state = statement.next();
-      if let Ok(State::Done) = state {
-            let clip_data_mutex = app.state::<ClipDataMutex>();
-            let mut clip_data = clip_data_mutex.clip_data.lock().unwrap();
-            drop(statement);
-            clip_data.database_connection = Some(connection);
-
-            // get the whole clips ids
-            let mut ids = Vec::new();
-            let mut statement = clip_data.database_connection.as_ref().unwrap().prepare("SELECT id FROM clips").unwrap();
-            while let Ok(State::Row) = statement.next() {
-                  let id = statement.read::<i64,_>("id");
-                  if id.is_err() {
-                        return Err("Failed to get id of clip".to_string());
-                  }
-                  let id = id.unwrap();
-
-                  ids.push(id);
-            }
-            drop(statement);
-            clip_data.clips.whole_list_of_ids = ids;
-
-            return Ok(());
-      } else if state.is_err() {
-            return Err("Failed to create clips table: ".to_string() + &state.err().unwrap().message.unwrap().to_string());
-      }
-
-      return Err("Failed to create clips table".to_string());
 }
