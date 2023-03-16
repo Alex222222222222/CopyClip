@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use sqlite::{State, Value};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, ClipboardManager};
 
 use crate::config::ConfigMutex;
 
@@ -21,6 +21,7 @@ pub struct Clip{
 pub struct Clips{
       pub current_clip: i64, // the id of the current clip
       pub whole_list_of_ids: Vec<i64>, // the ids of all the clips, well sorted
+      pub tray_ids_map: Vec<i64>, // the ids of the current displaying clips, the same order with the order displaying in the tray
       cached_clips: HashMap<i64,ClipCache>, // the clips that are currently in the cache
 }
 
@@ -29,6 +30,7 @@ impl Default for Clips {
             Self { 
                   current_clip: -1, 
                   whole_list_of_ids: Default::default(), 
+                  tray_ids_map:Default::default(),
                   cached_clips: Default::default() 
             }
       }
@@ -81,7 +83,20 @@ impl ClipData {
             None
       }
 
-      pub fn get_clip(&mut self, id: i64) -> Result<Clip,String> {
+      pub fn get_clip(&mut self, mut id: i64) -> Result<Clip,String> {
+            // if id is -1, change it to the latest clip
+            if id == -1 {
+                  let t = self.clips.whole_list_of_ids.last();
+                  if t.is_none() {
+                        return  Err("Clip not found for id: ".to_string() + &id.to_string());
+                  }
+                  let t = t.unwrap();
+                  id = (*t).clone();
+                  if id < 0 {
+                        return  Err("Clip not found for id: ".to_string() + &id.to_string());
+                  }
+            }
+
             // if the clip is in the cache, return it
             let clip_cache = self.clips.cached_clips.get(&id);
             if clip_cache.is_some() {
@@ -249,6 +264,28 @@ impl ClipData {
             !todo!("toggle_favorite_clip")
       }
 
+      pub fn select_clip(&mut self, app: &AppHandle, id: i64) -> Result<(),String> {
+            // select a clip by id
+            // change the current clip to the clip, and fill in the text of the clip to the clipboard
+
+            // try get the clip
+            let c = self.get_clip(id);
+            if c.is_err() {
+                  return Err(c.err().unwrap());
+            }
+
+            let c = c.unwrap();
+            self.clips.current_clip = id;
+            
+            let mut clipboard_manager = app.clipboard_manager();
+            let res = clipboard_manager.write_text(c.text);
+            if res.is_err() {
+                  return Err("Failed to write to clipboard".to_string());
+            }
+
+            Err("Clip not found".to_string())
+      }
+
       pub fn update_tray(&mut self, app: &AppHandle) -> Result<(),String> {
             // get the clips per page configuration
             let config = app.state::<ConfigMutex>();
@@ -293,7 +330,9 @@ impl ClipData {
                   current_page_clips.push(clip);
             }
 
-            // get the tray clip sub menu
+            // put text in
+            // empty the tray_ids_map
+            self.clips.tray_ids_map.clear();
             for i in 0..current_page_clips.len() {
                   let tray_id = "tray_clip_".to_string() + &i.to_string();
                   let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
@@ -301,6 +340,7 @@ impl ClipData {
                   if res.is_err() {
                         return Err("Failed to set tray clip sub menu title".to_string());
                   }
+                  self.clips.tray_ids_map.push(current_page_clips.get(i).unwrap().id.clone())
             }
 
             let tray_page_info_item = app.tray_handle().get_item("page_info");

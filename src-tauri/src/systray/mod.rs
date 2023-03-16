@@ -1,4 +1,6 @@
-use tauri::{SystemTray, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, AppHandle, SystemTrayEvent, SystemTraySubmenu};
+use tauri::{SystemTray, CustomMenuItem, SystemTrayMenu, SystemTrayMenuItem, AppHandle, SystemTrayEvent, SystemTraySubmenu, Manager};
+
+use crate::clip::ClipDataMutex;
 
 pub fn create_tray(num : i64) -> SystemTray {
       // TODO set icon for tray
@@ -60,14 +62,34 @@ pub fn handle_tray_event(app: &AppHandle,event: SystemTrayEvent) {
       }
 }
 
-fn handle_menu_item_click(_app: &AppHandle, _tray_id: String, id: String) {
+fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
       match id.as_str(){
             "quit" => {
                   // quit the app
                   std::process::exit(0);
             }
             _ => {
-                  // do nothing
+                  // test if the id is a tray_clip
+                  if id.starts_with("tray_clip_") {
+                        // get the index of the clip
+                        let index = id.replace("tray_clip_", "").parse::<i64>().unwrap();
+
+                        // select the index
+                        let clips = app.state::<ClipDataMutex>();
+                        let mut clips = clips.clip_data.lock().unwrap();
+                        let item_id = clips.clips.tray_ids_map.get(index as usize);
+                        if item_id.is_none() {
+                              // TODO send the error notification and panic
+                              return;
+                        }
+                        let item_id = item_id.unwrap();
+                        let item_id = (*item_id).clone();
+                        let res = clips.select_clip(app, item_id);
+                        if res.is_err() {
+                              // TODO send the error notification and panic
+                              return;
+                        }
+                  }
             }
       }
 }

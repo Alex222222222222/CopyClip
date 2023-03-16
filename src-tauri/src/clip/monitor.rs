@@ -32,12 +32,25 @@ impl ClipboardHandler for &mut Handler<'_> {
                   return CallbackResult::StopWithError(io::Error::new(io::ErrorKind::Other, "error reading clipboard"));
             }
             let clip = clip.unwrap();
+
+            // if the clip is the same as the last one, do nothing
             if clip == self.last_clip {
                   return CallbackResult::Next;
             }
-            self.last_clip = clip.clone();
+            // if the clip is the same as the current one, do nothing
+            // get the current_clip text
             let clips = self.app.state::<ClipDataMutex>();
             let mut clip_data = clips.clip_data.lock().unwrap();
+            let current_clip = clip_data.get_current_clip();
+            if current_clip.is_err() {
+                  return CallbackResult::StopWithError(io::Error::new(io::ErrorKind::Other, "error: ".to_string() + &current_clip.err().unwrap()));
+            }
+            let current_clip = current_clip.unwrap().text;
+            if clip == current_clip {
+                  return CallbackResult::Next;
+            }
+
+            self.last_clip = clip.clone();
             let res = clip_data.new_clip(clip);
             if res.is_err() {
                   return CallbackResult::StopWithError(io::Error::new(io::ErrorKind::Other, "error: ".to_string() + &res.err().unwrap()));
@@ -67,7 +80,8 @@ pub fn monitor(app: &AppHandle) {
             let last_t = (*last_t).clone();
             let t = clip_data.get_clip(last_t);
             if t.is_ok() {
-            handler.last_clip = t.unwrap().text;
+                  // initially the last_clip is the last clip in the database
+                  handler.last_clip = t.unwrap().text;
             }
       }
       drop(clip_data);
