@@ -97,17 +97,21 @@ pub fn clips_data_monitor(app: &AppHandle) {
 
       // also monitor the current clip change
       let mut current_clip = 0;
+
+      // also monitor the current page change
+      let mut current_page = 0;
       loop{
             let clips = app.state::<ClipDataMutex>();
             let mut clip_data = clips.clip_data.lock().unwrap();
-            if clip_data.clips.whole_list_of_ids.len() != last_len || clip_data.clips.current_clip != current_clip {
-            last_len = clip_data.clips.whole_list_of_ids.len();
-            current_clip = clip_data.clips.current_clip;
-            let res = clip_data.update_tray(&app);
-            if res.is_err() {
-                  // TODO: send a notification of the error, and panic the whole app
-                  println!("error: {}", res.err().unwrap());
-            }
+            if clip_data.clips.whole_list_of_ids.len() != last_len || clip_data.clips.current_clip != current_clip || clip_data.clips.current_page != current_page{
+                  last_len = clip_data.clips.whole_list_of_ids.len();
+                  current_clip = clip_data.clips.current_clip;
+                  current_page = clip_data.clips.current_page;
+                  let res = clip_data.update_tray(&app);
+                  if res.is_err() {
+                        // TODO: send a notification of the error, and panic the whole app
+                        println!("error: {}", res.err().unwrap());
+                  }
             }
             drop(clip_data);
             drop(clips);

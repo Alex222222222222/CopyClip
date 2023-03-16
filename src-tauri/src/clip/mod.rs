@@ -20,6 +20,7 @@ pub struct Clip{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Clips{
       pub current_clip: i64, // the id of the current clip
+      pub current_page: i64, // the current page
       pub whole_list_of_ids: Vec<i64>, // the ids of all the clips, well sorted
       pub tray_ids_map: Vec<i64>, // the ids of the current displaying clips, the same order with the order displaying in the tray
       cached_clips: HashMap<i64,ClipCache>, // the clips that are currently in the cache
@@ -29,6 +30,7 @@ impl Default for Clips {
       fn default() -> Self {
             Self { 
                   current_clip: -1, 
+                  current_page: 0,
                   whole_list_of_ids: Default::default(), 
                   tray_ids_map:Default::default(),
                   cached_clips: Default::default() 
@@ -59,28 +61,84 @@ struct ClipCache{
 }
 
 impl ClipData {
+      pub fn get_clip_pos(&self, id: i64) -> i64 {
+            // get the position of the clip in the whole_list_of_ids
+            // if the id is not in the list, return the highest pos
+            let clip_pos = self.get_id_pos_in_whole_list_of_ids(id);
+            if clip_pos.is_none() {
+                  return self.clips.whole_list_of_ids.len() as i64 -1;
+            }
+
+            clip_pos.unwrap()
+      }
+
+      pub fn get_current_clip_pos(&self) -> i64 {
+            self.get_clip_pos(self.clips.current_clip)
+      }
+
+      pub fn switch_page(&mut self, page: i64, max_page : i64) {
+            // switch to the page by the page number
+            // if max_page is -1, it means there is no limit
+
+            let target_page = self.clips.current_page + page;
+            if target_page < 0 {
+                  self.clips.current_page = 0;
+                  return;
+            }
+            if target_page > max_page && max_page >= 0{
+                  self.clips.current_page = max_page;
+                  return;
+            }
+
+            self.clips.current_page = target_page;
+      }
+
+      pub fn first_page(&mut self) {
+            // switch to the first page
+
+            self.clips.current_page = 0;
+      }
+
+      pub fn next_page(&mut self, app: &AppHandle) {
+            // switch to the next page
+            // if max_page is -1, it means there is no limit
+
+            let max_page = self.get_max_page(app);
+            self.switch_page(1, max_page);
+      }
+
+      pub fn prev_page(&mut self, app: &AppHandle) {
+            // switch to the previous page
+            // if max_page is -1, it means there is no limit
+
+            let max_page = self.get_max_page(app);
+            self.switch_page(-1, max_page);
+      }
+
+      pub fn get_max_page(&self, app: &AppHandle) -> i64 {
+            // get the max page number
+            // if there is no limit, return -1
+
+            let config = app.state::<ConfigMutex>();
+            let config = config.config.lock().unwrap();
+            let max_page = self.clips.whole_list_of_ids.len() as i64 / config.clips_to_show;
+            if max_page * config.clips_to_show == self.clips.whole_list_of_ids.len() as i64 {
+                  return max_page -1;
+            }
+            max_page
+      }
+
       pub fn get_id_pos_in_whole_list_of_ids(&self, id: i64) -> Option<i64> {
             // get the position of the id in the whole list of ids
             // if the id is not in the list, return None
             // use binary search
             
-            let mut min = 0;
-            let mut max = self.clips.whole_list_of_ids.len();
-            while min < max {
-                  let mid = (min + max) / 2;
-                  if self.clips.whole_list_of_ids[mid] < id {
-                        min = mid + 1;
-                  } else {
-                        max = mid;
-                  }
-            }
-            if min == self.clips.whole_list_of_ids.len() {
+            let pos = self.clips.whole_list_of_ids.binary_search(&id);
+            if pos.is_err() {
                   return None;
             }
-            if self.clips.whole_list_of_ids[min] == id {
-                  return Some(min.try_into().unwrap());
-            }
-            None
+            
+            return Some(pos.unwrap() as i64);
       }
 
       pub fn get_clip(&mut self, mut id: i64) -> Result<Clip,String> {
@@ -292,23 +350,19 @@ impl ClipData {
             let config = config.config.lock().unwrap();
             let clips_per_page = config.clips_to_show;
             let max_clip_length = config.clip_max_show_length;
-
-            // get the current clip pos
-            let current_clip_pos_res = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
-            let mut current_clip_pos: i64 = self.clips.whole_list_of_ids.len() as i64 - 1 ;
-
-            // if the current clip pos is None, set the current id to the highest id
-            if current_clip_pos_res.is_some() {
-                  let t = current_clip_pos_res.unwrap();
-                  if t >= 0 {
-                        current_clip_pos = t
-                  }
-                  
-            }
+            drop(config);
 
             // get the current page
-            let current_page = (self.clips.whole_list_of_ids.len() as i64 - current_clip_pos - 1) / clips_per_page;
-            let whole_pages = (self.clips.whole_list_of_ids.len() as i64 ) / clips_per_page + 1;
+            let mut current_page = self.clips.current_page;
+            let whole_pages = self.get_max_page(app);
+            // if the current page bigger than the whole pages, then calculate the current page, regarding to current_clip_pos
+            if current_page > whole_pages {
+                  // get the current clip pos
+                  let current_clip_pos: i64 = self.get_current_clip_pos();
+
+                  current_page = (self.clips.whole_list_of_ids.len() as i64 - current_clip_pos - 1) / clips_per_page;
+                  self.clips.current_page = current_page;
+            }
 
             // get the current page clips
             let mut current_page_clips = Vec::new();
@@ -343,9 +397,19 @@ impl ClipData {
                   self.clips.tray_ids_map.push(current_page_clips.get(i).unwrap().id.clone())
             }
 
+            // clean out the rest of the tray
+            for i in current_page_clips.len()..clips_per_page as usize {
+                  let tray_id = "tray_clip_".to_string() + &i.to_string();
+                  let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
+                  let res = tray_clip_sub_menu.set_title("".to_string());
+                  if res.is_err() {
+                        return Err("Failed to set tray clip sub menu title".to_string());
+                  }
+            }
+
             let tray_page_info_item = app.tray_handle().get_item("page_info");
             // TODO change the method of doing this to a more clean one
-            let tray_page_info_title = "Total clips: ".to_string() + &self.clips.whole_list_of_ids.len().to_string()+", Current page: " + &(&current_page+1).to_string()+"/" + &whole_pages.to_string();
+            let tray_page_info_title = "Total clips: ".to_string() + &self.clips.whole_list_of_ids.len().to_string()+", Current page: " + &(&current_page+1).to_string()+"/" + &(whole_pages + 1).to_string();
             let res = tray_page_info_item.set_title(tray_page_info_title);
             if res.is_err() {
                   // TODO change this constant error message to constant
@@ -358,6 +422,9 @@ impl ClipData {
 }
 
 pub fn trim_clip_text(text: String, l: i64) -> String {
+      // trim the leading white space
+      let text = text.trim_start().to_string();
+
       if l < 3 {
             return text;
       }
