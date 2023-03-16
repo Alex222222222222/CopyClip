@@ -68,6 +68,21 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
                   // quit the app
                   std::process::exit(0);
             }
+            "next_page" => {
+                  let clips = app.state::<ClipDataMutex>();
+                  let mut clips = clips.clip_data.lock().unwrap();
+                  clips.next_page(app);
+            }
+            "prev_page" => {
+                  let clips = app.state::<ClipDataMutex>();
+                  let mut clips = clips.clip_data.lock().unwrap();
+                  clips.prev_page(app);
+            }
+            "first_page" => {
+                  let clips = app.state::<ClipDataMutex>();
+                  let mut clips = clips.clip_data.lock().unwrap();
+                  clips.first_page();
+            }
             _ => {
                   // test if the id is a tray_clip
                   if id.starts_with("tray_clip_") {
