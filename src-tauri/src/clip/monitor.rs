@@ -91,7 +91,7 @@ pub fn clips_data_monitor(app: &AppHandle) {
             current_clip = clip_data.clips.current_clip;
             let res = clip_data.update_tray(&app);
             if res.is_err() {
-                  // TODO log error
+                  // TODO: send a notification of the error, and panic the whole app
                   println!("error: {}", res.err().unwrap());
             }
             }

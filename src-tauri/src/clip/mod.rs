@@ -271,6 +271,7 @@ impl ClipData {
 
             // get the current page
             let current_page = (self.clips.whole_list_of_ids.len() as i64 - current_clip_pos - 1) / clips_per_page;
+            let whole_pages = (self.clips.whole_list_of_ids.len() as i64 ) / clips_per_page + 1;
 
             // get the current page clips
             let mut current_page_clips = Vec::new();
@@ -302,7 +303,14 @@ impl ClipData {
                   }
             }
 
-            // TODO change the current page info
+            let tray_page_info_item = app.tray_handle().get_item("page_info");
+            // TODO change the method of doing this to a more clean one
+            let tray_page_info_title = "Total clips: ".to_string() + &self.clips.whole_list_of_ids.len().to_string()+", Current page: " + &(&current_page+1).to_string()+"/" + &whole_pages.to_string();
+            let res = tray_page_info_item.set_title(tray_page_info_title);
+            if res.is_err() {
+                  // TODO change this constant error message to constant
+                  return Err("Failed to set page info title".to_string());
+            }
 
             Ok(())
       }
@@ -373,8 +381,6 @@ pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
             }
             drop(statement);
             clip_data.clips.whole_list_of_ids = ids;
-
-            // TODO init the cache daemon
 
             return Ok(());
       } else if state.is_err() {
