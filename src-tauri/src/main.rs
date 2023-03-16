@@ -19,7 +19,7 @@ fn on_button_clicked() -> String {
 
 use std::sync::Mutex;
 
-use app::{systray::{self, create_tray}, config, config::{ConfigMutex,Config}, clip::{ClipDataMutex, ClipData, init_database_connection, self}};
+use app::{systray::{self, create_tray}, config, config::{ConfigMutex,Config}, clip::{ClipDataMutex, ClipData, database::init_database_connection, self}};
 use tauri::Manager;
 
 fn main() {
