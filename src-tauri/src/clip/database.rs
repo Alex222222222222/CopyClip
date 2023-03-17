@@ -25,12 +25,7 @@ pub fn init_database_connection(app: &AppHandle) -> Result<(), String> {
     }
 
     // init the clips table
-    let clips = init_clips_table(connection, app);
-    if let Err(err) = clips {
-        return Err(err);
-    }
-
-    Ok(())
+    init_clips_table(connection, app)
 }
 
 fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
@@ -42,13 +37,13 @@ fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, St
     let app_data_dir = app_data_dir.unwrap();
 
     // if the app data dir does not exist, create it
-    if app_data_dir.exists() == false {
-        if let Err(_) = std::fs::create_dir_all(&app_data_dir) {
-            return Err("Failed to create app data dir".to_string());
+    if !app_data_dir.exists() {
+        if let Err(err) = std::fs::create_dir_all(app_data_dir.as_path()) {
+            return Err(format!("Failed to create app data dir: {err}"));
         }
     }
 
-    return Ok(app_data_dir);
+    Ok(app_data_dir)
 }
 
 fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connection, String> {
@@ -62,17 +57,11 @@ fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connectio
 
     let connection = connection.unwrap();
 
-    return Ok(connection);
+    Ok(connection)
 }
 
 fn get_current_version(app: &AppHandle) -> Option<String> {
-    let app_version = app.config().package.version.clone();
-    if app_version.is_none() {
-        return None;
-    }
-    let app_version = app_version.unwrap();
-
-    return Some(app_version.to_string());
+    app.config().package.version.clone()
 }
 
 fn get_save_version(connection: &Connection) -> Result<String, String> {
@@ -92,15 +81,14 @@ fn get_save_version(connection: &Connection) -> Result<String, String> {
 
         return Ok(version);
     } else if state.is_err() {
-        return Err("Failed to get version: ".to_string()
-            + &state.err().unwrap().message.unwrap().to_string());
+        return Err("Failed to get version: ".to_string() + &state.err().unwrap().message.unwrap());
     }
 
     if let Ok(State::Done) = state {
         return Ok("0.0.0".to_string()); // if there is no version, it is the first time the app is launched
     }
 
-    return Err("Failed to get version".to_string());
+    Err("Failed to get version".to_string())
 }
 
 fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), String> {
@@ -115,7 +103,7 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), St
             return Err(save_version.err().unwrap());
         }
         let save_version = save_version.unwrap();
-        if save_version == "0.0.0".to_string() {
+        if save_version == *"0.0.0" {
             // if it is the first time the app is launched, insert the current version
             let current_version = get_current_version(app);
             if current_version.is_none() {
@@ -129,8 +117,9 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), St
                 .unwrap();
             let res = statement.bind((1, current_version.as_str()));
             if res.is_err() {
-                return Err("Failed to insert version: ".to_string()
-                    + &res.err().unwrap().message.unwrap().to_string());
+                return Err(
+                    "Failed to insert version: ".to_string() + &res.err().unwrap().message.unwrap()
+                );
             }
 
             let state = statement.next();
@@ -138,7 +127,7 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), St
                 return Ok(());
             } else if state.is_err() {
                 return Err("Failed to insert version: ".to_string()
-                    + &state.err().unwrap().message.unwrap().to_string());
+                    + &state.err().unwrap().message.unwrap());
             }
 
             return Err("Failed to insert version".to_string());
@@ -164,14 +153,14 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), St
                 let res = statement.bind((1, current_version.as_str()));
                 if res.is_err() {
                     return Err("Failed to update version: ".to_string()
-                        + &res.err().unwrap().message.unwrap().to_string());
+                        + &res.err().unwrap().message.unwrap());
                 }
                 let state = statement.next();
                 if let Ok(State::Done) = state {
                     return Ok(());
                 } else if state.is_err() {
                     return Err("Failed to update version: ".to_string()
-                        + &state.err().unwrap().message.unwrap().to_string());
+                        + &state.err().unwrap().message.unwrap());
                 }
 
                 return Err("Failed to update version".to_string());
@@ -180,11 +169,12 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), St
 
         return Ok(());
     } else if state.is_err() {
-        return Err("Failed to create version table: ".to_string()
-            + &state.err().unwrap().message.unwrap().to_string());
+        return Err(
+            "Failed to create version table: ".to_string() + &state.err().unwrap().message.unwrap()
+        );
     }
 
-    return Err("Failed to create version table".to_string());
+    Err("Failed to create version table".to_string())
 }
 
 fn backward_comparability(_app: &AppHandle, _save_version: String) -> Result<(), String> {
@@ -225,9 +215,10 @@ fn init_clips_table(connection: Connection, app: &AppHandle) -> Result<(), Strin
 
         return Ok(());
     } else if state.is_err() {
-        return Err("Failed to create clips table: ".to_string()
-            + &state.err().unwrap().message.unwrap().to_string());
+        return Err(
+            "Failed to create clips table: ".to_string() + &state.err().unwrap().message.unwrap()
+        );
     }
 
-    return Err("Failed to create clips table".to_string());
+    Err("Failed to create clips table".to_string())
 }

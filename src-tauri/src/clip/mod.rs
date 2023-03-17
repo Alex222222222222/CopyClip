@@ -2,7 +2,7 @@ pub mod cache;
 pub mod database;
 pub mod monitor;
 
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 use serde::{Deserialize, Serialize};
 use sqlite::{State, Value};
@@ -139,7 +139,7 @@ impl ClipData {
             return None;
         }
 
-        return Some(pos.unwrap() as i64);
+        Some(pos.unwrap() as i64)
     }
 
     pub fn get_clip(&mut self, mut id: i64) -> Result<Clip, String> {
@@ -150,7 +150,7 @@ impl ClipData {
                 return Err("Clip not found for id: ".to_string() + &id.to_string());
             }
             let t = t.unwrap();
-            id = (*t).clone();
+            id = *t;
             if id < 0 {
                 return Err("Clip not found for id: ".to_string() + &id.to_string());
             }
@@ -158,8 +158,7 @@ impl ClipData {
 
         // if the clip is in the cache, return it
         let clip_cache = self.clips.cached_clips.get(&id);
-        if clip_cache.is_some() {
-            let clip_cache = clip_cache.unwrap();
+        if let Some(clip_cache) = clip_cache {
             let clip_cache = clip_cache.clone();
             self.clips.cached_clips.insert(
                 id,
@@ -182,61 +181,58 @@ impl ClipData {
             .prepare("SELECT * FROM clips WHERE id = ?")
             .unwrap();
         statement.bind((1, id)).unwrap();
-        loop {
-            let state = statement.next();
-            if state.is_err() {
-                return Err(state.err().unwrap().message.unwrap());
-            }
-            let state = state.unwrap();
-            if state == State::Done {
-                break;
-            }
 
-            let text = statement.read::<String, _>("text");
-            if text.is_err() {
-                return Err(text.err().unwrap().message.unwrap());
-            }
-
-            let timestamp = statement.read::<i64, _>("timestamp");
-            if timestamp.is_err() {
-                return Err(timestamp.err().unwrap().message.unwrap());
-            }
-
-            let id = statement.read::<i64, _>("id");
-            if id.is_err() {
-                return Err(id.err().unwrap().message.unwrap());
-            }
-            let id = id.unwrap();
-
-            let favorite = statement.read::<i64, _>("favorite");
-            if favorite.is_err() {
-                return Err(favorite.err().unwrap().message.unwrap());
-            }
-            let favorite = favorite.unwrap() == 1;
-
-            let clip = Clip {
-                text: text.unwrap(),
-                timestamp: timestamp.unwrap(),
-                id,
-                favorite,
-            };
-
-            self.clips.cached_clips.insert(
-                id,
-                ClipCache {
-                    clip: clip.clone(),
-                    add_timestamp: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs() as i64,
-                },
-            );
-
-            return Ok(clip);
+        let state = statement.next();
+        if state.is_err() {
+            return Err(state.err().unwrap().message.unwrap());
+        }
+        let state = state.unwrap();
+        if state == State::Done {
+            // if the clip is not in the database, return None
+            return Err("Clip not found for id: ".to_string() + &id.to_string());
         }
 
-        // if the clip is not in the database, return None
-        Err("Clip not found for id: ".to_string() + &id.to_string())
+        let text = statement.read::<String, _>("text");
+        if text.is_err() {
+            return Err(text.err().unwrap().message.unwrap());
+        }
+
+        let timestamp = statement.read::<i64, _>("timestamp");
+        if timestamp.is_err() {
+            return Err(timestamp.err().unwrap().message.unwrap());
+        }
+
+        let id = statement.read::<i64, _>("id");
+        if id.is_err() {
+            return Err(id.err().unwrap().message.unwrap());
+        }
+        let id = id.unwrap();
+
+        let favorite = statement.read::<i64, _>("favorite");
+        if favorite.is_err() {
+            return Err(favorite.err().unwrap().message.unwrap());
+        }
+        let favorite = favorite.unwrap() == 1;
+
+        let clip = Clip {
+            text: text.unwrap(),
+            timestamp: timestamp.unwrap(),
+            id,
+            favorite,
+        };
+
+        self.clips.cached_clips.insert(
+            id,
+            ClipCache {
+                clip: clip.clone(),
+                add_timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as i64,
+            },
+        );
+
+        Ok(clip)
     }
 
     pub fn get_current_clip(&mut self) -> Result<Clip, String> {
@@ -262,24 +258,25 @@ impl ClipData {
             // get the position of the id in the whole list of ids
             let pos = self.get_id_pos_in_whole_list_of_ids(id);
             let current_clip_pos = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
-            if pos.is_some() {
-                let pos = pos.unwrap();
+            if let Some(pos) = pos {
                 // if pos is before the current clip, decrease the current clip by 1
                 // if pos is the current clip, set the current clip to -1
-                if current_clip_pos.is_none() {
-                    self.clips.current_clip = -1;
-                } else {
-                    let current_clip_pos = current_clip_pos.unwrap();
-                    if pos < current_clip_pos {
-                        self.clips.current_clip = self
-                            .clips
-                            .whole_list_of_ids
-                            .get(current_clip_pos as usize - 1)
-                            .unwrap()
-                            .clone();
-                    } else if pos == current_clip_pos {
-                        self.clips.current_clip = -1;
+                if let Some(current_clip_pos) = current_clip_pos {
+                    match pos.cmp(&current_clip_pos) {
+                        Ordering::Less => {
+                            self.clips.current_clip = *self
+                                .clips
+                                .whole_list_of_ids
+                                .get(current_clip_pos as usize - 1)
+                                .unwrap();
+                        }
+                        Ordering::Equal => {
+                            self.clips.current_clip = -1;
+                        }
+                        Ordering::Greater => {}
                     }
+                } else {
+                    self.clips.current_clip = -1;
                 }
                 self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
             }
@@ -323,7 +320,7 @@ impl ClipData {
                 .prepare("SELECT * FROM clips WHERE timestamp = ?")
                 .unwrap();
             statement.bind((1, timestamp)).unwrap();
-            while let Ok(State::Row) = statement.next() {
+            if let Ok(State::Row) = statement.next() {
                 let id = statement.read::<i64, _>("id");
                 if id.is_err() {
                     return Err("Failed to get id of new clip".to_string());
@@ -340,7 +337,7 @@ impl ClipData {
                 self.clips.cached_clips.insert(
                     id,
                     ClipCache {
-                        clip: clip,
+                        clip,
                         add_timestamp: std::time::SystemTime::now()
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap()
@@ -364,8 +361,9 @@ impl ClipData {
         // toggle the favorite status of a clip
         // if the clip is not in the cache, return an error
         // return the new favorite status
+        // TODO
 
-        !todo!("toggle_favorite_clip")
+        Ok(true)
     }
 
     pub fn select_clip(&mut self, app: &AppHandle, id: i64) -> Result<(), String> {
@@ -447,7 +445,7 @@ impl ClipData {
             }
             self.clips
                 .tray_ids_map
-                .push(current_page_clips.get(i).unwrap().id.clone())
+                .push(current_page_clips.get(i).unwrap().id)
         }
 
         // clean out the rest of the tray

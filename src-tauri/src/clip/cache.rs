@@ -16,7 +16,7 @@ pub fn cache_daemon(app: &AppHandle) {
     // get the clip per page config
     let config = app.state::<ConfigMutex>();
     let config = config.config.lock().unwrap();
-    let clips_cache_basic = config.clips_to_show.clone() * 2;
+    let clips_cache_basic = config.clips_to_show * 2;
 
     drop(config);
 
@@ -57,7 +57,7 @@ pub fn cache_daemon(app: &AppHandle) {
         let mut ids_to_delete: Vec<i64> = vec![];
         for (id, clip) in &clips.clips.cached_clips {
             if clip.add_timestamp - current_timestamp > CACHE_EXCEED_TIME {
-                let id = (*id).clone();
+                let id = *id;
                 ids_to_delete.push(id);
             }
         }

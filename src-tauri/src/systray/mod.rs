@@ -38,9 +38,7 @@ pub fn create_tray(num: i64) -> SystemTray {
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit);
 
-    let tray = SystemTray::new().with_menu(tray_menu);
-
-    tray
+    SystemTray::new().with_menu(tray_menu)
 }
 
 pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
@@ -104,11 +102,10 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
                     return;
                 }
                 let item_id = item_id.unwrap();
-                let item_id = (*item_id).clone();
+                let item_id = *item_id;
                 let res = clips.select_clip(app, item_id);
                 if res.is_err() {
                     // TODO send the error notification and panic
-                    return;
                 }
             }
         }
