@@ -50,7 +50,7 @@ impl ClipboardHandler for &mut Handler<'_> {
         if current_clip.is_err() {
             return CallbackResult::StopWithError(io::Error::new(
                 io::ErrorKind::Other,
-                "error: ".to_string() + &current_clip.err().unwrap(),
+                "error: ".to_string() + &current_clip.err().unwrap().message(),
             ));
         }
         let current_clip = current_clip.unwrap().text;
@@ -63,7 +63,7 @@ impl ClipboardHandler for &mut Handler<'_> {
         if res.is_err() {
             return CallbackResult::StopWithError(io::Error::new(
                 io::ErrorKind::Other,
-                "error: ".to_string() + &res.err().unwrap(),
+                "error: ".to_string() + &res.err().unwrap().message(),
             ));
         }
 
@@ -123,7 +123,7 @@ pub fn clips_data_monitor(app: &AppHandle) {
             let res = clip_data.update_tray(app);
             if res.is_err() {
                 // TODO: send a notification of the error, and panic the whole app
-                println!("error: {}", res.err().unwrap());
+                println!("error: {}", res.err().unwrap().message());
             }
         }
         drop(clip_data);
