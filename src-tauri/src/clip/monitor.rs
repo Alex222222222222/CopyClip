@@ -86,17 +86,16 @@ pub fn monitor(app: &AppHandle) {
     let clips = app.state::<ClipDataMutex>();
     let mut clip_data = clips.clip_data.lock().unwrap();
     let last = clip_data.clips.whole_list_of_ids.last();
-    if last.is_some() {
-        let last_t = last.unwrap();
-        let last_t = (*last_t).clone();
+    if let Some(last) = last {
+        let last_t = last;
+        let last_t = *last_t;
         let t = clip_data.get_clip(last_t);
-        if t.is_ok() {
+        if let Ok(t) = t {
             // initially the last_clip is the last clip in the database
-            handler.last_clip = t.unwrap().text;
+            handler.last_clip = t.text;
         }
     }
     drop(clip_data);
-    drop(clips);
 
     let mut master = Master::new(&mut handler);
     master.run().unwrap();
@@ -121,14 +120,13 @@ pub fn clips_data_monitor(app: &AppHandle) {
             last_len = clip_data.clips.whole_list_of_ids.len();
             current_clip = clip_data.clips.current_clip;
             current_page = clip_data.clips.current_page;
-            let res = clip_data.update_tray(&app);
+            let res = clip_data.update_tray(app);
             if res.is_err() {
                 // TODO: send a notification of the error, and panic the whole app
                 println!("error: {}", res.err().unwrap());
             }
         }
         drop(clip_data);
-        drop(clips);
         std::thread::sleep(std::time::Duration::from_millis(1000));
     }
 }

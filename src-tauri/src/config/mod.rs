@@ -108,9 +108,7 @@ pub fn load_config(app: &App) -> Config {
         return c;
     }
 
-    let c_json = c_json.unwrap();
-
-    return c_json;
+    c_json.unwrap()
 }
 
 impl Default for Config {
