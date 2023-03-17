@@ -19,7 +19,12 @@ fn on_button_clicked() -> String {
 
 use std::sync::Mutex;
 
-use app::{systray::{self, create_tray}, config, config::{ConfigMutex,Config}, clip::{ClipDataMutex, ClipData, database::init_database_connection, self}};
+use app::{
+    clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
+    config,
+    config::{Config, ConfigMutex},
+    systray::{self, create_tray},
+};
 use tauri::Manager;
 
 fn main() {
@@ -27,8 +32,12 @@ fn main() {
 
     tauri::Builder::default()
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
-        .manage(ConfigMutex{config:Mutex::<Config>::default()})
-        .manage(ClipDataMutex{clip_data:Mutex::<ClipData>::default()})
+        .manage(ConfigMutex {
+            config: Mutex::<Config>::default(),
+        })
+        .manage(ClipDataMutex {
+            clip_data: Mutex::<ClipData>::default(),
+        })
         .setup(|app| {
             // load the config info from the config file
             let config = config::load_config(app);
@@ -45,7 +54,7 @@ fn main() {
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
-                // the daemon to monitor the system clip board change                
+                // the daemon to monitor the system clip board change and trigger the tray update
                 clip::monitor::monitor(&app_handle);
             });
 
