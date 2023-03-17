@@ -17,7 +17,6 @@ pub fn cache_daemon(app: &AppHandle) {
     let config = app.state::<ConfigMutex>();
     let config = config.config.lock().unwrap();
     let clips_cache_basic = config.clips_to_show * 2;
-
     drop(config);
 
     loop {

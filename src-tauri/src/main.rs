@@ -23,13 +23,11 @@ use app::{
     clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
     config,
     config::{Config, ConfigMutex},
-    systray::{self, create_tray},
+    systray::{self, create_tray_menu},
 };
-use tauri::Manager;
+use tauri::{Manager, SystemTray};
 
 fn main() {
-    let num = Config::default().clips_to_show;
-
     tauri::Builder::default()
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .manage(ConfigMutex {
@@ -45,6 +43,7 @@ fn main() {
             let config_mutex = app_handle.state::<ConfigMutex>();
             let mut config_mutex = config_mutex.config.lock().unwrap();
             *config_mutex = config;
+            drop(config_mutex);
 
             // set up the database connection and create the table
             let res = init_database_connection(&app_handle);
@@ -70,10 +69,23 @@ fn main() {
                 clip::cache::cache_daemon(&app_handle);
             });
 
+            // #[cfg(target_os = "macos")]
+            // app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            // get number of clips to show from config
+            let app_handle = app.app_handle();
+            let num = app_handle.state::<ConfigMutex>();
+            let num = num.config.lock().unwrap().clips_to_show;
+            let res = app.tray_handle().set_menu(create_tray_menu(num));
+            if res.is_err() {
+                println!("failed to set tray menu");
+                panic!("{}", res.err().unwrap().to_string());
+            }
+
             Ok(())
         })
         // tauri setup the system tray before the app.setup
-        .system_tray(create_tray(num))
+        .system_tray(SystemTray::new())
         .on_system_tray_event(systray::handle_tray_event)
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
