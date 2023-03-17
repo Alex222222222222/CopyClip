@@ -49,7 +49,8 @@ fn main() {
             // set up the database connection and create the table
             let res = init_database_connection(&app_handle);
             if res.is_err() {
-                return Err(res.err().unwrap().into());
+                println!("failed to init database connection");
+                panic!("{}", res.err().unwrap().message());
             }
 
             let app_handle = app.handle();
