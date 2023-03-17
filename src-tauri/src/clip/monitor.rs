@@ -127,6 +127,6 @@ pub fn clips_data_monitor(app: &AppHandle) {
             }
         }
         drop(clip_data);
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
 }

@@ -9,6 +9,12 @@ use crate::clip::ClipDataMutex;
 pub fn create_tray(num: i64) -> SystemTray {
     // TODO set icon for tray
 
+    let tray_menu = create_tray_menu(num);
+
+    SystemTray::new().with_menu(tray_menu)
+}
+
+pub fn create_tray_menu(num: i64) -> SystemTrayMenu {
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
     let notice_select = CustomMenuItem::new(
         "notice_select".to_string(),
@@ -17,8 +23,10 @@ pub fn create_tray(num: i64) -> SystemTray {
     .disabled();
 
     let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
-    let next_page = CustomMenuItem::new("next_page".to_string(), "Next page");
-    let prev_page = CustomMenuItem::new("prev_page".to_string(), "Previous page");
+    let prev_page = CustomMenuItem::new("prev_page".to_string(), "Previous page")
+        .accelerator("CommandOrControl+A");
+    let next_page =
+        CustomMenuItem::new("next_page".to_string(), "Next page").accelerator("CommandOrControl+D");
     let first_page = CustomMenuItem::new("first_page".to_string(), "First page");
 
     let preferences = CustomMenuItem::new("preferences".to_string(), "Preferences");
@@ -33,18 +41,16 @@ pub fn create_tray(num: i64) -> SystemTray {
         tray_menu = tray_menu.add_item(clip);
     }
 
-    tray_menu = tray_menu
+    tray_menu
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(page_info)
-        .add_item(next_page)
         .add_item(prev_page)
+        .add_item(next_page)
         .add_item(first_page)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(preferences)
         .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(quit);
-
-    SystemTray::new().with_menu(tray_menu)
+        .add_item(quit)
 }
 
 /// handle the tray event
