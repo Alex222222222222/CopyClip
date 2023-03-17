@@ -5,23 +5,27 @@ use crate::error;
 
 use super::ClipDataMutex;
 
+/// init the database connection and create the table
+/// also init the clips mutex
 pub fn init_database_connection(app: &AppHandle) -> Result<(), error::Error> {
     // get the app data dir
     let app_data_dir = get_and_create_app_data_dir(app);
     let app_data_dir = app_data_dir?;
 
     // create the database dir if it does not exist
-    let connection = get_and_create_database(app_data_dir);
-    let connection = connection?;
+    let connection = get_and_create_database(app_data_dir)?;
 
     // init the version of the database
-    let version = init_version_table(&connection, app);
-    version?;
+    init_version_table(&connection, app)?;
 
     // init the clips table
-    init_clips_table(connection, app)
+    init_clips_table(&connection)?;
+
+    // init the clips mutex
+    init_clips_mutex(connection, app)
 }
 
+/// get the app data dir and create it if it does not exist
 fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, error::Error> {
     // get the app data dir
     let app_data_dir = app.path_resolver().app_data_dir();
@@ -40,6 +44,7 @@ fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, er
     Ok(app_data_dir)
 }
 
+/// get the database connection and create it if it does not exist
 fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connection, error::Error> {
     // create the database dir if it does not exist
     let database_path = app_data_dir.join("database");
@@ -56,10 +61,17 @@ fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connectio
     Ok(connection)
 }
 
-fn get_current_version(app: &AppHandle) -> Option<String> {
-    app.config().package.version.clone()
+/// get the current version from the tauri config
+fn get_current_version(app: &AppHandle) -> Result<String, error::Error> {
+    let current_version = app.config().package.version.clone();
+    if current_version.is_none() {
+        return Err(error::Error::GetVersionFromTauriErr);
+    }
+    Ok(current_version.unwrap())
 }
 
+/// get the save version from the database
+/// if there is no version, it is the first time the app is launched and return is 0.0.0
 fn get_save_version(connection: &Connection) -> Result<String, error::Error> {
     // get the latest version, if it exists
     // if not exists, it is the first time the app is launched return 0.0.0
@@ -87,6 +99,96 @@ fn get_save_version(connection: &Connection) -> Result<String, error::Error> {
     }
 }
 
+/// when the app is launched by the user for the first time, init the version table
+///
+/// this function will
+///     - insert the current version into the version table
+fn first_lunch_the_version_table(
+    connection: &Connection,
+    app: &AppHandle,
+) -> Result<(), error::Error> {
+    let current_version = get_current_version(app)?;
+
+    let mut statement = connection
+        .prepare("INSERT INTO version (version) VALUES (?)")
+        .unwrap();
+    let res = statement.bind((1, current_version.as_str()));
+    if res.is_err() {
+        return Err(error::Error::InsertVersionErr(
+            current_version,
+            res.err().unwrap().to_string(),
+        ));
+    }
+
+    match statement.next() {
+        Ok(State::Done) => Ok(()),
+        Ok(State::Row) => Err(error::Error::InsertVersionErr(
+            current_version,
+            "Failed to insert version".to_string(),
+        )),
+        Err(err) => Err(error::Error::InsertVersionErr(
+            current_version,
+            err.to_string(),
+        )),
+    }
+}
+
+/// this function will
+///     - check if the save version is the same as the current version
+///     - if not, trigger backward_comparability and update the version table
+///     - if yes, do nothing
+fn check_save_version_and_current_version(
+    save_version: String,
+    connection: &Connection,
+    app: &AppHandle,
+) -> Result<(), error::Error> {
+    let current_version = get_current_version(app)?;
+
+    if current_version == save_version {
+        return Ok(());
+    }
+
+    // if the save version is not the same as the current version, trigger the backward comparability
+    let res = backward_comparability(app, save_version);
+    res?;
+
+    // update the version table
+    let mut statement = connection
+        .prepare("INSERT INTO version (version) VALUES (?)")
+        .unwrap();
+    let res = statement.bind((1, current_version.as_str()));
+    if let Err(err) = res {
+        return Err(error::Error::InsertVersionErr(
+            current_version,
+            err.to_string(),
+        ));
+    }
+    match statement.next() {
+        Ok(State::Done) => Ok(()),
+        Ok(State::Row) => Err(error::Error::InsertVersionErr(
+            current_version,
+            "Failed to insert version".to_string(),
+        )),
+        Err(err) => Err(error::Error::InsertVersionErr(
+            current_version,
+            err.to_string(),
+        )),
+    }
+}
+
+/// deal with the backward comparability based on the save version
+fn backward_comparability(_app: &AppHandle, _save_version: String) -> Result<(), error::Error> {
+    Ok(())
+}
+
+/// init the version table
+///
+/// this function will
+///     - create the version table if it does not exist
+///     - get the save version
+///     - if the save version is 0.0.0, it is the first time the app is launched, init the version table
+///     - if the save version is not 0.0.0, check if the save version is the same as the current version
+///     - if not, trigger backward_comparability and update the version table
 fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), error::Error> {
     // create the version table if it does not exist
     let mut statement = connection.prepare("CREATE TABLE IF NOT EXISTS version (id INTEGER PRIMARY KEY AUTOINCREMENT, version TEXT)").unwrap();
@@ -99,83 +201,9 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), er
             let save_version = save_version?;
 
             if save_version == *"0.0.0" {
-                // if it is the first time the app is launched, insert the current version
-                let current_version = get_current_version(app);
-                if current_version.is_none() {
-                    return Err(error::Error::GetVersionFromTauriErr);
-                }
-                let current_version = current_version.unwrap();
-
-                let mut statement = connection
-                    .prepare("INSERT INTO version (version) VALUES (?)")
-                    .unwrap();
-                let res = statement.bind((1, current_version.as_str()));
-                if res.is_err() {
-                    return Err(error::Error::InsertVersionErr(
-                        current_version,
-                        res.err().unwrap().to_string(),
-                    ));
-                }
-
-                match statement.next() {
-                    Ok(State::Done) => {
-                        return Ok(());
-                    }
-                    Ok(State::Row) => {
-                        return Err(error::Error::InsertVersionErr(
-                            current_version,
-                            "Failed to insert version".to_string(),
-                        ));
-                    }
-                    Err(err) => {
-                        return Err(error::Error::InsertVersionErr(
-                            current_version,
-                            err.to_string(),
-                        ));
-                    }
-                }
+                first_lunch_the_version_table(connection, app)?;
             } else {
-                // if it is not the first time the app is launched, check if the save version is the same as the current version
-                let current_version = get_current_version(app);
-                if current_version.is_none() {
-                    return Err(error::Error::GetVersionFromTauriErr);
-                }
-                let current_version = current_version.unwrap();
-
-                if save_version != current_version {
-                    // if the save version is not the same as the current version, deal with the backward comparability
-                    let backward_comparability = backward_comparability(app, save_version);
-                    backward_comparability?;
-
-                    // update the version
-                    let mut statement = connection
-                        .prepare("INSERT INTO version (version) VALUES (?)")
-                        .unwrap();
-                    let res = statement.bind((1, current_version.as_str()));
-                    if let Err(err) = res {
-                        return Err(error::Error::InsertVersionErr(
-                            current_version,
-                            err.to_string(),
-                        ));
-                    }
-                    match statement.next() {
-                        Ok(State::Done) => {
-                            return Ok(());
-                        }
-                        Ok(State::Row) => {
-                            return Err(error::Error::InsertVersionErr(
-                                current_version,
-                                "Failed to insert version".to_string(),
-                            ));
-                        }
-                        Err(err) => {
-                            return Err(error::Error::InsertVersionErr(
-                                current_version,
-                                err.to_string(),
-                            ));
-                        }
-                    }
-                }
+                check_save_version_and_current_version(save_version, connection, app)?;
             }
 
             Ok(())
@@ -187,60 +215,79 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), er
     }
 }
 
-fn backward_comparability(_app: &AppHandle, _save_version: String) -> Result<(), error::Error> {
-    // deal with the backward comparability based on the save version
-
-    Ok(())
-}
-
-fn init_clips_table(connection: Connection, app: &AppHandle) -> Result<(), error::Error> {
+/// init the clips table
+///
+/// this function will
+///     - create the clips table if it does not exist
+fn init_clips_table(connection: &Connection) -> Result<(), error::Error> {
     // create the clips table if it does not exist
     let mut statement = connection.prepare("CREATE TABLE IF NOT EXISTS clips (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, timestamp INTEGER, favorite INTEGER)").unwrap();
     let state = statement.next();
     match state {
-        Ok(State::Done) => {
-            let clip_data_mutex = app.state::<ClipDataMutex>();
-            let mut clip_data = clip_data_mutex.clip_data.lock().unwrap();
-            drop(statement);
-            clip_data.database_connection = Some(connection);
-
-            // get the whole clips ids
-            let mut ids = Vec::new();
-            let mut statement = clip_data
-                .database_connection
-                .as_ref()
-                .unwrap()
-                .prepare("SELECT id FROM clips")
-                .unwrap();
-
-            loop {
-                match statement.next() {
-                    Ok(State::Done) => {
-                        break;
-                    }
-                    Ok(State::Row) => {
-                        let id = statement.read::<i64, _>("id");
-
-                        if let Err(err) = id {
-                            return Err(error::Error::GetWholeIdsErr(err.to_string()));
-                        }
-                        let id = id.unwrap();
-
-                        ids.push(id);
-                    }
-                    Err(err) => {
-                        return Err(error::Error::GetWholeIdsErr(err.to_string()));
-                    }
-                }
-            }
-            drop(statement);
-            clip_data.clips.whole_list_of_ids = ids;
-
-            Ok(())
-        }
+        Ok(State::Done) => Ok(()),
         Ok(State::Row) => Err(error::Error::CreateClipsTableErr(
             "Failed to create clips table".to_string(),
         )),
         Err(err) => Err(error::Error::CreateClipsTableErr(err.to_string())),
     }
+}
+
+/// init the clips mutex state
+///
+/// this function will
+///     - fill the connection into the clips mutex
+///     - init the whole list of ids
+fn init_clips_mutex(connection: Connection, app: &AppHandle) -> Result<(), error::Error> {
+    // fill the connection into the clips mutex
+    let clip_data_mutex = app.state::<ClipDataMutex>();
+    let mut clip_data = clip_data_mutex.clip_data.lock().unwrap();
+    clip_data.database_connection = Some(connection);
+    drop(clip_data);
+
+    // init the whole list of ids
+    init_whole_list_of_ids(app)
+}
+
+/// init the whole list of ids,
+///
+/// this function will
+///     - get the whole clips ids
+///     - fill the ids into the clips mutex
+fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
+    let clip_data_mutex = app.state::<ClipDataMutex>();
+    let mut clip_data = clip_data_mutex.clip_data.lock().unwrap();
+
+    // get the whole clips ids
+    let mut ids = Vec::new();
+    let mut statement = clip_data
+        .database_connection
+        .as_ref()
+        .unwrap()
+        .prepare("SELECT id FROM clips")
+        .unwrap();
+
+    loop {
+        match statement.next() {
+            Ok(State::Done) => {
+                break;
+            }
+            Ok(State::Row) => {
+                let id = statement.read::<i64, _>("id");
+
+                if let Err(err) = id {
+                    return Err(error::Error::GetWholeIdsErr(err.to_string()));
+                }
+                let id = id.unwrap();
+
+                ids.push(id);
+            }
+            Err(err) => {
+                return Err(error::Error::GetWholeIdsErr(err.to_string()));
+            }
+        }
+    }
+    drop(statement);
+    clip_data.clips.whole_list_of_ids = ids;
+
+    Ok(())
 }
