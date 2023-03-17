@@ -72,6 +72,7 @@ fn main() {
 
             Ok(())
         })
+        // tauri setup the system tray before the app.setup
         .system_tray(create_tray(num))
         .on_system_tray_event(systray::handle_tray_event)
         .build(tauri::generate_context!())
