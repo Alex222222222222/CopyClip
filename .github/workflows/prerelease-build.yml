@@ -46,14 +46,15 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: bonnie, trunk
+      
+      - name: Install trunk and bonnie
+        run: cargo install trunk bonnie
 
       - name: Create empty 'dist' directory
         run: mkdir dist
 
       - name: bonnie build
-        run: bonnie build --release
+        run: bonnie build frontend
       
       - if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v3
