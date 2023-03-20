@@ -8,7 +8,9 @@ use super::ConfigMutex;
 #[tauri::command]
 pub fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<String, String> {
     let config = config.config.lock().unwrap();
-    Ok(config.clip_per_page.to_string())
+    let res = config.clip_per_page.to_string();
+    drop(config);
+    Ok(res)
 }
 
 /// set the number of clips to show in the tray menu
@@ -38,7 +40,9 @@ pub async fn set_per_page_data<R: Runtime>(
 #[tauri::command]
 pub fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<String, String> {
     let config = config.config.lock().unwrap();
-    Ok(config.clip_max_show_length.to_string())
+    let res = config.clip_max_show_length.to_string();
+    drop(config);
+    Ok(res)
 }
 
 /// set the len of maximum show length of a clip

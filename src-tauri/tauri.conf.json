@@ -57,7 +57,7 @@
       {
         "label": "preferences",
         "title": "Copy Clip",
-        "url": "index.html",
+        "url": "preferences",
         "width": 1280,
         "height": 800
       }

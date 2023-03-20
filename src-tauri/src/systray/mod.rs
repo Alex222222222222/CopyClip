@@ -128,21 +128,22 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
                 let res = preferences_window.show();
                 if let Err(e) = res {
                     // TODO send the error notification and panic
-                    panic!("Failed to show preferences window: {}", e);
+                    panic!("Failed to show preferences window: {e}");
                 }
             }
 
             let app_handle = app.app_handle();
-            std::thread::spawn(move|| {
+            std::thread::spawn(move || {
                 let preferences_window = tauri::WindowBuilder::new(
                     &app_handle,
                     "preferences",
-                    tauri::WindowUrl::App("/preferences/index.html".into())
-                ).title("Copy Clip")
+                    tauri::WindowUrl::App("preferences".into()),
+                )
+                .title("Copy Clip")
                 .build();
                 if let Err(e) = preferences_window {
                     // TODO send the error notification and panic
-                    panic!("Failed to open preferences window: {}", e);
+                    panic!("Failed to open preferences window: {e}");
                 }
             });
         }
