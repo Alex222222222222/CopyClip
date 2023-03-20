@@ -3,11 +3,11 @@ version="0.3.2"
 [scripts]
 ## Builds Tailwind CSS for development (no purging)
 build-tailwind-dev = [
-    "tailwindcss -c ./tailwind.config.js -o ./tailwind.css"
+    "pnpm tailwindcss -c ./tailwind.config.js -o ./tailwind.css"
 ]
 ## Builds Tailwind CSS for production (maximum purging and minification)
 build-tailwind-prod = [
-    "NODE_ENV=production tailwindcss -c ./tailwind.config.js -o ./tailwind.css --minify"
+    "NODE_ENV=production pnpm tailwindcss -c ./tailwind.config.js -o ./tailwind.css --minify"
 ]
 ## Builds Tailwind CSS for development usage
 setup.subcommands.tailwind = "bonnie build-tailwind-dev"
