@@ -55,9 +55,9 @@
     },
     "windows": [
       {
-        "fullscreen": false,
-        "resizable": true,
-        "title": "Tauri NextJS App",
+        "label": "preferences",
+        "title": "Copy Clip",
+        "url": "index.html",
         "width": 1280,
         "height": 800
       }
