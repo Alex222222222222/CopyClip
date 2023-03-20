@@ -7,7 +7,7 @@ build-tailwind-dev = [
 ]
 ## Builds Tailwind CSS for production (maximum purging and minification)
 build-tailwind-prod = [
-    "NODE_ENV=production pnpm tailwindcss -c ./tailwind.config.js -o ./tailwind.css --minify"
+    "pnpm tailwindcss -c ./tailwind.config.js -o ./tailwind.css --minify"
 ]
 ## Builds Tailwind CSS for development usage
 setup.subcommands.tailwind = "bonnie build-tailwind-dev"
