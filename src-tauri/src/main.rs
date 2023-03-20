@@ -39,7 +39,8 @@ fn main() {
         })
         .setup(|app| {
             // load the config info from the config file
-            let config = config::load_config(app);
+            let app_handle = app.handle();
+            let config = config::load_config(&app_handle);
             let app_handle = app.handle();
             let config_mutex = app_handle.state::<ConfigMutex>();
             let mut config_mutex = config_mutex.config.lock().unwrap();

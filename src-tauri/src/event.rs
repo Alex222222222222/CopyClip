@@ -14,7 +14,8 @@ pub enum CopyClipEvent {
     TrayUpdateEvent,
     /// rebuild the tray menu
     RebuildTrayMenuEvent,
-    // TODO add save config event
+    /// save config event
+    SaveConfigEvent,
 }
 
 /// the event sender
@@ -59,11 +60,22 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let num = num.config.lock().unwrap().clip_per_page;
                 let res = app.tray_handle().set_menu(create_tray_menu(num));
                 if res.is_err() {
+                    // TODO
                     println!("failed to set tray menu");
                     panic!("{}", res.err().unwrap().to_string());
                 }
                 // initial the tray
                 send_tray_update_event(app);
+            }
+            // save config event
+            CopyClipEvent::SaveConfigEvent => {
+                let config = app.state::<ConfigMutex>();
+                let config = config.config.lock().unwrap();
+                let res = config.save_config(app);
+                if res.is_err() {
+                    // TODO
+                    panic!("Failed to {}", res.err().unwrap().message());
+                }
             }
         }
     }
