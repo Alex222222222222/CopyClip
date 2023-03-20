@@ -56,7 +56,7 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
             CopyClipEvent::RebuildTrayMenuEvent => {
                 // get number of clips to show from config
                 let num = app.state::<ConfigMutex>();
-                let num = num.config.lock().unwrap().clips_to_show;
+                let num = num.config.lock().unwrap().clip_per_page;
                 let res = app.tray_handle().set_menu(create_tray_menu(num));
                 if res.is_err() {
                     println!("failed to set tray menu");

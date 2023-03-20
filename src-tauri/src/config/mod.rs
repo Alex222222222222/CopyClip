@@ -11,8 +11,7 @@ pub struct ConfigMutex {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    // do not know how to change this, as the way to control tauri system tray is really limited
-    pub clips_to_show: i64,
+    pub clip_per_page: i64,
     pub clip_max_show_length: i64,
 }
 
@@ -116,7 +115,7 @@ pub fn load_config(app: &App) -> Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            clips_to_show: 20,
+            clip_per_page: 20,
             clip_max_show_length: 50,
         }
     }

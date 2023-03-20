@@ -116,8 +116,8 @@ impl ClipData {
 
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().unwrap();
-        let max_page = self.clips.whole_list_of_ids.len() as i64 / config.clips_to_show;
-        if max_page * config.clips_to_show == self.clips.whole_list_of_ids.len() as i64 {
+        let max_page = self.clips.whole_list_of_ids.len() as i64 / config.clip_per_page;
+        if max_page * config.clip_per_page == self.clips.whole_list_of_ids.len() as i64 {
             return max_page - 1;
         }
         max_page
@@ -443,7 +443,7 @@ impl ClipData {
         // get the clips per page configuration
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().unwrap();
-        let clips_per_page = config.clips_to_show;
+        let clips_per_page = config.clip_per_page;
         let max_clip_length = config.clip_max_show_length;
         drop(config);
 
