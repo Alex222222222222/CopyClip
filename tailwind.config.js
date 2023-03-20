@@ -1,7 +1,14 @@
 module.exports = {
-  content: ["./src/**/*.{js,jsx,ts,tsx}"],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
+    purge: {
+        mode: "all",
+        content: [
+            "./src/**/*.rs",
+            "./index.html",
+            "./src/**/*.html",
+            "./src/**/*.css",
+        ],
+    },
+    theme: {},
+    variants: {},
+    plugins: [],
+};
