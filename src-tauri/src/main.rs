@@ -24,7 +24,7 @@ use app::{
     config,
     config::{Config, ConfigMutex},
     event::{event_daemon, CopyClipEvent, EventSender},
-    systray::{self, create_tray_menu, send_tray_update_event},
+    systray::handle_tray_event,
 };
 use tauri::{Manager, SystemTray};
 
@@ -73,23 +73,19 @@ fn main() {
                 clip::cache::cache_daemon(&app_handle);
             });
 
-            // get number of clips to show from config
-            let app_handle = app.app_handle();
-            let num = app_handle.state::<ConfigMutex>();
-            let num = num.config.lock().unwrap().clips_to_show;
-            let res = app.tray_handle().set_menu(create_tray_menu(num));
-            if res.is_err() {
-                println!("failed to set tray menu");
-                panic!("{}", res.err().unwrap().to_string());
-            }
             // initial the tray
-            send_tray_update_event(&app_handle);
+            let event = app.state::<EventSender>();
+            event.send(CopyClipEvent::RebuildTrayMenuEvent);
 
             Ok(())
         })
         // tauri setup the system tray before the app.setup
         .system_tray(SystemTray::new())
-        .on_system_tray_event(systray::handle_tray_event)
+        .on_system_tray_event(handle_tray_event)
+        .invoke_handler(tauri::generate_handler![
+            config::command::get_per_page_data,
+            config::command::set_per_page_data,
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app_handle, event| {
