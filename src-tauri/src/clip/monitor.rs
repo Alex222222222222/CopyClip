@@ -5,21 +5,27 @@
 ///   - Linux - uses x11_clipboard (require to install xcb library); TODO add the requirement to the readme
 ///   - MacOS - uses polling via NSPasteboard::changeCount as there is no event notification.
 ///
-/// function "monitor" monitor the system keyboard change
-/// function "clips_data_monitor" monitor the app clips data change, and trigger update of the tray
+/// function "monitor_clip_board" monitor the system keyboard change
 use clipboard_master::{CallbackResult, ClipboardHandler, Master};
 use tauri::{AppHandle, ClipboardManager, Manager};
 
 use std::io;
 
+use crate::systray::send_tray_update_event;
+
 use super::ClipDataMutex;
 
-pub struct Handler<'a> {
+/// the handler for the system clipboard change
+struct Handler<'a> {
     last_clip: String,
     app: &'a AppHandle,
 }
 
+/// the handler for the app clips data change
 impl ClipboardHandler for &mut Handler<'_> {
+    /// the handler for the system clipboard change
+    /// this function is called when the system clipboard is changed
+    /// try to read the clipboard, and if the clipboard is different from the last one, and current one update the app clips data
     fn on_clipboard_change(&mut self) -> CallbackResult {
         let clipboard_manager = self.app.clipboard_manager();
         let clip = clipboard_manager.read_text();
@@ -67,16 +73,21 @@ impl ClipboardHandler for &mut Handler<'_> {
             ));
         }
 
+        // update the tray
+        send_tray_update_event(self.app);
+
         CallbackResult::Next
     }
 
+    /// the handler for the error
+    /// TODO: send a notification of the error, and panic the whole app
     fn on_clipboard_error(&mut self, _error: io::Error) -> CallbackResult {
-        // TODO: send a notification of the error, and panic the whole app
         CallbackResult::Next
     }
 }
 
-pub fn monitor(app: &AppHandle) {
+/// monitor the app clips data change, and trigger update of the tray
+pub fn monitor_clip_board(app: &AppHandle) {
     let mut handler = Handler {
         last_clip: String::new(),
         app,
@@ -99,34 +110,4 @@ pub fn monitor(app: &AppHandle) {
 
     let mut master = Master::new(&mut handler);
     master.run().unwrap();
-}
-
-pub fn clips_data_monitor(app: &AppHandle) {
-    // monitor the whole list of ids len change
-    let mut last_len = 0;
-
-    // also monitor the current clip change
-    let mut current_clip = 0;
-
-    // also monitor the current page change
-    let mut current_page = 0;
-    loop {
-        let clips = app.state::<ClipDataMutex>();
-        let mut clip_data = clips.clip_data.lock().unwrap();
-        if clip_data.clips.whole_list_of_ids.len() != last_len
-            || clip_data.clips.current_clip != current_clip
-            || clip_data.clips.current_page != current_page
-        {
-            last_len = clip_data.clips.whole_list_of_ids.len();
-            current_clip = clip_data.clips.current_clip;
-            current_page = clip_data.clips.current_page;
-            let res = clip_data.update_tray(app);
-            if res.is_err() {
-                // TODO: send a notification of the error, and panic the whole app
-                println!("error: {}", res.err().unwrap().message());
-            }
-        }
-        drop(clip_data);
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
 }

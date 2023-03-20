@@ -3,7 +3,7 @@ use tauri::{
     SystemTrayMenuItem,
 };
 
-use crate::clip::ClipDataMutex;
+use crate::{clip::ClipDataMutex, event::EventSender};
 
 /// create the tray
 pub fn create_tray(num: i64) -> SystemTray {
@@ -99,16 +99,25 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
             let clips = app.state::<ClipDataMutex>();
             let mut clips = clips.clip_data.lock().unwrap();
             clips.next_page(app);
+
+            // update the tray
+            send_tray_update_event(app);
         }
         "prev_page" => {
             let clips = app.state::<ClipDataMutex>();
             let mut clips = clips.clip_data.lock().unwrap();
             clips.prev_page(app);
+
+            // update the tray
+            send_tray_update_event(app);
         }
         "first_page" => {
             let clips = app.state::<ClipDataMutex>();
             let mut clips = clips.clip_data.lock().unwrap();
             clips.first_page();
+
+            // update the tray
+            send_tray_update_event(app);
         }
         _ => {
             // test if the id is a tray_clip
@@ -137,4 +146,9 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
 
 fn handle_left_click(_app: &AppHandle) {
     // do nothing
+}
+
+pub fn send_tray_update_event(app: &AppHandle) {
+    let event = app.state::<EventSender>();
+    event.send(crate::event::CopyClipEvent::TrayUpdateEvent);
 }
