@@ -48,7 +48,15 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       
       - name: Install trunk and bonnie
-        run: cargo install trunk bonnie
+        run: cargo install trunk bonnie tauri-cli
+
+      - name: Set up pnpm package manager
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+      
+      - name: set up tailwindcss 
+        run: pnpm install tailwindcss@latest
 
       - name: Create empty 'dist' directory
         run: mkdir dist
