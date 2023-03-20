@@ -1,6 +1,8 @@
 use yew::{function_component, html, Html};
 
-use crate::components::clips_per_page_config::ClipsPerPageConfig;
+use crate::components::preferences::{
+    clips_per_page_config::ClipsPerPageConfig, max_clip_len_config::MaxClipLenConfig,
+};
 
 #[function_component(Preferences)]
 pub fn preferences() -> Html {
@@ -10,7 +12,7 @@ pub fn preferences() -> Html {
             <div class="mx-5 my-2">
                 <ClipsPerPageConfig></ClipsPerPageConfig>
                 <br />
-                // <MaxClipLenConfig></MaxClipLenConfig>
+                <MaxClipLenConfig></MaxClipLenConfig>
             </div>
         </div>
     }
