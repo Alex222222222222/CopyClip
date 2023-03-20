@@ -3,6 +3,8 @@ use std::{fs, sync::Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::App;
 
+pub mod command;
+
 pub struct ConfigMutex {
     pub config: Mutex<Config>,
 }
