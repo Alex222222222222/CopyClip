@@ -23,7 +23,8 @@ use app::{
     clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
     config,
     config::{Config, ConfigMutex},
-    systray::{self, create_tray_menu},
+    event::{event_daemon, CopyClipEvent, EventSender},
+    systray::{self, create_tray_menu, send_tray_update_event},
 };
 use tauri::{Manager, SystemTray};
 
@@ -52,25 +53,25 @@ fn main() {
                 panic!("{}", res.err().unwrap().message());
             }
 
+            // set up event sender and receiver
             let app_handle = app.handle();
+            let (event_tx, event_rx) = std::sync::mpsc::channel::<CopyClipEvent>();
+            app.manage(EventSender::new(event_tx));
+            // set up the event receiver daemon
             tauri::async_runtime::spawn(async move {
-                // the daemon to monitor the system clip board change and trigger the tray update
-                clip::monitor::monitor(&app_handle);
+                event_daemon(event_rx, &app_handle);
             });
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
-                // the daemon to monitor the app clips data change and trigger the tray update
-                clip::monitor::clips_data_monitor(&app_handle);
+                // the daemon to monitor the system clip board change and trigger the tray update
+                clip::monitor::monitor_clip_board(&app_handle);
             });
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
                 clip::cache::cache_daemon(&app_handle);
             });
-
-            // #[cfg(target_os = "macos")]
-            // app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             // get number of clips to show from config
             let app_handle = app.app_handle();
@@ -81,6 +82,8 @@ fn main() {
                 println!("failed to set tray menu");
                 panic!("{}", res.err().unwrap().to_string());
             }
+            // initial the tray
+            send_tray_update_event(&app_handle);
 
             Ok(())
         })
