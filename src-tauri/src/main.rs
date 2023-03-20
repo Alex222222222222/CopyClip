@@ -85,6 +85,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             config::command::get_per_page_data,
             config::command::set_per_page_data,
+            config::command::get_max_clip_len,
+            config::command::set_max_clip_len,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

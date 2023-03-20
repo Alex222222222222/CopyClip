@@ -1,4 +1,3 @@
-import { type } from "os"
 import { useEffect } from "react"
 
 interface IntInputBoxProps {
