@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sqlite::{State, Value};
 use tauri::{AppHandle, ClipboardManager, Manager};
 
-use crate::config::ConfigMutex;
+use crate::{config::ConfigMutex, error};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Clip {
@@ -51,14 +51,8 @@ pub struct ClipDataMutex {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ClipCache {
-    pub clip: Clip, // the clip
+    pub clip: Clip,         // the clip
     pub add_timestamp: i64, // in seconds
-
-                    // cache management
-                    // load the latest config.clips_to_show*2 clips into the cache
-                    // if the cache is full, remove the oldest clips
-                    // if a clip that is not in the latest config.clips_to_show*2 clips, and not used in the last config.clip_cache_time(default a day) seconds, remove it from the cache
-                    // need a daemon thread to do this
 }
 
 impl ClipData {
@@ -142,17 +136,20 @@ impl ClipData {
         Some(pos.unwrap() as i64)
     }
 
-    pub fn get_clip(&mut self, mut id: i64) -> Result<Clip, String> {
+    pub fn get_clip(&mut self, mut id: i64) -> Result<Clip, error::Error> {
         // if id is -1, change it to the latest clip
         if id == -1 {
+            if self.clips.whole_list_of_ids.is_empty() {
+                return Err(error::Error::WholeListIDSEmptyErr);
+            }
             let t = self.clips.whole_list_of_ids.last();
             if t.is_none() {
-                return Err("Clip not found for id: ".to_string() + &id.to_string());
+                return Err(error::Error::InvalidIDFromWholeListErr(None));
             }
             let t = t.unwrap();
             id = *t;
             if id < 0 {
-                return Err("Clip not found for id: ".to_string() + &id.to_string());
+                return Err(error::Error::InvalidIDFromWholeListErr(Some(id)));
             }
         }
 
@@ -183,34 +180,48 @@ impl ClipData {
         statement.bind((1, id)).unwrap();
 
         let state = statement.next();
-        if state.is_err() {
-            return Err(state.err().unwrap().message.unwrap());
+        if let Err(err) = state {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                id,
+                err.message.unwrap(),
+            ));
         }
         let state = state.unwrap();
         if state == State::Done {
-            // if the clip is not in the database, return None
-            return Err("Clip not found for id: ".to_string() + &id.to_string());
+            return Err(error::Error::ClipNotFoundErr(id));
         }
 
         let text = statement.read::<String, _>("text");
-        if text.is_err() {
-            return Err(text.err().unwrap().message.unwrap());
+        if let Err(err) = text {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                id,
+                err.message.unwrap(),
+            ));
         }
 
         let timestamp = statement.read::<i64, _>("timestamp");
-        if timestamp.is_err() {
-            return Err(timestamp.err().unwrap().message.unwrap());
+        if let Err(err) = timestamp {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                id,
+                err.message.unwrap(),
+            ));
         }
 
-        let id = statement.read::<i64, _>("id");
-        if id.is_err() {
-            return Err(id.err().unwrap().message.unwrap());
+        let id_new = statement.read::<i64, _>("id");
+        if let Err(err) = id_new {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                id,
+                err.message.unwrap(),
+            ));
         }
-        let id = id.unwrap();
+        let id = id_new.unwrap();
 
         let favorite = statement.read::<i64, _>("favorite");
-        if favorite.is_err() {
-            return Err(favorite.err().unwrap().message.unwrap());
+        if let Err(err) = favorite {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                id,
+                err.message.unwrap(),
+            ));
         }
         let favorite = favorite.unwrap() == 1;
 
@@ -235,11 +246,11 @@ impl ClipData {
         Ok(clip)
     }
 
-    pub fn get_current_clip(&mut self) -> Result<Clip, String> {
+    pub fn get_current_clip(&mut self) -> Result<Clip, error::Error> {
         self.get_clip(self.clips.current_clip)
     }
 
-    pub fn delete_clip(&mut self, id: i64) -> Result<(), String> {
+    pub fn delete_clip(&mut self, id: i64) -> Result<(), error::Error> {
         // delete a clip from the database and the cache
 
         // first delete in cache
@@ -253,40 +264,50 @@ impl ClipData {
             .prepare("DELETE FROM clips WHERE id = ?")
             .unwrap();
         statement.bind((1, id)).unwrap();
-        if let Ok(State::Done) = statement.next() {
-            // delete from the whole list of ids
-            // get the position of the id in the whole list of ids
-            let pos = self.get_id_pos_in_whole_list_of_ids(id);
-            let current_clip_pos = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
-            if let Some(pos) = pos {
-                // if pos is before the current clip, decrease the current clip by 1
-                // if pos is the current clip, set the current clip to -1
-                if let Some(current_clip_pos) = current_clip_pos {
-                    match pos.cmp(&current_clip_pos) {
-                        Ordering::Less => {
-                            self.clips.current_clip = *self
-                                .clips
-                                .whole_list_of_ids
-                                .get(current_clip_pos as usize - 1)
-                                .unwrap();
-                        }
-                        Ordering::Equal => {
-                            self.clips.current_clip = -1;
-                        }
-                        Ordering::Greater => {}
-                    }
-                } else {
-                    self.clips.current_clip = -1;
-                }
-                self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
-            }
-            return Ok(());
-        }
 
-        Err("Failed to delete clip".to_string())
+        match statement.next() {
+            Ok(State::Done) => {
+                // delete from the whole list of ids
+                // get the position of the id in the whole list of ids
+                let pos = self.get_id_pos_in_whole_list_of_ids(id);
+                let current_clip_pos =
+                    self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
+                if let Some(pos) = pos {
+                    // if pos is before the current clip, decrease the current clip by 1
+                    // if pos is the current clip, set the current clip to -1
+                    if let Some(current_clip_pos) = current_clip_pos {
+                        match pos.cmp(&current_clip_pos) {
+                            Ordering::Less => {
+                                self.clips.current_clip = *self
+                                    .clips
+                                    .whole_list_of_ids
+                                    .get(current_clip_pos as usize - 1)
+                                    .unwrap();
+                            }
+                            Ordering::Equal => {
+                                self.clips.current_clip = -1;
+                            }
+                            Ordering::Greater => {}
+                        }
+                    } else {
+                        self.clips.current_clip = -1;
+                    }
+                    self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
+                }
+                Ok(())
+            }
+            Ok(State::Row) => Err(error::Error::DeleteClipFromDatabaseErr(
+                id,
+                "More than one row deleted".to_string(),
+            )),
+            Err(err) => Err(error::Error::DeleteClipFromDatabaseErr(
+                id,
+                err.message.unwrap(),
+            )),
+        }
     }
 
-    pub fn new_clip(&mut self, text: String) -> Result<i64, String> {
+    pub fn new_clip(&mut self, text: String) -> Result<i64, error::Error> {
         // create a new clip in the database and return the id of the new clip
 
         let timestamp = std::time::SystemTime::now()
@@ -296,7 +317,7 @@ impl ClipData {
 
         let connection = &self.database_connection;
         if connection.is_none() {
-            return Err("Failed to get database connection".to_string());
+            return Err(error::Error::DatabaseConnectionErr);
         }
         let connection = connection.as_ref().unwrap();
         let mut statement = connection
@@ -311,53 +332,80 @@ impl ClipData {
                 ][..],
             )
             .unwrap();
-        if let Ok(State::Done) = statement.next() {
-            // try to get the id of the new clip by searching for the clip with the same timestamp
-            let mut statement = self
-                .database_connection
-                .as_ref()
-                .unwrap()
-                .prepare("SELECT * FROM clips WHERE timestamp = ?")
-                .unwrap();
-            statement.bind((1, timestamp)).unwrap();
-            if let Ok(State::Row) = statement.next() {
-                let id = statement.read::<i64, _>("id");
-                if id.is_err() {
-                    return Err("Failed to get id of new clip".to_string());
+
+        match statement.next() {
+            Ok(State::Done) => {
+                // try to get the id of the new clip by searching for the clip with the same timestamp
+                let mut statement = self
+                    .database_connection
+                    .as_ref()
+                    .unwrap()
+                    .prepare("SELECT * FROM clips WHERE timestamp = ?")
+                    .unwrap();
+                statement.bind((1, timestamp)).unwrap();
+
+                match statement.next() {
+                    Ok(State::Row) => {
+                        let id = statement.read::<i64, _>("id");
+                        if id.is_err() {
+                            return Err(error::Error::GetClipDataFromDatabaseErr(
+                                -1,
+                                format!(
+                                    "Failed to get id of new clip: {}",
+                                    id.err().unwrap().message.unwrap()
+                                ),
+                            ));
+                        }
+                        let id = id.unwrap();
+
+                        let clip = Clip {
+                            text,
+                            timestamp,
+                            id,
+                            favorite: false,
+                        };
+
+                        self.clips.cached_clips.insert(
+                            id,
+                            ClipCache {
+                                clip,
+                                add_timestamp: std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs()
+                                    as i64,
+                            },
+                        );
+
+                        self.clips.whole_list_of_ids.push(id);
+
+                        // change the current clip to the last one
+                        self.clips.current_clip = id;
+
+                        Ok(id)
+                    }
+                    Ok(State::Done) => Err(error::Error::GetClipDataFromDatabaseErr(
+                        -1,
+                        "No row found".to_string(),
+                    )),
+                    Err(err) => Err(error::Error::GetClipDataFromDatabaseErr(
+                        -1,
+                        err.message.unwrap(),
+                    )),
                 }
-                let id = id.unwrap();
-
-                let clip = Clip {
-                    text,
-                    timestamp,
-                    id,
-                    favorite: false,
-                };
-
-                self.clips.cached_clips.insert(
-                    id,
-                    ClipCache {
-                        clip,
-                        add_timestamp: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs() as i64,
-                    },
-                );
-
-                self.clips.whole_list_of_ids.push(id);
-
-                // change the current clip to the last one
-                self.clips.current_clip = id;
-
-                return Ok(id);
             }
+            Ok(State::Row) => Err(error::Error::InsertClipIntoDatabaseErr(
+                text,
+                "More than one row inserted".to_string(),
+            )),
+            Err(err) => Err(error::Error::InsertClipIntoDatabaseErr(
+                text,
+                err.message.unwrap(),
+            )),
         }
-
-        Err("Failed to create new clip".to_string())
     }
 
-    pub fn toggle_favorite_clip(&mut self, _id: i64) -> Result<bool, String> {
+    pub fn toggle_favorite_clip(&mut self, _id: i64) -> Result<bool, error::Error> {
         // toggle the favorite status of a clip
         // if the clip is not in the cache, return an error
         // return the new favorite status
@@ -366,7 +414,7 @@ impl ClipData {
         Ok(true)
     }
 
-    pub fn select_clip(&mut self, app: &AppHandle, id: i64) -> Result<(), String> {
+    pub fn select_clip(&mut self, app: &AppHandle, id: i64) -> Result<(), error::Error> {
         // select a clip by id
         // change the current clip to the clip, and fill in the text of the clip to the clipboard
 
@@ -380,15 +428,18 @@ impl ClipData {
         self.clips.current_clip = id;
 
         let mut clipboard_manager = app.clipboard_manager();
-        let res = clipboard_manager.write_text(c.text);
+        let res = clipboard_manager.write_text(c.text.clone());
         if res.is_err() {
-            return Err("Failed to write to clipboard".to_string());
+            return Err(error::Error::WriteToSystemClipboardErr(
+                c.text,
+                res.err().unwrap().to_string(),
+            ));
         }
 
-        Err("Clip not found".to_string())
+        Ok(())
     }
 
-    pub fn update_tray(&mut self, app: &AppHandle) -> Result<(), String> {
+    pub fn update_tray(&mut self, app: &AppHandle) -> Result<(), error::Error> {
         // get the clips per page configuration
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().unwrap();
@@ -441,7 +492,10 @@ impl ClipData {
                 max_clip_length,
             ));
             if res.is_err() {
-                return Err("Failed to set tray clip sub menu title".to_string());
+                return Err(error::Error::SetSystemTrayTitleErr(
+                    current_page_clips.get(i).unwrap().text.clone(),
+                    res.err().unwrap().to_string(),
+                ));
             }
             self.clips
                 .tray_ids_map
@@ -454,7 +508,10 @@ impl ClipData {
             let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
             let res = tray_clip_sub_menu.set_title("".to_string());
             if res.is_err() {
-                return Err("Failed to set tray clip sub menu title".to_string());
+                return Err(error::Error::SetSystemTrayTitleErr(
+                    "".to_string(),
+                    res.err().unwrap().to_string(),
+                ));
             }
         }
 
@@ -466,10 +523,12 @@ impl ClipData {
             + &(&current_page + 1).to_string()
             + "/"
             + &(whole_pages + 1).to_string();
-        let res = tray_page_info_item.set_title(tray_page_info_title);
+        let res = tray_page_info_item.set_title(tray_page_info_title.clone());
         if res.is_err() {
-            // TODO change this constant error message to constant
-            return Err("Failed to set page info title".to_string());
+            return Err(error::Error::SetSystemTrayTitleErr(
+                tray_page_info_title,
+                res.err().unwrap().to_string(),
+            ));
         }
 
         Ok(())

@@ -23,13 +23,12 @@ use app::{
     clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
     config,
     config::{Config, ConfigMutex},
-    systray::{self, create_tray},
+    event::{event_daemon, CopyClipEvent, EventSender},
+    systray::{self, create_tray_menu, send_tray_update_event},
 };
-use tauri::Manager;
+use tauri::{Manager, SystemTray};
 
 fn main() {
-    let num = Config::default().clips_to_show;
-
     tauri::Builder::default()
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .manage(ConfigMutex {
@@ -45,23 +44,28 @@ fn main() {
             let config_mutex = app_handle.state::<ConfigMutex>();
             let mut config_mutex = config_mutex.config.lock().unwrap();
             *config_mutex = config;
+            drop(config_mutex);
 
             // set up the database connection and create the table
             let res = init_database_connection(&app_handle);
             if res.is_err() {
-                return Err(res.err().unwrap().into());
+                println!("failed to init database connection");
+                panic!("{}", res.err().unwrap().message());
             }
 
+            // set up event sender and receiver
             let app_handle = app.handle();
+            let (event_tx, event_rx) = std::sync::mpsc::channel::<CopyClipEvent>();
+            app.manage(EventSender::new(event_tx));
+            // set up the event receiver daemon
             tauri::async_runtime::spawn(async move {
-                // the daemon to monitor the system clip board change and trigger the tray update
-                clip::monitor::monitor(&app_handle);
+                event_daemon(event_rx, &app_handle);
             });
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
-                // the daemon to monitor the app clips data change and trigger the tray update
-                clip::monitor::clips_data_monitor(&app_handle);
+                // the daemon to monitor the system clip board change and trigger the tray update
+                clip::monitor::monitor_clip_board(&app_handle);
             });
 
             let app_handle = app.handle();
@@ -69,9 +73,22 @@ fn main() {
                 clip::cache::cache_daemon(&app_handle);
             });
 
+            // get number of clips to show from config
+            let app_handle = app.app_handle();
+            let num = app_handle.state::<ConfigMutex>();
+            let num = num.config.lock().unwrap().clips_to_show;
+            let res = app.tray_handle().set_menu(create_tray_menu(num));
+            if res.is_err() {
+                println!("failed to set tray menu");
+                panic!("{}", res.err().unwrap().to_string());
+            }
+            // initial the tray
+            send_tray_update_event(&app_handle);
+
             Ok(())
         })
-        .system_tray(create_tray(num))
+        // tauri setup the system tray before the app.setup
+        .system_tray(SystemTray::new())
         .on_system_tray_event(systray::handle_tray_event)
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
