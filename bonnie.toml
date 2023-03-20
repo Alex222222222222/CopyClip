@@ -28,5 +28,6 @@ build.subcommands.frontend = [
 ## Runs the frontend, watching for changes (uses Trunk)
 ## Tailwind is assumed to be set up after `setup`
 run.subcommands.frontend = [
+    "bonnie build-tailwind-dev",
     "cargo tauri dev"
 ]

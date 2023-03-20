@@ -1,7 +1,8 @@
 mod app;
-
-use app::App;
+mod components;
+mod index;
+mod preferences;
 
 fn main() {
-    yew::Renderer::<App>::new().render();
+    yew::Renderer::<app::Main>::new().render();
 }

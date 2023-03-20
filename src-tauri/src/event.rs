@@ -34,6 +34,7 @@ impl EventSender {
     pub fn send(&self, event: CopyClipEvent) {
         let tx = self.tx.lock().unwrap();
         tx.send(event).unwrap();
+        drop(tx);
     }
 }
 
@@ -48,6 +49,7 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let clip_data = app.state::<ClipDataMutex>();
                 let mut clip_data = clip_data.clip_data.lock().unwrap();
                 let res = clip_data.update_tray(app);
+                drop(clip_data);
                 if res.is_err() {
                     // TODO: send a notification of the error, and panic the whole app
                     println!("error: {}", res.err().unwrap().message());
@@ -59,7 +61,7 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let num = app.state::<ConfigMutex>();
                 let num = num.config.lock().unwrap().clip_per_page;
                 let res = app.tray_handle().set_menu(create_tray_menu(num));
-                if res.is_err() {
+                if res. is_err() {
                     // TODO
                     println!("failed to set tray menu");
                     panic!("{}", res.err().unwrap().to_string());
@@ -72,6 +74,7 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let config = app.state::<ConfigMutex>();
                 let config = config.config.lock().unwrap();
                 let res = config.save_config(app);
+                drop(config);
                 if res.is_err() {
                     // TODO
                     panic!("Failed to {}", res.err().unwrap().message());
