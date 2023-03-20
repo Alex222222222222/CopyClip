@@ -1,6 +1,6 @@
 use yew::{function_component, html, Html};
 
-use crate::components::int_config_template::IntConfigTemplate;
+use super::int_config_template::IntConfigTemplate;
 
 #[function_component(ClipsPerPageConfig)]
 pub fn clips_per_page_config() -> Html {
