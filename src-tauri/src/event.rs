@@ -61,7 +61,7 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let num = app.state::<ConfigMutex>();
                 let num = num.config.lock().unwrap().clip_per_page;
                 let res = app.tray_handle().set_menu(create_tray_menu(num));
-                if res. is_err() {
+                if res.is_err() {
                     // TODO
                     println!("failed to set tray menu");
                     panic!("{}", res.err().unwrap().to_string());
