@@ -16,7 +16,7 @@ pub fn cache_daemon(app: &AppHandle) {
     // get the clip per page config
     let config = app.state::<ConfigMutex>();
     let config = config.config.lock().unwrap();
-    let clips_cache_basic = config.clips_to_show * 2;
+    let clips_cache_basic = config.clip_per_page * 2;
     drop(config);
 
     loop {

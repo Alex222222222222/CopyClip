@@ -1,7 +1,5 @@
-#![cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 /*
 #[tauri::command]
@@ -19,14 +17,20 @@ fn on_button_clicked() -> String {
 
 use std::sync::Mutex;
 
-use app::{
+use copy_clip::{
     clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
     config,
     config::{Config, ConfigMutex},
     event::{event_daemon, CopyClipEvent, EventSender},
-    systray::{self, create_tray_menu, send_tray_update_event},
+    systray::handle_tray_event,
 };
 use tauri::{Manager, SystemTray};
+
+// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {name}! You've been greeted from Rust!")
+}
 
 fn main() {
     tauri::Builder::default()
@@ -39,7 +43,8 @@ fn main() {
         })
         .setup(|app| {
             // load the config info from the config file
-            let config = config::load_config(app);
+            let app_handle = app.handle();
+            let config = config::load_config(&app_handle);
             let app_handle = app.handle();
             let config_mutex = app_handle.state::<ConfigMutex>();
             let mut config_mutex = config_mutex.config.lock().unwrap();
@@ -73,23 +78,22 @@ fn main() {
                 clip::cache::cache_daemon(&app_handle);
             });
 
-            // get number of clips to show from config
-            let app_handle = app.app_handle();
-            let num = app_handle.state::<ConfigMutex>();
-            let num = num.config.lock().unwrap().clips_to_show;
-            let res = app.tray_handle().set_menu(create_tray_menu(num));
-            if res.is_err() {
-                println!("failed to set tray menu");
-                panic!("{}", res.err().unwrap().to_string());
-            }
             // initial the tray
-            send_tray_update_event(&app_handle);
+            let event = app.state::<EventSender>();
+            event.send(CopyClipEvent::RebuildTrayMenuEvent);
 
             Ok(())
         })
         // tauri setup the system tray before the app.setup
         .system_tray(SystemTray::new())
-        .on_system_tray_event(systray::handle_tray_event)
+        .on_system_tray_event(handle_tray_event)
+        .invoke_handler(tauri::generate_handler![
+            config::command::get_per_page_data,
+            config::command::set_per_page_data,
+            config::command::get_max_clip_len,
+            config::command::set_max_clip_len,
+            greet,
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app_handle, event| {
