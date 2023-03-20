@@ -26,6 +26,7 @@ pub async fn set_per_page_data<R: Runtime>(
 
     let event_sender = app.state::<EventSender>();
     event_sender.send(CopyClipEvent::RebuildTrayMenuEvent);
+    event_sender.send(CopyClipEvent::SaveConfigEvent);
 
     Ok(())
 }
@@ -55,6 +56,7 @@ pub async fn set_max_clip_len<R: Runtime>(
 
     let event_sender = app.state::<EventSender>();
     event_sender.send(CopyClipEvent::TrayUpdateEvent);
+    event_sender.send(CopyClipEvent::SaveConfigEvent);
 
     Ok(())
 }
