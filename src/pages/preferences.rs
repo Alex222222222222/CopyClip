@@ -3,7 +3,7 @@ use yew::{function_component, html, Html};
 use crate::components::{
     head_bar::HeadBar,
     preferences::{
-        clips_per_page_config::ClipsPerPageConfig, max_clip_len_config::MaxClipLenConfig,
+        clips_per_page_config::ClipsPerPageConfig, max_clip_len_config::MaxClipLenConfig, search_clip_per_page::SearchClipPerPageConfig,
     },
 };
 
@@ -17,6 +17,8 @@ pub fn preferences() -> Html {
                 <ClipsPerPageConfig></ClipsPerPageConfig>
                 <br />
                 <MaxClipLenConfig></MaxClipLenConfig>
+                <br />
+                <SearchClipPerPageConfig></SearchClipPerPageConfig>
             </div>
         </div>
     }

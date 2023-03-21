@@ -308,8 +308,13 @@ impl ClipData {
         }
     }
 
+    /// create a new clip in the database and return the id of the new clip
     pub fn new_clip(&mut self, text: String) -> Result<i64, error::Error> {
-        // create a new clip in the database and return the id of the new clip
+        let id: i64 = if let Some(id) = self.clips.whole_list_of_ids.last() {
+            *id + 1
+        } else {
+            1
+        };
 
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -322,88 +327,61 @@ impl ClipData {
         }
         let connection = connection.as_ref().unwrap();
         let mut statement = connection
-            .prepare("INSERT INTO clips (text, timestamp, favorite) VALUES (?, ?, ?)")
+            .prepare("INSERT INTO clips (id, text, timestamp, favorite) VALUES (?, ?, ?, ?)")
             .unwrap();
         statement
             .bind::<&[(_, Value)]>(
                 &[
-                    (1, text.clone().into()),
-                    (2, timestamp.into()),
-                    (3, 0.into()),
+                    (1, id.into()),
+                    (2, text.clone().into()),
+                    (3, timestamp.into()),
+                    (4, 0.into()),
                 ][..],
             )
             .unwrap();
-
+            
         match statement.next() {
             Ok(State::Done) => {
-                // try to get the id of the new clip by searching for the clip with the same timestamp
-                let mut statement = self
-                    .database_connection
-                    .as_ref()
-                    .unwrap()
-                    .prepare("SELECT * FROM clips WHERE timestamp = ?")
-                    .unwrap();
-                statement.bind((1, timestamp)).unwrap();
-
-                match statement.next() {
-                    Ok(State::Row) => {
-                        let id = statement.read::<i64, _>("id");
-                        if id.is_err() {
-                            return Err(error::Error::GetClipDataFromDatabaseErr(
-                                -1,
-                                format!(
-                                    "Failed to get id of new clip: {}",
-                                    id.err().unwrap().message.unwrap()
-                                ),
-                            ));
-                        }
-                        let id = id.unwrap();
-
-                        let clip = Clip {
-                            text,
-                            timestamp,
-                            id,
-                            favorite: false,
-                        };
-
-                        self.clips.cached_clips.insert(
-                            id,
-                            ClipCache {
-                                clip,
-                                add_timestamp: std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_secs()
-                                    as i64,
-                            },
-                        );
-
-                        self.clips.whole_list_of_ids.push(id);
-
-                        // change the current clip to the last one
-                        self.clips.current_clip = id;
-
-                        Ok(id)
-                    }
-                    Ok(State::Done) => Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        "No row found".to_string(),
-                    )),
-                    Err(err) => Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    )),
-                }
+                // do noting
             }
-            Ok(State::Row) => Err(error::Error::InsertClipIntoDatabaseErr(
-                text,
-                "More than one row inserted".to_string(),
-            )),
-            Err(err) => Err(error::Error::InsertClipIntoDatabaseErr(
-                text,
-                err.message.unwrap(),
-            )),
+            Ok(State::Row) => {
+                return Err(error::Error::InsertClipIntoDatabaseErr(
+                    text,
+                    "More than one row inserted".to_string(),
+                ));
+            }
+            Err(err) => {
+                return Err(error::Error::InsertClipIntoDatabaseErr(
+                    text,
+                    err.message.unwrap(),
+                ));
+            }
         }
+
+        let clip = Clip {
+            text,
+            timestamp,
+            id,
+            favorite: false,
+        };
+
+        self.clips.cached_clips.insert(
+            id,
+            ClipCache {
+                clip,
+                add_timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as i64,
+            },
+        );
+
+        self.clips.whole_list_of_ids.push(id);
+
+        // change the current clip to the last one
+        self.clips.current_clip = id;
+
+        Ok(id)
     }
 
     pub fn toggle_favorite_clip(&mut self, _id: i64) -> Result<bool, error::Error> {

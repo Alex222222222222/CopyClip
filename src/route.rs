@@ -1,7 +1,7 @@
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-use crate::pages::{home::Home, index::Index, preferences::Preferences};
+use crate::pages::{home::Home, index::Index, preferences::Preferences, search::Search};
 
 #[derive(Clone, Routable, PartialEq)]
 pub enum Route {
@@ -26,7 +26,9 @@ fn switch(routes: Route) -> Html {
         Route::Preferences => html! {
             <Preferences />
         },
-        Route::Search => html! { <h1>{ "Search" }</h1> },
+        Route::Search => html! { 
+            <Search />
+        },
         Route::Index => html! {
             <Index />
         },

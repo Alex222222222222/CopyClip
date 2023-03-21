@@ -371,6 +371,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde-wasm-bindgen",
+ "sublime_fuzzy",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
