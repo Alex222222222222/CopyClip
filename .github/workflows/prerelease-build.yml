@@ -63,7 +63,7 @@ jobs:
           cargo --version
           rustc --version
 
-      - if: {{ matrix.os != 'windows-latest' }}
+      - if: matrix.os != 'windows-latest'
         run: |
           if ( cargo tauri --help )
           then
@@ -84,7 +84,7 @@ jobs:
             cargo install bonnie
           fi
 
-      - if: {{ matrix.os == 'windows-latest' }}
+      - if: matrix.os == 'windows-latest'
         run: |
           cargo tauri --help
           IF ERRORLEVEL 1 GOTO cargo install tauri-cli
