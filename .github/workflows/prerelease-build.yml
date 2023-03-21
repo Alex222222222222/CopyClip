@@ -59,19 +59,22 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - if: cargo tauri --help
+      - run: cargo tauri --help
+        if: cargo tauri --help
         id: tauri-install
       
       - run: cargo install tauri-cli
         if: ${{ steps.tauri-install.conclusion != 'success' }}
       
-      - if: bonnie --help
+      - run: bonnie --help
+        if: bonnie --help
         id: bonnie-install
       
       - run: cargo install bonnie
         if: ${{ failure() && steps.bonnie-install.conclusion != 'success' }}
       
-      - if: trunk --help
+      - run: trunk --help
+        if: trunk --help
         id: trunk-install
 
       - run: cargo install trunk
