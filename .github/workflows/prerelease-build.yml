@@ -59,29 +59,14 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
-      - run: |
-          if (cargo tauri --help)
-          then
-            echo "tauri-cli is already installed"
-          else
-            cargo install tauri-cli
-          fi
+      - run: cargo install tauri-cli
+        if: !( cargo tauri --help )
       
-      - run: |
-          if (bonnie --help)
-          then
-            echo "bonnie is already installed"
-          else
-            cargo install bonnie
-          fi
+      - run: cargo install bonnie
+        if: !( bonnie --help )
 
-      - run: |
-          if (trunk --help)
-          then
-            echo "trunk is already installed"
-          else
-            cargo install trunk
-          fi
+      - run: cargo install trunk
+        if: !( trunk --help )
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
