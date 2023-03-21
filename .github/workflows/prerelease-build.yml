@@ -52,14 +52,28 @@ jobs:
             node_modules
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
 
-      - name: Setup | Rust
-        uses: ATiltedTree/setup-rust@v1
+      - name: Install minimal stable with clippy and rustfmt
+        uses: actions-rs/toolchain@v1
         with:
-          rust-version: stable
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: bonnie
+          version: latest
       
-      - name: Install trunk and bonnie and tauri
-        run: cargo install trunk bonnie tauri-cli
-      
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: tauri-cli
+          version: latest
+
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: trunk
+          version: latest
+
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
 
