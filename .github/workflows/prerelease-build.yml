@@ -62,9 +62,36 @@ jobs:
       - run: |
           cargo --version
           rustc --version
-          rustup update stable
 
-      - run: cargo install tauri-cli bonnie trunk
+      - if: {{ matrix.os != 'windows-latest' }}
+        run: |
+          if ( cargo tauri --help )
+          then
+            echo "tauri already installed"
+          else
+            cargo install tauri-cli
+          fi
+          if ( trunk --help )
+          then
+            echo "trunk already installed"
+          else
+            cargo install trunk
+          fi
+          if ( bonnie --help )
+          then
+            echo "bonnie already installed"
+          else
+            cargo install bonnie
+          fi
+
+      - if: {{ matrix.os == 'windows-latest' }}
+        run: |
+          cargo tauri --help
+          IF ERRORLEVEL 1 GOTO cargo install tauri-cli
+          trunk --help
+          IF ERRORLEVEL 1 GOTO cargo install trunk
+          bonnie --help
+          IF ERRORLEVEL 1 GOTO cargo install bonnie
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
