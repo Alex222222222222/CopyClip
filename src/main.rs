@@ -1,8 +1,7 @@
-mod app;
 mod components;
-mod index;
-mod preferences;
+mod pages;
+mod route;
 
 fn main() {
-    yew::Renderer::<app::Main>::new().render();
+    yew::Renderer::<route::Main>::new().render();
 }

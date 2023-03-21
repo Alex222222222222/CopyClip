@@ -1,2 +1,2 @@
-pub mod head_bar;
+pub mod index;
 pub mod preferences;
