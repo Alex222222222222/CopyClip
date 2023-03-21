@@ -19,6 +19,8 @@ pub struct Config {
     pub clip_per_page: i64,
     /// the max length of a clip to show in the tray menu
     pub clip_max_show_length: i64,
+    /// clip per page in the search page
+    pub search_clip_per_page: i64,
 }
 
 // TODO save config
@@ -170,6 +172,7 @@ impl Default for Config {
         Self {
             clip_per_page: 20,
             clip_max_show_length: 50,
+            search_clip_per_page: 20,
         }
     }
 }

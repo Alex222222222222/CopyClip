@@ -14,6 +14,7 @@ web-sys = "0.3"
 futures = "0.3"
 js-sys = "0.3"
 yew-router = "0.17"
+sublime_fuzzy = "0.7.0"
 
 [workspace]
 members = ["src-tauri"]
