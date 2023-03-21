@@ -59,7 +59,10 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
       
-      - run: rustup update stable
+      - run: |
+          cargo --version
+          rustc --version
+          rustup update stable
 
       - run: cargo install tauri-cli bonnie trunk
 
