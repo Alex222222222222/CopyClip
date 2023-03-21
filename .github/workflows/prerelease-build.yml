@@ -62,7 +62,7 @@ jobs:
       - run: cargo tauri --help
         id: tauri-install
       
-      - run: cargo install tauri
+      - run: cargo install tauri-cli
         if: ${{ failure() && steps.tauri-install.conclusion == 'failure' }}
       
       - run: bonnie --help
