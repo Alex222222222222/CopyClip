@@ -52,10 +52,12 @@ jobs:
             node_modules
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+      - name: Setup | Rust
+        uses: ATiltedTree/setup-rust@v1
+        with:
+          rust-version: stable
       
-      - name: Install trunk and bonnie
+      - name: Install trunk and bonnie and tauri
         run: cargo install trunk bonnie tauri-cli
       
       - name: rustup target add wasm32-unknown-unknown
