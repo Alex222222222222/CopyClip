@@ -63,19 +63,19 @@ jobs:
         id: tauri-install
       
       - run: cargo install tauri
-        id: ${{ failure() && steps.tauri-install.conclusion == 'failure' }}
+        if: ${{ failure() && steps.tauri-install.conclusion == 'failure' }}
       
       - run: bonnie --help
         id: bonnie-install
       
       - run: cargo install bonnie
-        id: ${{ failure() && steps.bonnie-install.conclusion == 'failure' }}
+        if: ${{ failure() && steps.bonnie-install.conclusion == 'failure' }}
       
       - run: trunk --help
         id: trunk-install
 
       - run: cargo install trunk
-        id: ${{ failure() && steps.trunk-install.conclusion == 'failure' }}
+        if: ${{ failure() && steps.trunk-install.conclusion == 'failure' }}
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
