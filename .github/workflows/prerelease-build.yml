@@ -58,27 +58,10 @@ jobs:
           profile: minimal
           toolchain: stable
           components: rustfmt, clippy
+      
+      - run: rustup update stable
 
-      - run: cargo tauri --help
-        if: cargo tauri --help
-        id: tauri-install
-      
-      - run: cargo install tauri-cli
-        if: ${{ steps.tauri-install.conclusion != 'success' }}
-      
-      - run: bonnie --help
-        if: bonnie --help
-        id: bonnie-install
-      
-      - run: cargo install bonnie
-        if: ${{ failure() && steps.bonnie-install.conclusion != 'success' }}
-      
-      - run: trunk --help
-        if: trunk --help
-        id: trunk-install
-
-      - run: cargo install trunk
-        if: ${{ failure() && steps.trunk-install.conclusion != 'success' }}
+      - run: cargo install tauri-cli bonnie trunk
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
