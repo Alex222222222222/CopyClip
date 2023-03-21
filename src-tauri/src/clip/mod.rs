@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod database;
 pub mod monitor;
+pub mod search;
 
 use std::{cmp::Ordering, collections::HashMap};
 
