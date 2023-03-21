@@ -84,14 +84,33 @@ jobs:
             cargo install bonnie
           fi
 
+      # windows powershell statement
       - if: matrix.os == 'windows-latest'
         run: |
           cargo tauri --help
-          IF ERRORLEVEL 1 GOTO cargo install tauri-cli
+          IF ($?) {
+            "tauri already installed"
+          }
+          else
+          {
+            cargo install tauri-cli
+          }
           trunk --help
-          IF ERRORLEVEL 1 GOTO cargo install trunk
+          IF ($?) {
+            "trunk already installed"
+          }
+          else
+          {
+            cargo install trunk
+          }
           bonnie --help
-          IF ERRORLEVEL 1 GOTO cargo install bonnie
+          IF ($?) {
+            "bonnie already installed"
+          }
+          else
+          {
+            cargo install bonnie
+          }
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
