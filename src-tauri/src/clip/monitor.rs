@@ -74,6 +74,7 @@ impl ClipboardHandler for &mut Handler<'_> {
         }
 
         // update the tray
+        clip_data.clips.current_clip = res.unwrap();
         send_tray_update_event(self.app);
 
         CallbackResult::Next

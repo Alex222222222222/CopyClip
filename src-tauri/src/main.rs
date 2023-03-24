@@ -92,6 +92,10 @@ fn main() {
             config::command::set_per_page_data,
             config::command::get_max_clip_len,
             config::command::set_max_clip_len,
+            config::command::get_search_clip_per_page,
+            config::command::set_search_clip_per_page,
+            clip::search::search_clips,
+            clip::search::get_max_id,
             greet,
         ])
         .build(tauri::generate_context!())
