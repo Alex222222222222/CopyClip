@@ -15,6 +15,7 @@ futures = "0.3"
 js-sys = "0.3"
 yew-router = "0.17"
 sublime_fuzzy = "0.7.0"
+gloo-console = "0.2.3"
 
 [workspace]
 members = ["src-tauri"]

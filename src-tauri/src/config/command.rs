@@ -113,12 +113,16 @@ pub fn get_search_clip_per_page(config: State<'_, ConfigMutex>) -> Result<String
 /// 
 /// output: {}
 #[tauri::command]
-pub async fn set_search_clip_per_page<R: Runtime>(
+pub fn set_search_clip_per_page(
+    app: tauri::AppHandle,
     config: State<'_, ConfigMutex>,
     data: i64,
 ) -> Result<(), String> {
     let mut config = config.config.lock().unwrap();
     config.search_clip_per_page = data;
+
+    let event_sender = app.state::<EventSender>();
+    event_sender.send(CopyClipEvent::SaveConfigEvent);
 
     Ok(())
 }

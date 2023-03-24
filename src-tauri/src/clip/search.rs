@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use sqlite::{State, Value};
 use sublime_fuzzy::best_match;
 use tauri::{AppHandle, Manager};
 
-use crate::error;
+use crate::{config::ConfigMutex, error};
 
 use super::{Clip, ClipDataMutex};
 
@@ -22,14 +24,14 @@ pub fn fast_search(
     max_id: i64,
     limit: i64,
     data: String,
-) -> Result<Vec<Clip>, error::Error> {
+) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().unwrap();
     let mut statement = clip_data
         .database_connection
         .as_ref()
         .unwrap()
-        .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? LIMIT ?")
+        .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
         .unwrap();
     statement
         .bind::<&[(_, Value)]>(
@@ -41,7 +43,7 @@ pub fn fast_search(
             ][..],
         )
         .unwrap();
-    let mut clips = Vec::new();
+    let mut clips = HashMap::new();
     loop {
         let state = statement.next();
         match state {
@@ -91,9 +93,10 @@ pub fn fast_search(
                     timestamp,
                     favorite,
                 };
-                clips.push(clip);
+                clips.insert(clip.id, clip);
             }
             Err(err) => {
+                println!("{}", err.message.clone().unwrap());
                 return Err(error::Error::GetClipDataFromDatabaseErr(
                     -1,
                     err.message.unwrap(),
@@ -117,14 +120,16 @@ pub fn normal_search(
     max_id: i64,
     limit: i64,
     data: String,
-) -> Result<Vec<Clip>, error::Error> {
+) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().unwrap();
     let mut statement = clip_data
         .database_connection
         .as_ref()
         .unwrap()
-        .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? LIMIT ?")
+        .prepare(
+            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
+        )
         .unwrap();
     statement
         .bind::<&[(_, Value)]>(
@@ -136,7 +141,7 @@ pub fn normal_search(
             ][..],
         )
         .unwrap();
-    let mut clips = Vec::new();
+    let mut clips = HashMap::new();
     loop {
         let state = statement.next();
         match state {
@@ -186,7 +191,7 @@ pub fn normal_search(
                     timestamp,
                     favorite,
                 };
-                clips.push(clip);
+                clips.insert(clip.id, clip);
             }
             Err(err) => {
                 return Err(error::Error::GetClipDataFromDatabaseErr(
@@ -203,27 +208,29 @@ pub fn normal_search(
 /// fuzzy search for a clip in the database
 /// try iterate with each clip in the database such that the id is between min_id and max_id and maximum limit clips
 /// will return a list of clips
+/// 
+/// TODO fix fuzzy search return none problem
 pub fn fuzzy_search(
     app: &AppHandle,
     min_id: i64,
     max_id: i64,
     limit: i64,
     data: String,
-) -> Result<Vec<Clip>, error::Error> {
+) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let mut clip_data = clip_data.clip_data.lock().unwrap();
     let min_id_pos = clip_data.get_id_pos_in_whole_list_of_ids(min_id);
     let max_id_pos = clip_data.get_id_pos_in_whole_list_of_ids(max_id);
     if min_id_pos.is_none() {
-        return Ok(vec![]);
+        return Ok(HashMap::new());
     }
     if max_id_pos.is_none() {
-        return Ok(vec![]);
+        return Ok(HashMap::new());
     }
     let min_id_pos = min_id_pos.unwrap();
     let max_id_pos = max_id_pos.unwrap();
 
-    let mut clips = Vec::new();
+    let mut clips = HashMap::new();
     let mut count = 0;
     let mut pos = max_id_pos - 1;
     while pos >= min_id_pos && count < limit {
@@ -242,10 +249,77 @@ pub fn fuzzy_search(
         if result.score() <= 0 {
             continue;
         }
-        clips.push(clip);
+        clips.insert(clip.id, clip);
         count += 1;
         pos -= 1;
     }
 
     Ok(clips)
+}
+
+#[tauri::command]
+pub fn get_max_id(clip_data: tauri::State<ClipDataMutex>) -> Result<i64, error::Error> {
+    let clip_data = clip_data.clip_data.lock().unwrap();
+    let res = clip_data.clips.whole_list_of_ids.last();
+    if res.is_none() {
+        return Ok(0);
+    }
+    let res = res.unwrap();
+    Ok(*res)
+}
+
+/// search for a clip in the database
+///
+/// the method is decide by the input
+/// the limit is the config.search_clip_per_page
+///
+/// input {
+///     data: String,
+///     min_id: i64,
+///     max_id: i64,
+///     search_method: String,
+/// }
+///
+/// output {
+///     HashMap<id, Clip>
+/// }
+#[tauri::command]
+pub fn search_clips(
+    app: AppHandle,
+    data: String,
+    minid: i64,
+    maxid: i64,
+    searchmethod: String,
+) -> Result<HashMap<i64, Clip>, String> {
+    let config = app.state::<ConfigMutex>();
+    let config = config.config.lock().unwrap();
+    let limit = config.search_clip_per_page;
+    drop(config);
+
+    match searchmethod.as_str() {
+        "fuzzy" => {
+            let res = fuzzy_search(&app, minid, maxid, limit, data);
+            if let Err(err) = res {
+                return Err(err.message());
+            }
+            return Ok(res.unwrap());
+        }
+        "fast" => {
+            let res = fast_search(&app, minid, maxid, limit, data);
+            if let Err(err) = res {
+                return Err(err.message());
+            }
+            return Ok(res.unwrap());
+        }
+        "normal" => {
+            let res = normal_search(&app, minid, maxid, limit, data);
+            if let Err(err) = res {
+                return Err(err.message());
+            }
+            return Ok(res.unwrap());
+        }
+        _ => {
+            return Err("invalid search method".to_string());
+        }
+    }
 }
