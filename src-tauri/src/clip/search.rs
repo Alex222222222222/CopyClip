@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use regex::Regex;
 use sqlite::{State, Value};
 use sublime_fuzzy::best_match;
 use tauri::{AppHandle, Manager};
@@ -375,6 +376,130 @@ pub fn fuzzy_search(
     Ok(clips)
 }
 
+/// regexp search for a clip in the database
+/// try iterate with each clip in the database such that the id is between min_id and max_id and maximum limit clips
+/// will return a list of clips
+///
+/// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
+pub fn regexp_search(
+    app: &AppHandle,
+    min_id: i64,
+    max_id: i64,
+    limit: i64,
+    data: String,
+    favorite: i64, // 0: not favorite, 1: favorite, -1: all
+) -> Result<HashMap<i64, Clip>, error::Error> {
+    let re = Regex::new(&data);
+    if let Err(err) = re {
+        return Err(error::Error::RegexpErr(err.to_string()));
+    }
+    let re = re.unwrap();
+
+    let clip_data = app.state::<ClipDataMutex>();
+    let clip_data = clip_data.clip_data.lock().unwrap();
+
+    let mut max_id = max_id;
+    let mut count = 0;
+    let mut clips = HashMap::new();
+
+    while max_id >= min_id && count < limit {
+        let mut statement = if favorite == -1 {
+            let mut statement = clip_data
+                .database_connection
+                .as_ref()
+                .unwrap()
+                .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
+                .unwrap();
+            statement
+                .bind::<&[(_, Value)]>(&[(1, min_id.into()), (2, max_id.into())][..])
+                .unwrap();
+            statement
+        } else {
+            let mut statement = clip_data
+                .database_connection
+                .as_ref()
+                .unwrap()
+                .prepare(
+                    "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? ORDER BY id DESC LIMIT 1",
+                )
+                .unwrap();
+            statement
+                .bind::<&[(_, Value)]>(
+                    &[(1, min_id.into()), (2, max_id.into()), (3, favorite.into())][..],
+                )
+                .unwrap();
+
+            statement
+        };
+        let state = statement.next();
+        match state {
+            Ok(State::Done) => {
+                break;
+            }
+            Ok(State::Row) => {
+                let id = statement.read::<i64, _>("id");
+                if let Err(err) = id {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        max_id,
+                        err.message.unwrap(),
+                    ));
+                }
+                let id = id.unwrap();
+
+                let text = statement.read::<String, _>("text");
+                if let Err(err) = text {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        id,
+                        err.message.unwrap(),
+                    ));
+                }
+                let text = text.unwrap();
+
+                let timestamp = statement.read::<i64, _>("timestamp");
+                if let Err(err) = timestamp {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        id,
+                        err.message.unwrap(),
+                    ));
+                }
+
+                let favorite = statement.read::<i64, _>("favorite");
+                if let Err(err) = favorite {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        id,
+                        err.message.unwrap(),
+                    ));
+                }
+                let favorite = favorite.unwrap() == 1;
+
+                let clip = Clip {
+                    text: text.clone(),
+                    timestamp: timestamp.unwrap(),
+                    id,
+                    favorite,
+                };
+
+                let result = re.is_match(&text);
+                if !result {
+                    max_id = id - 1;
+                    continue;
+                }
+                clips.insert(clip.id, clip);
+                max_id = id - 1;
+                count += 1;
+            }
+            Err(err) => {
+                return Err(error::Error::GetClipDataFromDatabaseErr(
+                    max_id,
+                    err.message.unwrap(),
+                ));
+            }
+        }
+    }
+
+    Ok(clips)
+}
+
 #[tauri::command]
 pub fn get_max_id(clip_data: tauri::State<ClipDataMutex>) -> Result<i64, error::Error> {
     let clip_data = clip_data.clip_data.lock().unwrap();
@@ -432,6 +557,13 @@ pub fn search_clips(
         }
         "normal" => {
             let res = normal_search(&app, minid, maxid, limit, data, favorite);
+            if let Err(err) = res {
+                return Err(err.message());
+            }
+            Ok(res.unwrap())
+        }
+        "regexp" => {
+            let res = regexp_search(&app, minid, maxid, limit, data, favorite);
             if let Err(err) = res {
                 return Err(err.message());
             }

@@ -75,6 +75,8 @@ pub enum Error {
     /// update clips in database failed
     /// the first string is the error message, the second string is the error message from the sqlite::execute
     UpdateClipsInDatabaseErr(String, String),
+    /// invalid regexp string
+    RegexpErr(String),
 }
 
 impl Error {
@@ -103,6 +105,7 @@ impl Error {
             Error::SerializeConfigToJsonErr(err) => format!("serialize config to json error, error message: {err}"),
             Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {err}"),
             Error::UpdateClipsInDatabaseErr(err, err2) => format!("update clips in database failed, error message: {err}, error message from sqlite::execute: {err2}"),
+            Error::RegexpErr(err) => format!("invalid regexp string, error message: {err}"),
         }
     }
 
