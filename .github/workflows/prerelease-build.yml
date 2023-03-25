@@ -14,15 +14,11 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Disable git core.autocrlf on Windows
-        if: matrix.os == 'windows-latest'
-        run: git config --global core.autocrlf false
-
       - name: Checkout repository code
         uses: actions/checkout@v3
 
@@ -63,8 +59,7 @@ jobs:
           cargo --version
           rustc --version
 
-      - if: matrix.os != 'windows-latest'
-        run: |
+      - run: |
           if ( cargo tauri --help )
           then
             echo "tauri already installed"
@@ -83,34 +78,24 @@ jobs:
           else
             cargo install bonnie
           fi
-
-      # windows powershell statement
-      - if: matrix.os == 'windows-latest'
-        run: |
-          cargo tauri --help
-          IF ($?) {
-            "tauri already installed"
-          }
+          if (wasm-opt --help )
+          then
+            echo "wasm-opt already installed"
           else
-          {
-            cargo install tauri-cli
-          }
-          trunk --help
-          IF ($?) {
-            "trunk already installed"
-          }
+            cargo install wasm-opt
+          fi
+          if ( twiggy --help )
+          then
+            echo "twiggy already installed"
           else
-          {
-            cargo install trunk
-          }
-          bonnie --help
-          IF ($?) {
-            "bonnie already installed"
-          }
+            cargo install twiggy
+          fi
+          if ( wasm-snip --help )
+          then
+            echo "wasm-snip already installed"
           else
-          {
-            cargo install bonnie
-          }
+            cargo install wasm-snip
+          fi
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
@@ -128,12 +113,6 @@ jobs:
 
       - name: bonnie build
         run: bonnie build frontend
-      
-      - if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.os }}-prerelease
-          path: ./target/release/bundle/msi
 
       - if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v3
