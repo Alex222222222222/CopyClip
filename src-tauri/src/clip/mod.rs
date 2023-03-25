@@ -570,3 +570,19 @@ pub fn copy_clip_to_clipboard(
     // TODO send notification for successfully copied
     Ok(())
 }
+
+#[tauri::command]
+pub fn delete_clip_from_database(
+    clip_data: tauri::State<ClipDataMutex>,
+    id: i64,
+) -> Result<(), String> {
+    let mut clip_data = clip_data.clip_data.lock().unwrap();
+    let res = clip_data.delete_clip(id);
+
+    if let Err(err) = res {
+        return Err(err.to_string());
+    }
+
+    // TODO send notification for successfully deleted
+    Ok(())
+}

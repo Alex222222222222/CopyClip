@@ -95,6 +95,7 @@ fn main() {
             config::command::get_search_clip_per_page,
             config::command::set_search_clip_per_page,
             clip::copy_clip_to_clipboard,
+            clip::delete_clip_from_database,
             clip::search::search_clips,
             clip::search::get_max_id,
             greet,
