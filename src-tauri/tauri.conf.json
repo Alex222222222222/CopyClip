@@ -1,10 +1,10 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "build": {
-    "beforeBuildCommand": "pnpm next-build",
-    "beforeDevCommand": "pnpm next-start",
-    "devPath": "http://localhost:3000",
-    "distDir": "../out"
+    "beforeDevCommand": "trunk serve",
+    "beforeBuildCommand": "trunk build && bash ./wasm-opt.sh",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist",
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "CopyClip",
@@ -16,12 +16,6 @@
     },
     "bundle": {
       "active": true,
-      "category": "DeveloperTool",
-      "copyright": "",
-      "deb": {
-        "depends": []
-      },
-      "externalBin": [],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -30,22 +24,7 @@
         "icons/icon.ico"
       ],
       "identifier": "org.eu.huazifan.copyclip",
-      "longDescription": "",
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      }
+      "targets": "all"
     },
     "security": {
       "csp": null
