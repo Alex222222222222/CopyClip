@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
-use yew::{function_component, html, Callback, Html, Properties};
+use yew::{function_component, html, Callback, Html, Properties, use_state_eq};
 use yew_icons::{Icon, IconId};
 
 use crate::pages::invoke;
@@ -40,22 +40,49 @@ struct ChangeFavoriteClipArgs {
     pub target: bool,
 }
 
+#[derive(PartialEq, Clone)]
+enum IsFavorite {
+    True,
+    False,
+}
+
+impl IsFavorite {
+    pub fn to_bool (&self) -> bool {
+        match self {
+            Self::True => true,
+            Self::False => false,
+        }
+    }
+
+    pub fn from_bool (value: bool) -> Self {
+        if value {
+            Self::True
+        } else {
+            Self::False
+        }
+    }
+}
+
 #[function_component(FavoriteClipButton)]
 pub fn favorite_clip_button(props: &FavoriteClipButtonProps) -> Html {
+    let favorite = use_state_eq(|| IsFavorite::from_bool(props.is_favorite));
     let id = props.id;
-    let is_favorite = props.is_favorite;
+
+    let favorite_1 = favorite.clone();
     let copy_clip_button_on_click = Callback::from(move |_| {
+        let favorite_2 = favorite_1.clone();
         spawn_local(async move {
             let args = ChangeFavoriteClipArgs {
                 id,
-                target: !is_favorite,
+                target: !favorite_2.to_bool(),
             };
             let args = serde_wasm_bindgen::to_value(&args).unwrap();
             invoke("change_favorite_clip", args).await;
+            favorite_2.set(IsFavorite::from_bool(!favorite_2.to_bool()));
         });
     });
 
-    let icon = if props.is_favorite {
+    let icon = if favorite.to_bool() {
         IconId::BootstrapHeartFill
     } else {
         IconId::BootstrapHeart
