@@ -15,7 +15,7 @@ use crate::{
     pages::search::{
         clip::{Clip, SearchRes},
         copy_clip_button::CopyClipButton,
-        favorite_button::FavoriteClipButton,
+        favorite_button::{FavoriteClipButton, FavoriteFilter},
         fuzzy_search_text::FuzzySearchText,
         order::{sort_search_res, OrderOrder},
         search_clip::search_clips,
@@ -39,18 +39,6 @@ mod trash_clip_button;
 #[derive(Clone, Debug, Default, PartialEq, Properties, Serialize, Deserialize)]
 struct EmptyArg {}
 
-/// search args
-#[derive(Serialize, Deserialize)]
-struct SearchArgs {
-    pub data: String,
-    pub minid: i64,
-    /// -1 means no limit
-    pub maxid: i64,
-    /// fuzzy, fast, normal
-    pub searchmethod: String,
-    // limit get from the use config by the backend
-}
-
 #[function_component(Search)]
 pub fn search() -> Html {
     let search_res: UseStateHandle<SearchRes> = use_state(SearchRes::new);
@@ -60,6 +48,7 @@ pub fn search() -> Html {
     let search_res_num: UseStateHandle<usize> = use_state_eq(|| 0);
     let order_by: UseStateHandle<String> = use_state_eq(|| "time".to_string());
     let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Desc); // true is desc false is asc
+    let favorite_filter: UseStateHandle<FavoriteFilter> = use_state_eq(FavoriteFilter::default);
 
     let text_data_1 = text_data.clone();
     let text_box_on_change = Callback::from(move |event: Event| {
@@ -98,6 +87,21 @@ pub fn search() -> Html {
         }
     });
 
+    let favorite_filter_1 = favorite_filter.clone();
+    let favorite_filter_on_change = Callback::from(move |event: Event| {
+        let value = event
+            .target_unchecked_into::<HtmlInputElement>()
+            .value()
+            .to_lowercase();
+        if value == "all" {
+            favorite_filter_1.set(FavoriteFilter::All);
+        } else if value == "favorite" {
+            favorite_filter_1.set(FavoriteFilter::Favorite);
+        } else {
+            favorite_filter_1.set(FavoriteFilter::NotFavorite);
+        }
+    });
+
     let search_res_1 = search_res.clone();
     let search_method_1 = search_method;
     let search_state_1 = search_state.clone();
@@ -110,6 +114,7 @@ pub fn search() -> Html {
         let search_state_clone_clone = search_state_1.clone();
         let text_data_clone = text_data_1.clone();
         let search_res_num_clone = search_res_num_1.clone();
+        let favorite_filter_1 = favorite_filter.clone();
         spawn_local(async move {
             search_state_clone.set(SearchState::Searching);
             search_res_num_clone.set(0);
@@ -120,6 +125,7 @@ pub fn search() -> Html {
                 search_state_clone_clone,
                 search_res_clone,
                 search_res_num_clone,
+                favorite_filter_1.to_int(),
             )
             .await;
             if let Err(err) = res {
@@ -146,10 +152,10 @@ pub fn search() -> Html {
                         placeholder={"Search"}
                     />
                     <br/>
+
                     <label htmlFor="int-input-box" class=" text-xl">
                         {"Choose search method"}
                     </label>
-
                     // search method drop list
                     <select
                         class="border border-gray-200 rounded-md p-2"
@@ -181,6 +187,20 @@ pub fn search() -> Html {
                     >
                         <option value="desc">{"Desc"}</option>
                         <option value="asc">{"Asc"}</option>
+                    </select>
+                    <br/>
+
+                    // favorite filter
+                    <label htmlFor="int-input-box" class=" text-xl">
+                        {"Favorite filter"}
+                    </label>
+                    <select
+                        class="border border-gray-200 rounded-md p-2"
+                        onchange={favorite_filter_on_change}
+                    >
+                        <option value="all">{"All"}</option>
+                        <option value="favorite">{"Favorite"}</option>
+                        <option value="not_favorite">{"NotFavorite"}</option>
                     </select>
                     <br/>
 
