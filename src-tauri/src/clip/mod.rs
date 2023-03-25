@@ -13,10 +13,14 @@ use crate::{config::ConfigMutex, error};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Clip {
-    pub text: String,   // the text of the clip
-    pub timestamp: i64, // in seconds
-    pub id: i64,        // the id of the clip
-    pub favorite: bool, // if the clip is a favorite
+    /// the text of the clip
+    pub text: String,   
+    /// in seconds
+    pub timestamp: i64, 
+    /// the id of the clip
+    pub id: i64,        
+    ///  if the clip is a favorite 1 means true, 0 means false
+    pub favorite: bool,
 }
 
 impl Clip {
@@ -398,13 +402,53 @@ impl ClipData {
         Ok(id)
     }
 
-    pub fn toggle_favorite_clip(&mut self, _id: i64) -> Result<bool, error::Error> {
-        // toggle the favorite status of a clip
-        // if the clip is not in the cache, return an error
-        // return the new favorite status
-        // TODO
+    /// change the clip favorite state to the target state
+    pub fn change_favorite_clip(&mut self, id: i64, target: bool) -> Result<(), error::Error> {
+        // change the clip favorite state to the target state
+        // change the clip in the cache
+        // change the clip in the database
 
-        Ok(true)
+        // change the clip in the cache
+        let clip = self.clips.cached_clips.get_mut(&id);
+        if let Some(clip) = clip {
+            clip.clip.favorite = target;
+        }
+
+        // change the clip in the database
+        let mut statement = self
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare("UPDATE clips SET favorite = ? WHERE id = ?")
+            .unwrap();
+        
+        let target = if target { 1 } else { 0 };
+        statement
+        .bind::<&[(_, Value)]>(
+            &[
+                (1, target.into()),
+                (2, id.into()),
+            ][..],
+        )
+        .unwrap();
+
+        match statement.next() {
+            Ok(State::Done) => {
+                Ok(())
+            }
+            Ok(State::Row) => {
+                Err(error::Error::UpdateClipsInDatabaseErr(
+                    format!("toggle clip favorite state of id: {} to favorite state:{}", id, target),
+                    "More than one row updated".to_string(),
+                ))
+            }
+            Err(err) => {
+                Err(error::Error::UpdateClipsInDatabaseErr(
+                    format!("toggle clip favorite state of id: {} to favorite state:{}", id, target),
+                    err.message.unwrap(),
+                ))
+            }
+        }
     }
 
     pub fn select_clip(&mut self, app: &AppHandle, id: i64) -> Result<(), error::Error> {
@@ -584,5 +628,22 @@ pub fn delete_clip_from_database(
     }
 
     // TODO send notification for successfully deleted
+    Ok(())
+}
+
+#[tauri::command]
+pub fn change_favorite_clip(
+    clip_data: tauri::State<ClipDataMutex>,
+    id: i64,
+    target: bool,
+) -> Result<(), String> {
+    let mut clip_data = clip_data.clip_data.lock().unwrap();
+    let res = clip_data.change_favorite_clip(id,target);
+
+    if let Err(err) = res {
+        return Err(err.to_string());
+    }
+
+    // TODO send notification for successfully changed
     Ok(())
 }

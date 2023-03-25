@@ -20,6 +20,10 @@ yew-router = "0.17"
 yew_icons = {version = "0.7", features = [
   "HeroiconsOutlineClipboardDocumentList",
   "BootstrapTrash",
+  "LucideTimer",
+  "BootstrapHeartHalf",
+  "BootstrapHeartFill",
+  "BootstrapHeart",
 ]}
 
 [workspace]

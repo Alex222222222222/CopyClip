@@ -72,6 +72,9 @@ pub enum Error {
     /// failed to write config file to the disk
     /// the first string is the error message from the std::fs::write
     WriteConfigFileErr(String),
+    /// update clips in database failed
+    /// the first string is the error message, the second string is the error message from the sqlite::execute
+    UpdateClipsInDatabaseErr(String, String),
 }
 
 impl Error {
@@ -99,6 +102,7 @@ impl Error {
             Error::SetSystemTrayTitleErr(title, err) => format!("failed to set system tray title, title: {title}, error message: {err}"),
             Error::SerializeConfigToJsonErr(err) => format!("serialize config to json error, error message: {err}"),
             Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {err}"),
+            Error::UpdateClipsInDatabaseErr(err, err2) => format!("update clips in database failed, error message: {err}, error message from sqlite::execute: {err2}"),
         }
     }
 

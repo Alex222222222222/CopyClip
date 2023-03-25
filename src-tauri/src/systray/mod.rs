@@ -30,6 +30,7 @@ pub fn create_tray_menu(num: i64) -> SystemTrayMenu {
     let first_page = CustomMenuItem::new("first_page".to_string(), "First page");
 
     let preferences = CustomMenuItem::new("preferences".to_string(), "Preferences");
+    let search = CustomMenuItem::new("search".to_string(), "Search");
 
     let quit = CustomMenuItem::new("quit".to_string(), "Quit");
     let mut tray_menu = SystemTrayMenu::new()
@@ -49,6 +50,7 @@ pub fn create_tray_menu(num: i64) -> SystemTrayMenu {
         .add_item(first_page)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(preferences)
+        .add_item(search)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit)
 }
@@ -144,6 +146,34 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
                 if let Err(e) = preferences_window {
                     // TODO send the error notification and panic
                     panic!("Failed to open preferences window: {e}");
+                }
+            });
+        }
+        "search" => {
+            // open the preferences window
+            // test if the window is already open
+            let windows = app.windows();
+            let preferences_window = windows.get("search");
+            if let Some(preferences_window) = preferences_window {
+                let res = preferences_window.show();
+                if let Err(e) = res {
+                    // TODO send the error notification and panic
+                    panic!("Failed to show search window: {e}");
+                }
+            }
+
+            let app_handle = app.app_handle();
+            std::thread::spawn(move || {
+                let preferences_window = tauri::WindowBuilder::new(
+                    &app_handle,
+                    "search",
+                    tauri::WindowUrl::App("search".into()),
+                )
+                .title("Copy Clip")
+                .build();
+                if let Err(e) = preferences_window {
+                    // TODO send the error notification and panic
+                    panic!("Failed to open search window: {e}");
                 }
             });
         }
