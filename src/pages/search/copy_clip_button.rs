@@ -33,7 +33,7 @@ pub fn copy_clip_button(
     html! {
         <td class="border border-gray-200">
             <button
-                class="font-bold py-2 px-2"
+                class="font-bold"
                 onclick={copy_clip_button_on_click}
             >
                 <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList}/>

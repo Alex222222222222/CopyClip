@@ -17,6 +17,7 @@ use crate::{
         clip::{Clip, SearchRes},
         copy_clip_button::CopyClipButton,
         fuzzy_search_text::FuzzySearchText,
+        order::{sort_search_res, OrderOrder},
         search::search_clips,
         search_state::{SearchState, SearchStateHtml},
     },
@@ -25,6 +26,7 @@ use crate::{
 mod clip;
 mod copy_clip_button;
 mod fuzzy_search_text;
+mod order;
 mod search;
 mod search_state;
 
@@ -52,7 +54,7 @@ pub fn search() -> Html {
     let text_data: UseStateHandle<String> = use_state_eq(|| "".to_string());
     let search_res_num: UseStateHandle<usize> = use_state_eq(|| 0);
     let order_by: UseStateHandle<String> = use_state_eq(|| "id".to_string());
-    let order_order: UseStateHandle<bool> = use_state_eq(|| true); // true is desc false is asc
+    let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Asc); // true is desc false is asc
 
     let text_data_1 = text_data.clone();
     let text_box_on_change = Callback::from(move |event: Event| {
@@ -69,6 +71,25 @@ pub fn search() -> Html {
             search_method_1.set(value);
             search_state_1.set(SearchState::NotStarted);
             search_res_1.set(SearchRes::new());
+        }
+    });
+
+    let order_by_1 = order_by.clone();
+    let order_method_on_change = Callback::from(move |event: Event| {
+        let value = event.target_unchecked_into::<HtmlInputElement>().value();
+        order_by_1.set(value);
+    });
+
+    let order_order_1 = order_order.clone();
+    let order_order_on_change = Callback::from(move |event: Event| {
+        let value = event
+            .target_unchecked_into::<HtmlInputElement>()
+            .value()
+            .to_lowercase();
+        if value == "desc" {
+            order_order_1.set(OrderOrder::Desc);
+        } else {
+            order_order_1.set(OrderOrder::Asc);
         }
     });
 
@@ -123,6 +144,7 @@ pub fn search() -> Html {
                     <label htmlFor="int-input-box" class=" text-xl">
                         {"Choose search method"}
                     </label>
+
                     // search method drop list
                     <select
                         class="border border-gray-200 rounded-md p-2"
@@ -133,6 +155,30 @@ pub fn search() -> Html {
                         <option value="normal">{"Normal"}</option>
                     </select>
                     <br/>
+
+                    <label htmlFor="int-input-box" class=" text-xl">
+                        {"Choose order method"}
+                    </label>
+                    // order method drop list
+                    <select
+                        class="border border-gray-200 rounded-md p-2"
+                        onchange={order_method_on_change}
+                    >
+                        <option value="time">{"Time"}</option>
+                        <option value="score">{"Score"}</option>
+                        <option value="id">{"Id"}</option>
+                        <option value="text">{"Text"}</option>
+                    </select>
+                    // order order drop list
+                    <select
+                        class="border border-gray-200 rounded-md p-2"
+                        onchange={order_order_on_change}
+                    >
+                        <option value="asc">{"Asc"}</option>
+                        <option value="desc">{"Desc"}</option>
+                    </select>
+                    <br/>
+
                     // search button
                     <button
                         class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
@@ -156,19 +202,13 @@ fn search_res_table_html(
     data: String,
     res: UseStateHandle<SearchRes>,
     order_by: UseStateHandle<String>,
-    order_order: UseStateHandle<bool>, // asc or desc
+    order_order: UseStateHandle<OrderOrder>, // asc or desc
 ) -> Html {
     let res = res.get();
     let mut res = res.lock().unwrap();
     log!("searching len got".to_owned() + &res.len().to_string());
-    let mut res: Vec<(i64, Clip)> = res.drain().collect();
-    res.sort_by(|a, b| {
-        if order_by.to_string() == "time" {
-            a.1.timestamp.cmp(&b.1.timestamp)
-        } else {
-            a.1.id.cmp(&b.1.id)
-        }
-    });
+    let res: Vec<(i64, Clip)> = res.drain().collect();
+    let res = sort_search_res(res, order_by.to_string(), order_order.to_bool());
 
     html! {
         <div class="flex flex-col">
