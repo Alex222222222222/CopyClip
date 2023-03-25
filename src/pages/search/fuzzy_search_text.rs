@@ -72,5 +72,5 @@ fn try_get_uft8_code(text: &str, start: usize, end: usize) -> (usize, String) {
         }
     }
 
-    (text.len() - 1, text[start..text.len()-1].to_string())
+    (text.len() - 1, text[start..text.len() - 1].to_string())
 }

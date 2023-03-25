@@ -283,7 +283,7 @@ pub fn fuzzy_search(
                 .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
                 .unwrap();
             statement
-                .bind::<&[(_, Value)]>(&[(1, min_id.into()),(2, max_id.into())][..])
+                .bind::<&[(_, Value)]>(&[(1, min_id.into()), (2, max_id.into())][..])
                 .unwrap();
             statement
         } else {
@@ -296,7 +296,9 @@ pub fn fuzzy_search(
                 )
                 .unwrap();
             statement
-                .bind::<&[(_, Value)]>(&[(1, min_id.into()),(2, max_id.into()), (3, favorite.into())][..])
+                .bind::<&[(_, Value)]>(
+                    &[(1, min_id.into()), (2, max_id.into()), (3, favorite.into())][..],
+                )
                 .unwrap();
 
             statement
@@ -367,7 +369,7 @@ pub fn fuzzy_search(
                     max_id,
                     err.message.unwrap(),
                 ));
-            },
+            }
         }
     }
 
