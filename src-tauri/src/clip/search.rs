@@ -16,7 +16,7 @@ use super::{Clip, ClipDataMutex};
 /// then this clip will not be in the search result.
 /// fts4 only searches for as a discrete token, not as a substring
 ///
-/// this will try select clips match data wil id between min_id and max_id and maximum limit clips
+/// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
 /// will return a list of clips
 pub fn fast_search(
     app: &AppHandle,
@@ -112,7 +112,7 @@ pub fn fast_search(
 /// SELECT count(*) FROM enrondata2 WHERE content LIKE '%linux%'
 /// will search for substring
 ///
-/// this will try select clips match data wil id between min_id and max_id and maximum limit clips
+/// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
 /// will return a list of clips
 pub fn normal_search(
     app: &AppHandle,
@@ -208,7 +208,8 @@ pub fn normal_search(
 /// fuzzy search for a clip in the database
 /// try iterate with each clip in the database such that the id is between min_id and max_id and maximum limit clips
 /// will return a list of clips
-/// 
+///
+/// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
 /// TODO fix fuzzy search return none problem
 pub fn fuzzy_search(
     app: &AppHandle,
@@ -219,21 +220,31 @@ pub fn fuzzy_search(
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let mut clip_data = clip_data.clip_data.lock().unwrap();
-    let min_id_pos = clip_data.get_id_pos_in_whole_list_of_ids(min_id);
-    let max_id_pos = clip_data.get_id_pos_in_whole_list_of_ids(max_id);
-    if min_id_pos.is_none() {
-        return Ok(HashMap::new());
+
+    // get min_id_pos and max_id_pos
+    let min_id_pos_res = clip_data.clips.whole_list_of_ids.binary_search(&min_id);
+    let max_id_pos_res = clip_data.clips.whole_list_of_ids.binary_search(&max_id);
+    let mut min_id_pos = 0;
+    let mut max_id_pos = 0;
+    if min_id_pos_res.is_ok() {
+        min_id_pos = min_id_pos_res.unwrap();
     }
-    if max_id_pos.is_none() {
-        return Ok(HashMap::new());
+    if max_id_pos_res.is_ok() {
+        max_id_pos = max_id_pos_res.unwrap();
     }
-    let min_id_pos = min_id_pos.unwrap();
-    let max_id_pos = max_id_pos.unwrap();
+    if let Err(err) = min_id_pos_res {
+        min_id_pos = err;
+    }
+    if let Err(err) = max_id_pos_res {
+        max_id_pos = err - 1;
+    }
 
     let mut clips = HashMap::new();
     let mut count = 0;
-    let mut pos = max_id_pos - 1;
-    while pos >= min_id_pos && count < limit {
+    let mut pos = max_id_pos + 1;
+    while pos >= min_id_pos + 1 && count < limit {
+        pos -= 1;
+        println!("pos: {}", pos);
         let id = clip_data.clips.whole_list_of_ids.get(pos as usize);
         if id.is_none() {
             continue;
@@ -251,7 +262,6 @@ pub fn fuzzy_search(
         }
         clips.insert(clip.id, clip);
         count += 1;
-        pos -= 1;
     }
 
     Ok(clips)
@@ -323,3 +333,5 @@ pub fn search_clips(
         }
     }
 }
+
+// TODO add regexp search
