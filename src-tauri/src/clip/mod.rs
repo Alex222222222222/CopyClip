@@ -6,7 +6,6 @@ pub mod search;
 use std::{cmp::Ordering, collections::HashMap};
 
 use serde::{Deserialize, Serialize};
-use sqlite::{State, Value};
 use tauri::{api::notification::Notification, AppHandle, ClipboardManager, Manager};
 
 use crate::{config::ConfigMutex, error};
@@ -61,8 +60,8 @@ impl Default for Clips {
 
 #[derive(Default)]
 pub struct ClipData {
-    pub clips: Clips,                                // the clips
-    database_connection: Option<sqlite::Connection>, // the connection to the database
+    pub clips: Clips,                                  // the clips
+    database_connection: Option<rusqlite::Connection>, // the connection to the database
 }
 
 pub struct ClipDataMutex {
@@ -196,60 +195,24 @@ impl ClipData {
             .unwrap()
             .prepare("SELECT * FROM clips WHERE id = ?")
             .unwrap();
-        statement.bind((1, id)).unwrap();
 
-        let state = statement.next();
-        if let Err(err) = state {
+        let res = statement.query_row([id], |row| {
+            let favorite: i64 = row.get(3)?;
+            Ok(Clip {
+                id: row.get(0)?,
+                text: row.get(1)?,
+                timestamp: row.get(2)?,
+                favorite: favorite == 1,
+            })
+        });
+
+        if let Err(err) = res {
             return Err(error::Error::GetClipDataFromDatabaseErr(
                 id,
-                err.message.unwrap(),
+                err.to_string(),
             ));
         }
-        let state = state.unwrap();
-        if state == State::Done {
-            return Err(error::Error::ClipNotFoundErr(id));
-        }
-
-        let text = statement.read::<String, _>("text");
-        if let Err(err) = text {
-            return Err(error::Error::GetClipDataFromDatabaseErr(
-                id,
-                err.message.unwrap(),
-            ));
-        }
-
-        let timestamp = statement.read::<i64, _>("timestamp");
-        if let Err(err) = timestamp {
-            return Err(error::Error::GetClipDataFromDatabaseErr(
-                id,
-                err.message.unwrap(),
-            ));
-        }
-
-        let id_new = statement.read::<i64, _>("id");
-        if let Err(err) = id_new {
-            return Err(error::Error::GetClipDataFromDatabaseErr(
-                id,
-                err.message.unwrap(),
-            ));
-        }
-        let id = id_new.unwrap();
-
-        let favorite = statement.read::<i64, _>("favorite");
-        if let Err(err) = favorite {
-            return Err(error::Error::GetClipDataFromDatabaseErr(
-                id,
-                err.message.unwrap(),
-            ));
-        }
-        let favorite = favorite.unwrap() == 1;
-
-        let clip = Clip {
-            text: text.unwrap(),
-            timestamp: timestamp.unwrap(),
-            id,
-            favorite,
-        };
+        let clip = res.unwrap();
 
         self.clips.cached_clips.insert(
             id,
@@ -262,7 +225,7 @@ impl ClipData {
             },
         );
 
-        Ok(clip)
+        return Ok(clip);
     }
 
     pub fn get_current_clip(&mut self) -> Result<Clip, error::Error> {
@@ -282,48 +245,38 @@ impl ClipData {
             .unwrap()
             .prepare("DELETE FROM clips WHERE id = ?")
             .unwrap();
-        statement.bind((1, id)).unwrap();
+        let res = statement.execute([id]);
+        if let Err(err) = res {
+            return Err(error::Error::DeleteClipFromDatabaseErr(id, err.to_string()));
+        }
 
-        match statement.next() {
-            Ok(State::Done) => {
-                // delete from the whole list of ids
-                // get the position of the id in the whole list of ids
-                let pos = self.get_id_pos_in_whole_list_of_ids(id);
-                let current_clip_pos =
-                    self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
-                if let Some(pos) = pos {
-                    // if pos is before the current clip, decrease the current clip by 1
-                    // if pos is the current clip, set the current clip to -1
-                    if let Some(current_clip_pos) = current_clip_pos {
-                        match pos.cmp(&current_clip_pos) {
-                            Ordering::Less => {
-                                self.clips.current_clip = *self
-                                    .clips
-                                    .whole_list_of_ids
-                                    .get(current_clip_pos as usize - 1)
-                                    .unwrap();
-                            }
-                            Ordering::Equal => {
-                                self.clips.current_clip = -1;
-                            }
-                            Ordering::Greater => {}
-                        }
-                    } else {
+        // delete from the whole list of ids
+        // get the position of the id in the whole list of ids
+        let pos = self.get_id_pos_in_whole_list_of_ids(id);
+        let current_clip_pos = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
+        if let Some(pos) = pos {
+            // if pos is before the current clip, decrease the current clip by 1
+            // if pos is the current clip, set the current clip to -1
+            if let Some(current_clip_pos) = current_clip_pos {
+                match pos.cmp(&current_clip_pos) {
+                    Ordering::Less => {
+                        self.clips.current_clip = *self
+                            .clips
+                            .whole_list_of_ids
+                            .get(current_clip_pos as usize - 1)
+                            .unwrap();
+                    }
+                    Ordering::Equal => {
                         self.clips.current_clip = -1;
                     }
-                    self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
+                    Ordering::Greater => {}
                 }
-                Ok(())
+            } else {
+                self.clips.current_clip = -1;
             }
-            Ok(State::Row) => Err(error::Error::DeleteClipFromDatabaseErr(
-                id,
-                "More than one row deleted".to_string(),
-            )),
-            Err(err) => Err(error::Error::DeleteClipFromDatabaseErr(
-                id,
-                err.message.unwrap(),
-            )),
+            self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
         }
+        Ok(())
     }
 
     /// create a new clip in the database and return the id of the new clip
@@ -347,33 +300,12 @@ impl ClipData {
         let mut statement = connection
             .prepare("INSERT INTO clips (id, text, timestamp, favorite) VALUES (?, ?, ?, ?)")
             .unwrap();
-        statement
-            .bind::<&[(_, Value)]>(
-                &[
-                    (1, id.into()),
-                    (2, text.clone().into()),
-                    (3, timestamp.into()),
-                    (4, 0.into()),
-                ][..],
-            )
-            .unwrap();
-
-        match statement.next() {
-            Ok(State::Done) => {
-                // do noting
-            }
-            Ok(State::Row) => {
-                return Err(error::Error::InsertClipIntoDatabaseErr(
-                    text,
-                    "More than one row inserted".to_string(),
-                ));
-            }
-            Err(err) => {
-                return Err(error::Error::InsertClipIntoDatabaseErr(
-                    text,
-                    err.message.unwrap(),
-                ));
-            }
+        let res = statement.execute([id.to_string(), text.clone(), timestamp.to_string(), "0".to_string()]);
+        if let Err(err) = res {
+            return Err(error::Error::InsertClipIntoDatabaseErr(
+                text,
+                err.to_string(),
+            ));
         }
 
         let clip = Clip {
@@ -422,28 +354,19 @@ impl ClipData {
             .prepare("UPDATE clips SET favorite = ? WHERE id = ?")
             .unwrap();
 
-        let target = if target { 1 } else { 0 };
-        statement
-            .bind::<&[(_, Value)]>(&[(1, target.into()), (2, id.into())][..])
-            .unwrap();
-
-        match statement.next() {
-            Ok(State::Done) => Ok(()),
-            Ok(State::Row) => Err(error::Error::UpdateClipsInDatabaseErr(
+        let target: i64 = if target { 1 } else { 0 };
+        let res = statement.execute([target, id]);
+        if let Err(err) = res {
+            return Err(error::Error::UpdateClipsInDatabaseErr(
                 format!(
                     "toggle clip favorite state of id: {} to favorite state:{}",
                     id, target
                 ),
-                "More than one row updated".to_string(),
-            )),
-            Err(err) => Err(error::Error::UpdateClipsInDatabaseErr(
-                format!(
-                    "toggle clip favorite state of id: {} to favorite state:{}",
-                    id, target
-                ),
-                err.message.unwrap(),
-            )),
+                err.to_string(),
+            ));
         }
+
+        Ok(())
     }
 
     pub fn select_clip(&mut self, app: &AppHandle, id: i64) -> Result<(), error::Error> {

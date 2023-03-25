@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use sqlite::{State, Value};
 use sublime_fuzzy::best_match;
 use tauri::{AppHandle, Manager};
 
@@ -28,106 +27,106 @@ pub fn fast_search(
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().unwrap();
-    let mut statement = if favorite == -1 {
+    let res = if favorite == -1 {
         let mut statement = clip_data
-        .database_connection
-        .as_ref()
-        .unwrap()
-        .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
-        .unwrap();
-        statement
-            .bind::<&[(_, Value)]>(
-                &[
-                    (1, min_id.into()),
-                    (2, max_id.into()),
-                    (3, data.into()),
-                    (4, limit.into()),
-                ][..],
-            )
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
             .unwrap();
-        statement
-    } else {
-        let mut statement = clip_data
-        .database_connection
-        .as_ref()
-        .unwrap()
-        .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
-        .unwrap();
-        statement
-            .bind::<&[(_, Value)]>(
-                &[
-                    (1, min_id.into()),
-                    (2, max_id.into()),
-                    (3, data.into()),
-                    (4, limit.into()),
-                ][..],
-            )
-            .unwrap();
-        statement
-    };
-    let mut clips = HashMap::new();
-    loop {
-        let state = statement.next();
-        match state {
-            Ok(State::Done) => {
-                break;
-            }
-            Ok(State::Row) => {
-                let id = statement.read::<i64, _>("id");
-                if let Err(err) = id {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let id = id.unwrap();
+        let res = statement.query_map(
+            [
+                min_id.to_string(),
+                max_id.to_string(),
+                data,
+                limit.to_string(),
+            ],
+            |row| {
+                let favorite: i64 = row.get(3)?;
+                Ok(Clip {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    timestamp: row.get(2)?,
+                    favorite: favorite == 1,
+                })
+            },
+        );
 
-                let text = statement.read::<String, _>("text");
-                if let Err(err) = text {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let text = text.unwrap();
+        if let Err(err) = res {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                -1,
+                err.to_string(),
+            ));
+        }
 
-                let timestamp = statement.read::<i64, _>("timestamp");
-                if let Err(err) = timestamp {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let timestamp = timestamp.unwrap();
+        let res = res.unwrap();
+        let mut clips = HashMap::new();
 
-                let favorite = statement.read::<i64, _>("favorite");
-                if let Err(err) = favorite {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let favorite = favorite.unwrap() == 1;
-
-                let clip = Clip {
-                    id,
-                    text,
-                    timestamp,
-                    favorite,
-                };
-                clips.insert(clip.id, clip);
-            }
-            Err(err) => {
-                println!("{}", err.message.clone().unwrap());
+        for clip in res {
+            if let Err(err) = clip {
                 return Err(error::Error::GetClipDataFromDatabaseErr(
                     -1,
-                    err.message.unwrap(),
+                    err.to_string(),
                 ));
             }
+            let clip = clip.unwrap();
+            clips.insert(clip.id, clip);
         }
-    }
 
-    Ok(clips)
+        clips
+    } else {
+        let mut statement = clip_data
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
+            .unwrap();
+        let res = statement.query_map(
+            [
+                min_id.to_string(),
+                max_id.to_string(),
+                favorite.to_string(),
+                data,
+                limit.to_string(),
+            ],
+            |row| {
+                let favorite: i64 = row.get(3)?;
+                Ok(Clip {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    timestamp: row.get(2)?,
+                    favorite: favorite == 1,
+                })
+            },
+        );
+
+        if let Err(err) = res {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                -1,
+                err.to_string(),
+            ));
+        }
+
+        let res = res.unwrap();
+        let mut clips = HashMap::new();
+
+        for clip in res {
+            if let Err(err) = clip {
+                return Err(error::Error::GetClipDataFromDatabaseErr(
+                    -1,
+                    err.to_string(),
+                ));
+            }
+            let clip = clip.unwrap();
+            clips.insert(clip.id, clip);
+        }
+
+        clips
+    };
+
+    println!("fast search result: {:?}", res);
+
+    Ok(res)
 }
 
 /// normal search for a clip in the database
@@ -146,111 +145,111 @@ pub fn normal_search(
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().unwrap();
-    let mut statement = if favorite == -1 {
+    let res = if favorite == -1 {
         let mut statement = clip_data
-        .database_connection
-        .as_ref()
-        .unwrap()
-        .prepare(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
-        )
-        .unwrap();
-        statement
-            .bind::<&[(_, Value)]>(
-                &[
-                    (1, min_id.into()),
-                    (2, max_id.into()),
-                    (3, ("%".to_string() + data.as_str() + "%").into()),
-                    (4, limit.into()),
-                ][..],
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare(
+                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
             )
             .unwrap();
-        statement
-    } else {
-        let mut statement = clip_data
-        .database_connection
-        .as_ref()
-        .unwrap()
-        .prepare(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text Like ? ORDER BY id DESC LIMIT ?",
-        )
-        .unwrap();
-        statement
-            .bind::<&[(_, Value)]>(
-                &[
-                    (1, min_id.into()),
-                    (2, max_id.into()),
-                    (4, favorite.into()),
-                    (3, ("%".to_string() + data.as_str() + "%").into()),
-                    (4, limit.into()),
-                ][..],
-            )
-            .unwrap();
+        let res = statement.query_map(
+            [
+                min_id.to_string(),
+                max_id.to_string(),
+                "%".to_string() + data.as_str() + "%",
+                limit.to_string(),
+            ],
+            |row| {
+                let favorite: i64 = row.get(3)?;
+                Ok(Clip {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    timestamp: row.get(2)?,
+                    favorite: favorite == 1,
+                })
+            },
+        );
 
-        statement
-    };
-    let mut clips = HashMap::new();
-    loop {
-        let state = statement.next();
-        match state {
-            Ok(State::Done) => {
-                break;
-            }
-            Ok(State::Row) => {
-                let id = statement.read::<i64, _>("id");
-                if let Err(err) = id {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let id = id.unwrap();
+        if let Err(err) = res {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                -1,
+                err.to_string(),
+            ));
+        }
 
-                let text = statement.read::<String, _>("text");
-                if let Err(err) = text {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let text = text.unwrap();
+        let res = res.unwrap();
 
-                let timestamp = statement.read::<i64, _>("timestamp");
-                if let Err(err) = timestamp {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let timestamp = timestamp.unwrap();
+        let mut clips = HashMap::new();
 
-                let favorite = statement.read::<i64, _>("favorite");
-                if let Err(err) = favorite {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    ));
-                }
-                let favorite = favorite.unwrap() == 1;
-
-                let clip = Clip {
-                    id,
-                    text,
-                    timestamp,
-                    favorite,
-                };
-                clips.insert(clip.id, clip);
-            }
-            Err(err) => {
+        for clip in res {
+            if let Err(err) = clip {
                 return Err(error::Error::GetClipDataFromDatabaseErr(
                     -1,
-                    err.message.unwrap(),
+                    err.to_string(),
                 ));
             }
+            let clip = clip.unwrap();
+            clips.insert(clip.id, clip);
         }
-    }
 
-    Ok(clips)
+        clips
+    } else {
+        let mut statement = clip_data
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare(
+                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text Like ? ORDER BY id DESC LIMIT ?",
+            )
+            .unwrap();
+
+        let res = statement.query_map(
+            [
+                min_id.to_string(),
+                max_id.to_string(),
+                favorite.to_string(),
+                "%".to_string() + data.as_str() + "%",
+                limit.to_string(),
+            ],
+            |row| {
+                let favorite: i64 = row.get(3)?;
+                Ok(Clip {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    timestamp: row.get(2)?,
+                    favorite: favorite == 1,
+                })
+            },
+        );
+
+        if let Err(err) = res {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                -1,
+                err.to_string(),
+            ));
+        }
+
+        let res = res.unwrap();
+
+        let mut clips = HashMap::new();
+
+        for clip in res {
+            if let Err(err) = clip {
+                return Err(error::Error::GetClipDataFromDatabaseErr(
+                    -1,
+                    err.to_string(),
+                ));
+            }
+            let clip = clip.unwrap();
+            clips.insert(clip.id, clip);
+        }
+
+        clips
+    };
+
+    Ok(res)
 }
 
 /// fuzzy search for a clip in the database
@@ -274,17 +273,35 @@ pub fn fuzzy_search(
     let mut clips = HashMap::new();
 
     while max_id >= min_id && count < limit {
-        let mut statement = if favorite == -1 {
+        let clip = if favorite == -1 {
             let mut statement = clip_data
                 .database_connection
                 .as_ref()
                 .unwrap()
                 .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
                 .unwrap();
-            statement
-                .bind::<&[(_, Value)]>(&[(1, min_id.into()), (2, max_id.into())][..])
-                .unwrap();
-            statement
+            let res = statement.query_row([min_id.to_string(), max_id.to_string()], |row| {
+                let favorite: i64 = row.get(3)?;
+                Ok(Clip {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    timestamp: row.get(2)?,
+                    favorite: favorite == 1,
+                })
+            });
+
+            if let Err(err) = res {
+                if err == rusqlite::Error::QueryReturnedNoRows {
+                    max_id -= 1;
+                    continue;
+                }
+                return Err(error::Error::GetClipDataFromDatabaseErr(
+                    -1,
+                    err.to_string(),
+                ));
+            }
+
+            res.unwrap()
         } else {
             let mut statement = clip_data
                 .database_connection
@@ -294,85 +311,168 @@ pub fn fuzzy_search(
                     "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? ORDER BY id DESC LIMIT 1",
                 )
                 .unwrap();
-            statement
-                .bind::<&[(_, Value)]>(
-                    &[(1, min_id.into()), (2, max_id.into()), (3, favorite.into())][..],
-                )
-                .unwrap();
 
-            statement
-        };
-        let state = statement.next();
-        match state {
-            Ok(State::Done) => {
-                break;
-            }
-            Ok(State::Row) => {
-                let id = statement.read::<i64, _>("id");
-                if let Err(err) = id {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        max_id,
-                        err.message.unwrap(),
-                    ));
-                }
-                let id = id.unwrap();
+            let res = statement.query_row(
+                [min_id.to_string(), max_id.to_string(), favorite.to_string()],
+                |row| {
+                    let favorite: i64 = row.get(3)?;
+                    Ok(Clip {
+                        id: row.get(0)?,
+                        text: row.get(1)?,
+                        timestamp: row.get(2)?,
+                        favorite: favorite == 1,
+                    })
+                },
+            );
 
-                let text = statement.read::<String, _>("text");
-                if let Err(err) = text {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        id,
-                        err.message.unwrap(),
-                    ));
-                }
-
-                let timestamp = statement.read::<i64, _>("timestamp");
-                if let Err(err) = timestamp {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        id,
-                        err.message.unwrap(),
-                    ));
-                }
-
-                let favorite = statement.read::<i64, _>("favorite");
-                if let Err(err) = favorite {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        id,
-                        err.message.unwrap(),
-                    ));
-                }
-                let favorite = favorite.unwrap() == 1;
-
-                let clip = Clip {
-                    text: text.unwrap(),
-                    timestamp: timestamp.unwrap(),
-                    id,
-                    favorite,
-                };
-
-                let result = best_match(&data, &clip.text);
-                if result.is_none() {
-                    max_id = id - 1;
+            if let Err(err) = res {
+                if err == rusqlite::Error::QueryReturnedNoRows {
+                    max_id -= 1;
                     continue;
                 }
-                let result = result.unwrap();
-                if result.score() <= 0 {
-                    max_id = id - 1;
-                    continue;
-                }
-                clips.insert(clip.id, clip);
-                max_id = id - 1;
-                count += 1;
-            }
-            Err(err) => {
                 return Err(error::Error::GetClipDataFromDatabaseErr(
-                    max_id,
-                    err.message.unwrap(),
+                    -1,
+                    err.to_string(),
                 ));
             }
+
+            res.unwrap()
+        };
+
+        let id = clip.id;
+
+        let result = best_match(&data, &clip.text);
+        if result.is_none() {
+            max_id = id - 1;
+            continue;
         }
+        let result = result.unwrap();
+        if result.score() <= 0 {
+            max_id = id - 1;
+            continue;
+        }
+        clips.insert(clip.id, clip);
+        max_id = id - 1;
+        count += 1;
     }
 
     Ok(clips)
+}
+
+/// regexp search for a clip in the database
+/// SELECT count(*) FROM enrondata2 WHERE content LIKE '%linux%'
+/// will search for substring
+///
+/// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
+/// will return a list of clips
+pub fn regexp_search(
+    app: &AppHandle,
+    min_id: i64,
+    max_id: i64,
+    limit: i64,
+    data: String,
+    favorite: i64,
+) -> Result<HashMap<i64, Clip>, error::Error> {
+    let clip_data = app.state::<ClipDataMutex>();
+    let clip_data = clip_data.clip_data.lock().unwrap();
+    let res = if favorite == -1 {
+        let mut statement = clip_data
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text REGEXP ? ORDER BY id DESC LIMIT ?")
+            .unwrap();
+        let res = statement.query_map(
+            [
+                min_id.to_string(),
+                max_id.to_string(),
+                data,
+                limit.to_string(),
+            ],
+            |row| {
+                let favorite: i64 = row.get(3)?;
+                Ok(Clip {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    timestamp: row.get(2)?,
+                    favorite: favorite == 1,
+                })
+            },
+        );
+
+        if let Err(err) = res {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                -1,
+                err.to_string(),
+            ));
+        }
+
+        let res = res.unwrap();
+        let mut clips = HashMap::new();
+
+        for clip in res {
+            if let Err(err) = clip {
+                return Err(error::Error::GetClipDataFromDatabaseErr(
+                    -1,
+                    err.to_string(),
+                ));
+            }
+            let clip = clip.unwrap();
+            clips.insert(clip.id, clip);
+        }
+
+        clips
+    } else {
+        let mut statement = clip_data
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text REGEXP ? ORDER BY id DESC LIMIT ?")
+            .unwrap();
+        let res = statement.query_map(
+            [
+                min_id.to_string(),
+                max_id.to_string(),
+                favorite.to_string(),
+                data,
+                limit.to_string(),
+            ],
+            |row| {
+                let favorite: i64 = row.get(3)?;
+                Ok(Clip {
+                    id: row.get(0)?,
+                    text: row.get(1)?,
+                    timestamp: row.get(2)?,
+                    favorite: favorite == 1,
+                })
+            },
+        );
+
+        if let Err(err) = res {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                -1,
+                err.to_string(),
+            ));
+        }
+
+        let res = res.unwrap();
+        let mut clips = HashMap::new();
+
+        for clip in res {
+            if let Err(err) = clip {
+                return Err(error::Error::GetClipDataFromDatabaseErr(
+                    -1,
+                    err.to_string(),
+                ));
+            }
+            let clip = clip.unwrap();
+            clips.insert(clip.id, clip);
+        }
+
+        clips
+    };
+
+    Ok(res)
 }
 
 #[tauri::command]
@@ -432,6 +532,13 @@ pub fn search_clips(
         }
         "normal" => {
             let res = normal_search(&app, minid, maxid, limit, data, favorite);
+            if let Err(err) = res {
+                return Err(err.message());
+            }
+            Ok(res.unwrap())
+        }
+        "regexp" => {
+            let res = regexp_search(&app, minid, maxid, limit, data, favorite);
             if let Err(err) = res {
                 return Err(err.message());
             }

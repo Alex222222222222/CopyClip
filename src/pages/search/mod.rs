@@ -164,6 +164,7 @@ pub fn search() -> Html {
                         <option value="fuzzy">{"Fuzzy"}</option>
                         <option value="fast">{"Fast"}</option>
                         <option value="normal">{"Normal"}</option>
+                        <option value="regexp">{"Regexp"}</option>
                     </select>
                     <br/>
 

@@ -1,4 +1,4 @@
-use sqlite::{Connection, State};
+use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 
 use crate::{backward, error};
@@ -49,11 +49,9 @@ fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connectio
     // create the database dir if it does not exist
     let database_path = app_data_dir.join("database");
 
-    let connection = sqlite::open(database_path.as_path());
-    if connection.is_err() {
-        return Err(error::Error::OpenDatabaseErr(
-            connection.err().unwrap().to_string(),
-        ));
+    let connection = Connection::open(database_path.as_path());
+    if let Err(err) = connection {
+        return Err(error::Error::OpenDatabaseErr(err.to_string()));
     }
 
     let connection = connection.unwrap();
@@ -80,23 +78,22 @@ fn get_save_version(connection: &Connection) -> Result<String, error::Error> {
         .prepare("SELECT version FROM version ORDER BY id DESC LIMIT 1")
         .unwrap();
 
-    match statement.next() {
-        Ok(State::Done) => {
-            Ok("0.0.0".to_string()) // if there is no version, it is the first time the app is launched
-        }
-        Ok(State::Row) => {
-            let version = statement.read::<String, _>("version");
-            if version.is_err() {
-                return Err(error::Error::GetVersionFromDatabaseErr(
-                    version.err().unwrap().to_string(),
-                ));
-            }
-            let version = version.unwrap();
+    let res = statement.query_row([], |row| {
+        let version: String = row.get(0)?;
+        Ok(version)
+    });
 
-            Ok(version)
+    if let Err(err) = res {
+        if err == rusqlite::Error::QueryReturnedNoRows {
+            return Ok("0.0.0".to_string());
         }
-        Err(err) => Err(error::Error::GetVersionFromDatabaseErr(err.to_string())),
+        if err.to_string() == "QueryReturnedNoRows" {
+            return Ok("0.0.0".to_string());
+        }
+        return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
     }
+
+    Ok(res.unwrap())
 }
 
 /// when the app is launched by the user for the first time, init the version table
@@ -112,25 +109,15 @@ fn first_lunch_the_version_table(
     let mut statement = connection
         .prepare("INSERT INTO version (version) VALUES (?)")
         .unwrap();
-    let res = statement.bind((1, current_version.as_str()));
-    if res.is_err() {
+    let res = statement.execute([current_version.clone()]);
+    if let Err(err) = res {
         return Err(error::Error::InsertVersionErr(
             current_version,
-            res.err().unwrap().to_string(),
+            err.to_string(),
         ));
     }
 
-    match statement.next() {
-        Ok(State::Done) => Ok(()),
-        Ok(State::Row) => Err(error::Error::InsertVersionErr(
-            current_version,
-            "Failed to insert version".to_string(),
-        )),
-        Err(err) => Err(error::Error::InsertVersionErr(
-            current_version,
-            err.to_string(),
-        )),
-    }
+    Ok(())
 }
 
 /// this function will
@@ -156,24 +143,15 @@ fn check_save_version_and_current_version(
     let mut statement = connection
         .prepare("INSERT INTO version (version) VALUES (?)")
         .unwrap();
-    let res = statement.bind((1, current_version.as_str()));
+    let res = statement.execute([current_version.clone()]);
     if let Err(err) = res {
         return Err(error::Error::InsertVersionErr(
             current_version,
-            err.to_string(),
+            format!("Failed to insert version message: {err}"),
         ));
     }
-    match statement.next() {
-        Ok(State::Done) => Ok(()),
-        Ok(State::Row) => Err(error::Error::InsertVersionErr(
-            current_version,
-            "Failed to insert version".to_string(),
-        )),
-        Err(err) => Err(error::Error::InsertVersionErr(
-            current_version,
-            err.to_string(),
-        )),
-    }
+
+    Ok(())
 }
 
 /// deal with the backward comparability based on the save version
@@ -224,27 +202,24 @@ fn backward_comparability(
 fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), error::Error> {
     // create the version table if it does not exist
     let mut statement = connection.prepare("CREATE TABLE IF NOT EXISTS version (id INTEGER PRIMARY KEY AUTOINCREMENT, version TEXT)").unwrap();
+    let res = statement.execute([]);
 
-    match statement.next() {
-        Ok(State::Done) => {
-            drop(statement);
-            // try get the save version
-            let save_version = get_save_version(connection);
-            let save_version = save_version?;
-
-            if save_version == *"0.0.0" {
-                first_lunch_the_version_table(connection, app)?;
-            } else {
-                check_save_version_and_current_version(save_version, connection, app)?;
-            }
-
-            Ok(())
-        }
-        Ok(State::Row) => Err(error::Error::CreateVersionTableErr(
-            "Failed to create version table".to_string(),
-        )),
-        Err(err) => Err(error::Error::CreateVersionTableErr(err.to_string())),
+    if let Err(err) = res {
+        return Err(error::Error::CreateVersionTableErr(err.to_string()));
     }
+
+    drop(statement);
+    // try get the save version
+    let save_version = get_save_version(connection);
+    let save_version = save_version?;
+
+    if save_version == *"0.0.0" {
+        first_lunch_the_version_table(connection, app)?;
+    } else {
+        check_save_version_and_current_version(save_version, connection, app)?;
+    }
+
+    Ok(())
 }
 
 /// init the clips table
@@ -263,14 +238,12 @@ fn init_clips_table(connection: &Connection) -> Result<(), error::Error> {
             )",
         )
         .unwrap();
-    let state = statement.next();
-    match state {
-        Ok(State::Done) => Ok(()),
-        Ok(State::Row) => Err(error::Error::CreateClipsTableErr(
-            "Failed to create clips table".to_string(),
-        )),
-        Err(err) => Err(error::Error::CreateClipsTableErr(err.to_string())),
+    let res = statement.execute([]);
+    if let Err(err) = res {
+        return Err(error::Error::CreateClipsTableErr(err.to_string()));
     }
+
+    Ok(())
 }
 
 /// init the clips mutex state
@@ -307,26 +280,21 @@ fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
         .prepare("SELECT id FROM clips")
         .unwrap();
 
-    loop {
-        match statement.next() {
-            Ok(State::Done) => {
-                break;
-            }
-            Ok(State::Row) => {
-                let id = statement.read::<i64, _>("id");
-
-                if let Err(err) = id {
-                    return Err(error::Error::GetWholeIdsErr(err.to_string()));
-                }
-                let id = id.unwrap();
-
-                ids.push(id);
-            }
-            Err(err) => {
-                return Err(error::Error::GetWholeIdsErr(err.to_string()));
-            }
-        }
+    let res = statement.query_map([], |row| row.get(0));
+    if let Err(err) = res {
+        return Err(error::Error::GetWholeIdsErr(err.to_string()));
     }
+
+    let res = res.unwrap();
+    for id in res {
+        if let Err(err) = id {
+            panic!("{}", err);
+            return Err(error::Error::GetWholeIdsErr(err.to_string()));
+        }
+        let id = id.unwrap();
+        ids.push(id);
+    }
+
     drop(statement);
     clip_data.clips.whole_list_of_ids = ids;
 
