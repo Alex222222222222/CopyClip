@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
-use yew::{function_component, html, Callback, Html, Properties, use_state_eq};
+use yew::{function_component, html, use_state_eq, Callback, Html, Properties};
 use yew_icons::{Icon, IconId};
 
 use crate::pages::invoke;
@@ -47,14 +47,14 @@ enum IsFavorite {
 }
 
 impl IsFavorite {
-    pub fn to_bool (&self) -> bool {
+    pub fn to_bool(&self) -> bool {
         match self {
             Self::True => true,
             Self::False => false,
         }
     }
 
-    pub fn from_bool (value: bool) -> Self {
+    pub fn from_bool(value: bool) -> Self {
         if value {
             Self::True
         } else {

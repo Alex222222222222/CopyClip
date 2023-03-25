@@ -7,7 +7,7 @@ use std::{cmp::Ordering, collections::HashMap};
 
 use serde::{Deserialize, Serialize};
 use sqlite::{State, Value};
-use tauri::{AppHandle, ClipboardManager, Manager};
+use tauri::{api::notification::Notification, AppHandle, ClipboardManager, Manager};
 
 use crate::{config::ConfigMutex, error};
 
@@ -606,12 +606,23 @@ pub fn copy_clip_to_clipboard(
         return Err(err.message());
     }
 
-    // TODO send notification for successfully copied
+    let res = Notification::new(&app.config().tauri.bundle.identifier)
+        .title("Clip copied to clipboard.")
+        .icon("icons/clip.png")
+        .show();
+    if let Err(err) = res {
+        #[cfg(debug_assertions)]
+        println!("Error: {err}");
+
+        return Err(err.to_string());
+    }
+
     Ok(())
 }
 
 #[tauri::command]
 pub fn delete_clip_from_database(
+    app: tauri::AppHandle,
     clip_data: tauri::State<ClipDataMutex>,
     id: i64,
 ) -> Result<(), String> {
@@ -622,12 +633,22 @@ pub fn delete_clip_from_database(
         return Err(err.to_string());
     }
 
-    // TODO send notification for successfully deleted
+    let res = Notification::new(&app.config().tauri.bundle.identifier)
+        .title("Clip deleted from database.")
+        .icon("icons/clip.png")
+        .show();
+    if let Err(err) = res {
+        #[cfg(debug_assertions)]
+        println!("Error: {err}");
+
+        return Err(err.to_string());
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub fn change_favorite_clip(
+    app: tauri::AppHandle,
     clip_data: tauri::State<ClipDataMutex>,
     id: i64,
     target: bool,
@@ -639,6 +660,15 @@ pub fn change_favorite_clip(
         return Err(err.to_string());
     }
 
-    // TODO send notification for successfully changed
+    let res = Notification::new(&app.config().tauri.bundle.identifier)
+        .title("Clip favorite status changed.")
+        .icon("icons/clip.png")
+        .show();
+    if let Err(err) = res {
+        #[cfg(debug_assertions)]
+        println!("Error: {err}");
+
+        return Err(err.to_string());
+    }
     Ok(())
 }

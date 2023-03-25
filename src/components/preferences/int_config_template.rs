@@ -67,11 +67,10 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     html! {
         <div class="flex flex-col">
             <label htmlFor="int-input-box" class=" text-xl">
-                {label}
+                {label.clone()}
             </label>
             <input
-                // TODO change the id of input box here
-                id="int-input-box"
+                id={format!("{}-input-box", label)}
                 type="number"
                 class="border border-gray-200 rounded-md p-2"
                 onchange={on_change}

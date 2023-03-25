@@ -258,7 +258,6 @@ pub fn normal_search(
 /// will return a list of clips
 ///
 /// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
-/// TODO fix fuzzy search return none problem
 pub fn fuzzy_search(
     app: &AppHandle,
     min_id: i64,
