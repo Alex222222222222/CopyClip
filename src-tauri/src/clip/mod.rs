@@ -19,6 +19,21 @@ pub struct Clip {
     pub favorite: bool, // if the clip is a favorite
 }
 
+impl Clip {
+    /// copy the clip to the clipboard
+    pub fn copy_clip_to_clipboard(&self, app: &AppHandle) -> Result<(), error::Error> {
+        let mut clipboard_manager = app.clipboard_manager();
+        let res = clipboard_manager.write_text(self.text.clone());
+        if let Err(e) = res {
+            return Err(error::Error::WriteToSystemClipboardErr(
+                self.text.clone(),
+                e.to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Clips {
     pub current_clip: i64,                 // the id of the current clip
@@ -405,14 +420,7 @@ impl ClipData {
         let c = c.unwrap();
         self.clips.current_clip = id;
 
-        let mut clipboard_manager = app.clipboard_manager();
-        let res = clipboard_manager.write_text(c.text.clone());
-        if res.is_err() {
-            return Err(error::Error::WriteToSystemClipboardErr(
-                c.text,
-                res.err().unwrap().to_string(),
-            ));
-        }
+        c.copy_clip_to_clipboard(app)?;
 
         Ok(())
     }
@@ -540,4 +548,25 @@ pub fn trim_clip_text(text: String, l: i64) -> String {
     }
     res.push_str("...");
     res
+}
+
+#[tauri::command]
+pub fn copy_clip_to_clipboard(
+    app: tauri::AppHandle,
+    clip_data: tauri::State<ClipDataMutex>,
+    id: i64,
+) -> Result<(), String> {
+    let mut clip_data = clip_data.clip_data.lock().unwrap();
+    let clip_data = clip_data.get_clip(id);
+    if let Err(err) = clip_data {
+        return Err(err.message());
+    }
+    let clip_data = clip_data.unwrap();
+    let res = clip_data.copy_clip_to_clipboard(&app);
+    if let Err(err) = res {
+        return Err(err.message());
+    }
+
+    // TODO send notification for successfully copied
+    Ok(())
 }

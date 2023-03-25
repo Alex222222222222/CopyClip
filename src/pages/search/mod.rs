@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-
 use gloo_console::log;
 
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen::to_value;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use wasm_bindgen_futures::spawn_local;
 use yew::{
@@ -12,26 +9,24 @@ use yew::{
 };
 
 use web_sys::{Event, HtmlInputElement};
+use yew_icons::{Icon, IconId};
 
 use crate::{
     components::head_bar::HeadBar,
     pages::search::{
-        clip::{Clip, ClipRes, SearchRes},
+        clip::{Clip, SearchRes},
+        copy_clip_button::CopyClipButton,
+        fuzzy_search_text::FuzzySearchText,
         search::search_clips,
-        search_state::{SearchState, SearchStateHtml}, fuzzy_search_text::FuzzySearchText,
+        search_state::{SearchState, SearchStateHtml},
     },
 };
 
 mod clip;
+mod copy_clip_button;
+mod fuzzy_search_text;
 mod search;
 mod search_state;
-mod fuzzy_search_text;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "tauri"])]
-    async fn invoke(cmd: &str, args: JsValue) -> JsValue;
-}
 
 /// empty args
 #[derive(Clone, Debug, Default, PartialEq, Properties, Serialize, Deserialize)]
@@ -192,23 +187,27 @@ fn search_res_table_html(
                         // the fuzzy score of the clip
                         <th class="border border-gray-200">{ "Score" }</th>
                         // copy the clip button icon
-                        <th class="border border-gray-200">{ "Copy" }</th>
+                        <th class="border border-gray-200">
+                            <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList}/>
+                        </th>
+                        // delete the clip button icon
+                        <th class="border border-gray-200">{ "Delete" }</th>
                         // only part of the clip, if the user want to see the whole clip, he can click the link which will lead to the clip page
                         <th class="border border-gray-200 w-8/12">{ "Clip" }</th>
                     </tr>
                 </thead>
                 <tbody>
                     {
-                        res.into_iter().map(|(_, clip)| {
+                        res.into_iter().map(|(id, clip)| {
                             html! {
                                 <tr>
                                     <td class="border border-gray-200">{"Tick Box"}</td>
                                     <td class="border border-gray-200">{clip.timestamp}</td>
                                     <td class="border border-gray-200">{clip.favorite}</td>
                                     <td class="border border-gray-200">{clip.score}</td>
-                                    <td class="border border-gray-200">{"Copy Button"}</td>
+                                    <CopyClipButton id = {id}></CopyClipButton>
+                                    <td class="border border-gray-200">{"Delete Button"}</td>
                                     <FuzzySearchText text={clip.text} data={data.clone()}></FuzzySearchText>
-                                    // <td class="border border-gray-200">{text}</td>
                                 </tr>
                             }
                         }).collect::<Html>()

@@ -94,6 +94,7 @@ fn main() {
             config::command::set_max_clip_len,
             config::command::get_search_clip_per_page,
             config::command::set_search_clip_per_page,
+            clip::copy_clip_to_clipboard,
             clip::search::search_clips,
             clip::search::get_max_id,
             greet,
