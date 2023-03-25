@@ -4,9 +4,15 @@ use gloo_console::log;
 use serde_wasm_bindgen::to_value;
 use yew::UseStateHandle;
 
-use crate::pages::{search::{SearchArgs, clip::{ClipRes, Clip}}, invoke};
+use crate::pages::{
+    invoke,
+    search::{
+        clip::{Clip, ClipRes},
+        SearchArgs,
+    },
+};
 
-use super::{search_state::SearchState, clip::SearchRes, EmptyArg};
+use super::{clip::SearchRes, search_state::SearchState, EmptyArg};
 
 /// search for a clip in the database
 ///

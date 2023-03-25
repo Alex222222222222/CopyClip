@@ -1,8 +1,8 @@
 /// this is the package containing all the related error types
 /// some of them contain error message and some of them contain additional information
 ///
-
 // Path: src-tauri/src/error.rs
+use std::fmt;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum Error {
@@ -109,8 +109,10 @@ impl Error {
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.message()
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message())
     }
 }

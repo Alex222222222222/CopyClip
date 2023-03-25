@@ -26,7 +26,7 @@ fn switch(routes: Route) -> Html {
         Route::Preferences => html! {
             <Preferences />
         },
-        Route::Search => html! { 
+        Route::Search => html! {
             <Search />
         },
         Route::Index => html! {

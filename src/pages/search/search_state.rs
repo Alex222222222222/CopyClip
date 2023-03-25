@@ -16,10 +16,7 @@ impl SearchState {
     }
 
     pub fn is_err(&self) -> bool {
-        match self {
-            SearchState::Error(_) => true,
-            _ => false,
-        }
+        matches!(self, SearchState::Error(_))
     }
 }
 

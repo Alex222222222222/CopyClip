@@ -28,7 +28,6 @@ pub fn fuzzy_search_text(props: &FuzzySearchTextProps) -> Html {
     let mut end = 0;
     let text = res
         .continuous_matches()
-        .into_iter()
         .map(|data: ContinuousMatch| {
             end = data.start();
             let before = &text[start..end];
