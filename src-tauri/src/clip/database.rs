@@ -1,7 +1,7 @@
 use sqlite::{Connection, State};
 use tauri::{AppHandle, Manager};
 
-use crate::error;
+use crate::{backward, error};
 
 use super::ClipDataMutex;
 
@@ -149,7 +149,7 @@ fn check_save_version_and_current_version(
     }
 
     // if the save version is not the same as the current version, trigger the backward comparability
-    let res = backward_comparability(app, save_version);
+    let res = backward_comparability(app, connection, save_version);
     res?;
 
     // update the version table
@@ -177,7 +177,39 @@ fn check_save_version_and_current_version(
 }
 
 /// deal with the backward comparability based on the save version
-fn backward_comparability(_app: &AppHandle, _save_version: String) -> Result<(), error::Error> {
+fn backward_comparability(
+    _app: &AppHandle,
+    connection: &Connection,
+    save_version: String,
+) -> Result<(), error::Error> {
+    // get the three version number from save_version
+    let version = save_version.split('.').collect::<Vec<&str>>();
+    if version.len() != 3 {
+        return Err(error::Error::GetVersionFromDatabaseErr(
+            "The version number is not correct".to_string(),
+        ));
+    }
+    let major = version[0].parse::<i32>();
+    let minor = version[1].parse::<i32>();
+    let patch = version[2].parse::<i32>();
+
+    if major.is_err() || minor.is_err() || patch.is_err() {
+        return Err(error::Error::GetVersionFromDatabaseErr(
+            "The version number is not correct".to_string(),
+        ));
+    }
+
+    let major = major.unwrap();
+    let minor = minor.unwrap();
+    let _patch = patch.unwrap();
+
+    // deal with the backward comparability
+    // if the major version is 0, the minor version is smaller than 3, need to upgrade the database to 0.3.0
+    if major == 0 && minor < 3 {
+        // upgrade the database to 0.3.0
+        let res = backward::v0_2_x_to_0_3_0_database::upgrade(connection);
+        res?
+    }
     Ok(())
 }
 
@@ -221,7 +253,16 @@ fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), er
 ///     - create the clips table if it does not exist
 fn init_clips_table(connection: &Connection) -> Result<(), error::Error> {
     // create the clips table if it does not exist
-    let mut statement = connection.prepare("CREATE TABLE IF NOT EXISTS clips (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, timestamp INTEGER, favorite INTEGER)").unwrap();
+    let mut statement = connection
+        .prepare(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS clips USING fts4(
+                id INTEGER PRIMARY KEY,
+                text TEXT,
+                timestamp INTEGER, 
+                favorite INTEGER,
+            )",
+        )
+        .unwrap();
     let state = statement.next();
     match state {
         Ok(State::Done) => Ok(()),

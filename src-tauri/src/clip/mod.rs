@@ -1,6 +1,7 @@
 pub mod cache;
 pub mod database;
 pub mod monitor;
+pub mod search;
 
 use std::{cmp::Ordering, collections::HashMap};
 
@@ -12,10 +13,29 @@ use crate::{config::ConfigMutex, error};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Clip {
-    pub text: String,   // the text of the clip
-    pub timestamp: i64, // in seconds
-    pub id: i64,        // the id of the clip
-    pub favorite: bool, // if the clip is a favorite
+    /// the text of the clip
+    pub text: String,
+    /// in seconds
+    pub timestamp: i64,
+    /// the id of the clip
+    pub id: i64,
+    ///  if the clip is a favorite 1 means true, 0 means false
+    pub favorite: bool,
+}
+
+impl Clip {
+    /// copy the clip to the clipboard
+    pub fn copy_clip_to_clipboard(&self, app: &AppHandle) -> Result<(), error::Error> {
+        let mut clipboard_manager = app.clipboard_manager();
+        let res = clipboard_manager.write_text(self.text.clone());
+        if let Err(e) = res {
+            return Err(error::Error::WriteToSystemClipboardErr(
+                self.text.clone(),
+                e.to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,11 +143,10 @@ impl ClipData {
         max_page
     }
 
+    /// get the position of the id in the whole list of ids
+    /// if the id is not in the list, return None
+    /// use binary search
     pub fn get_id_pos_in_whole_list_of_ids(&self, id: i64) -> Option<i64> {
-        // get the position of the id in the whole list of ids
-        // if the id is not in the list, return None
-        // use binary search
-
         let pos = self.clips.whole_list_of_ids.binary_search(&id);
         if pos.is_err() {
             return None;
@@ -307,8 +326,13 @@ impl ClipData {
         }
     }
 
+    /// create a new clip in the database and return the id of the new clip
     pub fn new_clip(&mut self, text: String) -> Result<i64, error::Error> {
-        // create a new clip in the database and return the id of the new clip
+        let id: i64 = if let Some(id) = self.clips.whole_list_of_ids.last() {
+            *id + 1
+        } else {
+            1
+        };
 
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -321,97 +345,105 @@ impl ClipData {
         }
         let connection = connection.as_ref().unwrap();
         let mut statement = connection
-            .prepare("INSERT INTO clips (text, timestamp, favorite) VALUES (?, ?, ?)")
+            .prepare("INSERT INTO clips (id, text, timestamp, favorite) VALUES (?, ?, ?, ?)")
             .unwrap();
         statement
             .bind::<&[(_, Value)]>(
                 &[
-                    (1, text.clone().into()),
-                    (2, timestamp.into()),
-                    (3, 0.into()),
+                    (1, id.into()),
+                    (2, text.clone().into()),
+                    (3, timestamp.into()),
+                    (4, 0.into()),
                 ][..],
             )
             .unwrap();
 
         match statement.next() {
             Ok(State::Done) => {
-                // try to get the id of the new clip by searching for the clip with the same timestamp
-                let mut statement = self
-                    .database_connection
-                    .as_ref()
-                    .unwrap()
-                    .prepare("SELECT * FROM clips WHERE timestamp = ?")
-                    .unwrap();
-                statement.bind((1, timestamp)).unwrap();
-
-                match statement.next() {
-                    Ok(State::Row) => {
-                        let id = statement.read::<i64, _>("id");
-                        if id.is_err() {
-                            return Err(error::Error::GetClipDataFromDatabaseErr(
-                                -1,
-                                format!(
-                                    "Failed to get id of new clip: {}",
-                                    id.err().unwrap().message.unwrap()
-                                ),
-                            ));
-                        }
-                        let id = id.unwrap();
-
-                        let clip = Clip {
-                            text,
-                            timestamp,
-                            id,
-                            favorite: false,
-                        };
-
-                        self.clips.cached_clips.insert(
-                            id,
-                            ClipCache {
-                                clip,
-                                add_timestamp: std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_secs()
-                                    as i64,
-                            },
-                        );
-
-                        self.clips.whole_list_of_ids.push(id);
-
-                        // change the current clip to the last one
-                        self.clips.current_clip = id;
-
-                        Ok(id)
-                    }
-                    Ok(State::Done) => Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        "No row found".to_string(),
-                    )),
-                    Err(err) => Err(error::Error::GetClipDataFromDatabaseErr(
-                        -1,
-                        err.message.unwrap(),
-                    )),
-                }
+                // do noting
             }
-            Ok(State::Row) => Err(error::Error::InsertClipIntoDatabaseErr(
-                text,
-                "More than one row inserted".to_string(),
+            Ok(State::Row) => {
+                return Err(error::Error::InsertClipIntoDatabaseErr(
+                    text,
+                    "More than one row inserted".to_string(),
+                ));
+            }
+            Err(err) => {
+                return Err(error::Error::InsertClipIntoDatabaseErr(
+                    text,
+                    err.message.unwrap(),
+                ));
+            }
+        }
+
+        let clip = Clip {
+            text,
+            timestamp,
+            id,
+            favorite: false,
+        };
+
+        self.clips.cached_clips.insert(
+            id,
+            ClipCache {
+                clip,
+                add_timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs() as i64,
+            },
+        );
+
+        self.clips.whole_list_of_ids.push(id);
+
+        // change the current clip to the last one
+        self.clips.current_clip = id;
+
+        Ok(id)
+    }
+
+    /// change the clip favorite state to the target state
+    pub fn change_favorite_clip(&mut self, id: i64, target: bool) -> Result<(), error::Error> {
+        // change the clip favorite state to the target state
+        // change the clip in the cache
+        // change the clip in the database
+
+        // change the clip in the cache
+        let clip = self.clips.cached_clips.get_mut(&id);
+        if let Some(clip) = clip {
+            clip.clip.favorite = target;
+        }
+
+        // change the clip in the database
+        let mut statement = self
+            .database_connection
+            .as_ref()
+            .unwrap()
+            .prepare("UPDATE clips SET favorite = ? WHERE id = ?")
+            .unwrap();
+
+        let target = if target { 1 } else { 0 };
+        statement
+            .bind::<&[(_, Value)]>(&[(1, target.into()), (2, id.into())][..])
+            .unwrap();
+
+        match statement.next() {
+            Ok(State::Done) => Ok(()),
+            Ok(State::Row) => Err(error::Error::UpdateClipsInDatabaseErr(
+                format!(
+                    "toggle clip favorite state of id: {} to favorite state:{}",
+                    id, target
+                ),
+                "More than one row updated".to_string(),
             )),
-            Err(err) => Err(error::Error::InsertClipIntoDatabaseErr(
-                text,
+            Err(err) => Err(error::Error::UpdateClipsInDatabaseErr(
+                format!(
+                    "toggle clip favorite state of id: {} to favorite state:{}",
+                    id, target
+                ),
                 err.message.unwrap(),
             )),
         }
-    }
-
-    pub fn toggle_favorite_clip(&mut self, _id: i64) -> Result<bool, error::Error> {
-        // toggle the favorite status of a clip
-        // if the clip is not in the cache, return an error
-        // return the new favorite status
-        // TODO
-
-        Ok(true)
     }
 
     pub fn select_clip(&mut self, app: &AppHandle, id: i64) -> Result<(), error::Error> {
@@ -427,14 +459,7 @@ impl ClipData {
         let c = c.unwrap();
         self.clips.current_clip = id;
 
-        let mut clipboard_manager = app.clipboard_manager();
-        let res = clipboard_manager.write_text(c.text.clone());
-        if res.is_err() {
-            return Err(error::Error::WriteToSystemClipboardErr(
-                c.text,
-                res.err().unwrap().to_string(),
-            ));
-        }
+        c.copy_clip_to_clipboard(app)?;
 
         Ok(())
     }
@@ -562,4 +587,58 @@ pub fn trim_clip_text(text: String, l: i64) -> String {
     }
     res.push_str("...");
     res
+}
+
+#[tauri::command]
+pub fn copy_clip_to_clipboard(
+    app: tauri::AppHandle,
+    clip_data: tauri::State<ClipDataMutex>,
+    id: i64,
+) -> Result<(), String> {
+    let mut clip_data = clip_data.clip_data.lock().unwrap();
+    let clip_data = clip_data.get_clip(id);
+    if let Err(err) = clip_data {
+        return Err(err.message());
+    }
+    let clip_data = clip_data.unwrap();
+    let res = clip_data.copy_clip_to_clipboard(&app);
+    if let Err(err) = res {
+        return Err(err.message());
+    }
+
+    // TODO send notification for successfully copied
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_clip_from_database(
+    clip_data: tauri::State<ClipDataMutex>,
+    id: i64,
+) -> Result<(), String> {
+    let mut clip_data = clip_data.clip_data.lock().unwrap();
+    let res = clip_data.delete_clip(id);
+
+    if let Err(err) = res {
+        return Err(err.to_string());
+    }
+
+    // TODO send notification for successfully deleted
+    Ok(())
+}
+
+#[tauri::command]
+pub fn change_favorite_clip(
+    clip_data: tauri::State<ClipDataMutex>,
+    id: i64,
+    target: bool,
+) -> Result<(), String> {
+    let mut clip_data = clip_data.clip_data.lock().unwrap();
+    let res = clip_data.change_favorite_clip(id, target);
+
+    if let Err(err) = res {
+        return Err(err.to_string());
+    }
+
+    // TODO send notification for successfully changed
+    Ok(())
 }

@@ -1,8 +1,8 @@
 /// this is the package containing all the related error types
 /// some of them contain error message and some of them contain additional information
 ///
-
 // Path: src-tauri/src/error.rs
+use std::fmt;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub enum Error {
@@ -72,6 +72,9 @@ pub enum Error {
     /// failed to write config file to the disk
     /// the first string is the error message from the std::fs::write
     WriteConfigFileErr(String),
+    /// update clips in database failed
+    /// the first string is the error message, the second string is the error message from the sqlite::execute
+    UpdateClipsInDatabaseErr(String, String),
 }
 
 impl Error {
@@ -99,6 +102,21 @@ impl Error {
             Error::SetSystemTrayTitleErr(title, err) => format!("failed to set system tray title, title: {title}, error message: {err}"),
             Error::SerializeConfigToJsonErr(err) => format!("serialize config to json error, error message: {err}"),
             Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {err}"),
+            Error::UpdateClipsInDatabaseErr(err, err2) => format!("update clips in database failed, error message: {err}, error message from sqlite::execute: {err2}"),
         }
+    }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.message())
     }
 }
