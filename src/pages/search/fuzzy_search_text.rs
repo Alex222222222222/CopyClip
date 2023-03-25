@@ -12,9 +12,9 @@ pub struct FuzzySearchTextProps {
 #[function_component(FuzzySearchText)]
 pub fn fuzzy_search_text(props: &FuzzySearchTextProps) -> Html {
     let data = props.data.clone();
-    let mut text = props.text.clone();
+    let text = props.text.clone();
     // if text.len() > 500, text = text[0..500].to_string() + "...";
-    text.truncate(500);
+    let text = try_get_uft8_code(&text, 0, 500).1;
     let res = sublime_fuzzy::best_match(&data, &text);
     if res.is_none() {
         return html! {
@@ -72,5 +72,5 @@ fn try_get_uft8_code(text: &str, start: usize, end: usize) -> (usize, String) {
         }
     }
 
-    (text.len() - 1, text[start..end].to_string())
+    (text.len() - 1, text[start..text.len()-1].to_string())
 }

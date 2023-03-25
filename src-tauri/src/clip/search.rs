@@ -270,45 +270,20 @@ pub fn fuzzy_search(
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().unwrap();
 
-    // get min_id_pos and max_id_pos
-    let min_id_pos_res = clip_data.clips.whole_list_of_ids.binary_search(&min_id);
-    let max_id_pos_res = clip_data.clips.whole_list_of_ids.binary_search(&max_id);
-    let mut min_id_pos = 0;
-    let mut max_id_pos = 0;
-    if let Ok(pos) = max_id_pos_res {
-        max_id_pos = pos;
-    }
-    if let Ok(pos) = min_id_pos_res {
-        min_id_pos = pos;
-    }
-    if let Err(err) = max_id_pos_res {
-        max_id_pos = err - 1;
-    }
-    if let Err(err) = min_id_pos_res {
-        min_id_pos = err;
-    }
-
-    let mut clips = HashMap::new();
+    let mut max_id = max_id;
     let mut count = 0;
-    let mut pos = max_id_pos + 1;
-    while pos > min_id_pos && count < limit {
-        pos -= 1;
-        let id = clip_data.clips.whole_list_of_ids.get(pos);
-        if id.is_none() {
-            continue;
-        }
-        let id = id.unwrap();
-        let id = *id;
+    let mut clips = HashMap::new();
 
+    while max_id >= min_id && count < limit {
         let mut statement = if favorite == -1 {
             let mut statement = clip_data
                 .database_connection
                 .as_ref()
                 .unwrap()
-                .prepare("SELECT * FROM clips WHERE id = ? LIMIT 1")
+                .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
                 .unwrap();
             statement
-                .bind::<&[(_, Value)]>(&[(1, id.into())][..])
+                .bind::<&[(_, Value)]>(&[(1, min_id.into()),(2, max_id.into())][..])
                 .unwrap();
             statement
         } else {
@@ -316,10 +291,12 @@ pub fn fuzzy_search(
                 .database_connection
                 .as_ref()
                 .unwrap()
-                .prepare("SELECT * FROM clips WHERE id = ? AND favorite = ? LIMIT 1")
+                .prepare(
+                    "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? ORDER BY id DESC LIMIT 1",
+                )
                 .unwrap();
             statement
-                .bind::<&[(_, Value)]>(&[(1, id.into()), (2, favorite.into())][..])
+                .bind::<&[(_, Value)]>(&[(1, min_id.into()),(2, max_id.into()), (3, favorite.into())][..])
                 .unwrap();
 
             statement
@@ -327,9 +304,18 @@ pub fn fuzzy_search(
         let state = statement.next();
         match state {
             Ok(State::Done) => {
-                continue;
+                break;
             }
             Ok(State::Row) => {
+                let id = statement.read::<i64, _>("id");
+                if let Err(err) = id {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        max_id,
+                        err.message.unwrap(),
+                    ));
+                }
+                let id = id.unwrap();
+
                 let text = statement.read::<String, _>("text");
                 if let Err(err) = text {
                     return Err(error::Error::GetClipDataFromDatabaseErr(
@@ -345,15 +331,6 @@ pub fn fuzzy_search(
                         err.message.unwrap(),
                     ));
                 }
-
-                let id_new = statement.read::<i64, _>("id");
-                if let Err(err) = id_new {
-                    return Err(error::Error::GetClipDataFromDatabaseErr(
-                        id,
-                        err.message.unwrap(),
-                    ));
-                }
-                let id = id_new.unwrap();
 
                 let favorite = statement.read::<i64, _>("favorite");
                 if let Err(err) = favorite {
@@ -373,16 +350,24 @@ pub fn fuzzy_search(
 
                 let result = best_match(&data, &clip.text);
                 if result.is_none() {
+                    max_id = id - 1;
                     continue;
                 }
                 let result = result.unwrap();
                 if result.score() <= 0 {
+                    max_id = id - 1;
                     continue;
                 }
                 clips.insert(clip.id, clip);
+                max_id = id - 1;
                 count += 1;
             }
-            Err(_) => todo!(),
+            Err(err) => {
+                return Err(error::Error::GetClipDataFromDatabaseErr(
+                    max_id,
+                    err.message.unwrap(),
+                ));
+            },
         }
     }
 
