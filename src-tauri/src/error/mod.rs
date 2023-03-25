@@ -101,4 +101,16 @@ impl Error {
             Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {err}"),
         }
     }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
+
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
+    }
+
+    pub fn to_string(&self) -> String {
+        self.message()
+    }
 }
