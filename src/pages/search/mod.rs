@@ -19,6 +19,7 @@ use crate::{
         order::{sort_search_res, OrderOrder},
         search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
+        trash_clip_button::TrashClipButton,
     },
 };
 
@@ -28,6 +29,7 @@ mod fuzzy_search_text;
 mod order;
 mod search_clip;
 mod search_state;
+mod trash_clip_button;
 
 /// empty args
 #[derive(Clone, Debug, Default, PartialEq, Properties, Serialize, Deserialize)]
@@ -230,7 +232,9 @@ fn search_res_table_html(
                             <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList}/>
                         </th>
                         // delete the clip button icon
-                        <th class="border border-gray-200">{ "Delete" }</th>
+                        <th class="border border-gray-200">
+                            <Icon icon_id={IconId::BootstrapTrash}/>
+                        </th>
                         // only part of the clip, if the user want to see the whole clip, he can click the link which will lead to the clip page
                         <th class="border border-gray-200 w-8/12">{ "Clip" }</th>
                     </tr>
@@ -245,7 +249,7 @@ fn search_res_table_html(
                                     <td class="border border-gray-200">{clip.favorite}</td>
                                     <td class="border border-gray-200">{clip.score}</td>
                                     <CopyClipButton id = {id}></CopyClipButton>
-                                    <td class="border border-gray-200">{"Delete Button"}</td>
+                                    <TrashClipButton id = {id}></TrashClipButton>
                                     <FuzzySearchText text={clip.text} data={data.clone()}></FuzzySearchText>
                                 </tr>
                             }

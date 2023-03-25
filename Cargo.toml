@@ -18,6 +18,7 @@ yew = {version = "0.20", features = ["csr"]}
 yew-router = "0.17"
 yew_icons = {version = "0.7", features = [
   "HeroiconsOutlineClipboardDocumentList",
+  "BootstrapTrash",
 ]}
 
 [workspace]
