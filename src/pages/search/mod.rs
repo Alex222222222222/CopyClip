@@ -18,13 +18,14 @@ use crate::{
     pages::search::{
         clip::{Clip, ClipRes, SearchRes},
         search::search_clips,
-        search_state::{SearchState, SearchStateHtml},
+        search_state::{SearchState, SearchStateHtml}, fuzzy_search_text::FuzzySearchText,
     },
 };
 
 mod clip;
 mod search;
 mod search_state;
+mod fuzzy_search_text;
 
 #[wasm_bindgen]
 extern "C" {
@@ -149,7 +150,7 @@ pub fn search() -> Html {
                     <SearchStateHtml state={search_state.state()}></SearchStateHtml>
 
                     // search res
-                    {search_res_table_html(search_res, order_by,order_order)}
+                    {search_res_table_html(text_data.to_string(),search_res, order_by,order_order)}
                 </div>
             </div>
         </div>
@@ -157,6 +158,7 @@ pub fn search() -> Html {
 }
 
 fn search_res_table_html(
+    data: String,
     res: UseStateHandle<SearchRes>,
     order_by: UseStateHandle<String>,
     order_order: UseStateHandle<bool>, // asc or desc
@@ -197,8 +199,7 @@ fn search_res_table_html(
                 </thead>
                 <tbody>
                     {
-                        res.into_iter().map(|(id, clip)| {
-                            log!("searching".to_owned() + &id.to_string());
+                        res.into_iter().map(|(_, clip)| {
                             html! {
                                 <tr>
                                     <td class="border border-gray-200">{"Tick Box"}</td>
@@ -206,7 +207,8 @@ fn search_res_table_html(
                                     <td class="border border-gray-200">{clip.favorite}</td>
                                     <td class="border border-gray-200">{clip.score}</td>
                                     <td class="border border-gray-200">{"Copy Button"}</td>
-                                    <td class="border border-gray-200">{clip.text}</td>
+                                    <FuzzySearchText text={clip.text} data={data.clone()}></FuzzySearchText>
+                                    // <td class="border border-gray-200">{text}</td>
                                 </tr>
                             }
                         }).collect::<Html>()
