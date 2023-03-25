@@ -14,11 +14,11 @@ use crate::{config::ConfigMutex, error};
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Clip {
     /// the text of the clip
-    pub text: String,   
+    pub text: String,
     /// in seconds
-    pub timestamp: i64, 
+    pub timestamp: i64,
     /// the id of the clip
-    pub id: i64,        
+    pub id: i64,
     ///  if the clip is a favorite 1 means true, 0 means false
     pub favorite: bool,
 }
@@ -421,33 +421,28 @@ impl ClipData {
             .unwrap()
             .prepare("UPDATE clips SET favorite = ? WHERE id = ?")
             .unwrap();
-        
+
         let target = if target { 1 } else { 0 };
         statement
-        .bind::<&[(_, Value)]>(
-            &[
-                (1, target.into()),
-                (2, id.into()),
-            ][..],
-        )
-        .unwrap();
+            .bind::<&[(_, Value)]>(&[(1, target.into()), (2, id.into())][..])
+            .unwrap();
 
         match statement.next() {
-            Ok(State::Done) => {
-                Ok(())
-            }
-            Ok(State::Row) => {
-                Err(error::Error::UpdateClipsInDatabaseErr(
-                    format!("toggle clip favorite state of id: {} to favorite state:{}", id, target),
-                    "More than one row updated".to_string(),
-                ))
-            }
-            Err(err) => {
-                Err(error::Error::UpdateClipsInDatabaseErr(
-                    format!("toggle clip favorite state of id: {} to favorite state:{}", id, target),
-                    err.message.unwrap(),
-                ))
-            }
+            Ok(State::Done) => Ok(()),
+            Ok(State::Row) => Err(error::Error::UpdateClipsInDatabaseErr(
+                format!(
+                    "toggle clip favorite state of id: {} to favorite state:{}",
+                    id, target
+                ),
+                "More than one row updated".to_string(),
+            )),
+            Err(err) => Err(error::Error::UpdateClipsInDatabaseErr(
+                format!(
+                    "toggle clip favorite state of id: {} to favorite state:{}",
+                    id, target
+                ),
+                err.message.unwrap(),
+            )),
         }
     }
 
@@ -638,7 +633,7 @@ pub fn change_favorite_clip(
     target: bool,
 ) -> Result<(), String> {
     let mut clip_data = clip_data.clip_data.lock().unwrap();
-    let res = clip_data.change_favorite_clip(id,target);
+    let res = clip_data.change_favorite_clip(id, target);
 
     if let Err(err) = res {
         return Err(err.to_string());

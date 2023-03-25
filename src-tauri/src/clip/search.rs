@@ -24,25 +24,47 @@ pub fn fast_search(
     max_id: i64,
     limit: i64,
     data: String,
+    favorite: i64,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().unwrap();
-    let mut statement = clip_data
+    let mut statement = if favorite == -1 {
+        let mut statement = clip_data
         .database_connection
         .as_ref()
         .unwrap()
         .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
         .unwrap();
-    statement
-        .bind::<&[(_, Value)]>(
-            &[
-                (1, min_id.into()),
-                (2, max_id.into()),
-                (3, data.into()),
-                (4, limit.into()),
-            ][..],
-        )
+        statement
+            .bind::<&[(_, Value)]>(
+                &[
+                    (1, min_id.into()),
+                    (2, max_id.into()),
+                    (3, data.into()),
+                    (4, limit.into()),
+                ][..],
+            )
+            .unwrap();
+        statement
+    } else {
+        let mut statement = clip_data
+        .database_connection
+        .as_ref()
+        .unwrap()
+        .prepare("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
         .unwrap();
+        statement
+            .bind::<&[(_, Value)]>(
+                &[
+                    (1, min_id.into()),
+                    (2, max_id.into()),
+                    (3, data.into()),
+                    (4, limit.into()),
+                ][..],
+            )
+            .unwrap();
+        statement
+    };
     let mut clips = HashMap::new();
     loop {
         let state = statement.next();
@@ -120,10 +142,12 @@ pub fn normal_search(
     max_id: i64,
     limit: i64,
     data: String,
+    favorite: i64,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().unwrap();
-    let mut statement = clip_data
+    let mut statement = if favorite == -1 {
+        let mut statement = clip_data
         .database_connection
         .as_ref()
         .unwrap()
@@ -131,16 +155,40 @@ pub fn normal_search(
             "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
         )
         .unwrap();
-    statement
-        .bind::<&[(_, Value)]>(
-            &[
-                (1, min_id.into()),
-                (2, max_id.into()),
-                (3, ("%".to_string() + data.as_str() + "%").into()),
-                (4, limit.into()),
-            ][..],
+        statement
+            .bind::<&[(_, Value)]>(
+                &[
+                    (1, min_id.into()),
+                    (2, max_id.into()),
+                    (3, ("%".to_string() + data.as_str() + "%").into()),
+                    (4, limit.into()),
+                ][..],
+            )
+            .unwrap();
+        statement
+    } else {
+        let mut statement = clip_data
+        .database_connection
+        .as_ref()
+        .unwrap()
+        .prepare(
+            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text Like ? ORDER BY id DESC LIMIT ?",
         )
         .unwrap();
+        statement
+            .bind::<&[(_, Value)]>(
+                &[
+                    (1, min_id.into()),
+                    (2, max_id.into()),
+                    (4, favorite.into()),
+                    (3, ("%".to_string() + data.as_str() + "%").into()),
+                    (4, limit.into()),
+                ][..],
+            )
+            .unwrap();
+
+        statement
+    };
     let mut clips = HashMap::new();
     loop {
         let state = statement.next();
@@ -217,9 +265,10 @@ pub fn fuzzy_search(
     max_id: i64,
     limit: i64,
     data: String,
+    favorite: i64, // 0: not favorite, 1: favorite, -1: all
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
-    let mut clip_data = clip_data.clip_data.lock().unwrap();
+    let clip_data = clip_data.clip_data.lock().unwrap();
 
     // get min_id_pos and max_id_pos
     let min_id_pos_res = clip_data.clips.whole_list_of_ids.binary_search(&min_id);
@@ -244,24 +293,97 @@ pub fn fuzzy_search(
     let mut pos = max_id_pos + 1;
     while pos > min_id_pos && count < limit {
         pos -= 1;
-        println!("pos: {}", pos);
         let id = clip_data.clips.whole_list_of_ids.get(pos);
         if id.is_none() {
             continue;
         }
         let id = id.unwrap();
         let id = *id;
-        let clip = clip_data.get_clip(id)?;
-        let result = best_match(&data, &clip.text);
-        if result.is_none() {
-            continue;
+
+        let mut statement = if favorite == -1 {
+            let mut statement = clip_data
+                .database_connection
+                .as_ref()
+                .unwrap()
+                .prepare("SELECT * FROM clips WHERE id = ? LIMIT 1")
+                .unwrap();
+            statement
+                .bind::<&[(_, Value)]>(&[(1, id.into())][..])
+                .unwrap();
+            statement
+        } else {
+            let mut statement = clip_data
+                .database_connection
+                .as_ref()
+                .unwrap()
+                .prepare("SELECT * FROM clips WHERE id = ? AND favorite = ? LIMIT 1")
+                .unwrap();
+            statement
+                .bind::<&[(_, Value)]>(&[(1, id.into()), (2, favorite.into())][..])
+                .unwrap();
+
+            statement
+        };
+        let state = statement.next();
+        match state {
+            Ok(State::Done) => {
+                continue;
+            }
+            Ok(State::Row) => {
+                let text = statement.read::<String, _>("text");
+                if let Err(err) = text {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        id,
+                        err.message.unwrap(),
+                    ));
+                }
+
+                let timestamp = statement.read::<i64, _>("timestamp");
+                if let Err(err) = timestamp {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        id,
+                        err.message.unwrap(),
+                    ));
+                }
+
+                let id_new = statement.read::<i64, _>("id");
+                if let Err(err) = id_new {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        id,
+                        err.message.unwrap(),
+                    ));
+                }
+                let id = id_new.unwrap();
+
+                let favorite = statement.read::<i64, _>("favorite");
+                if let Err(err) = favorite {
+                    return Err(error::Error::GetClipDataFromDatabaseErr(
+                        id,
+                        err.message.unwrap(),
+                    ));
+                }
+                let favorite = favorite.unwrap() == 1;
+
+                let clip = Clip {
+                    text: text.unwrap(),
+                    timestamp: timestamp.unwrap(),
+                    id,
+                    favorite,
+                };
+
+                let result = best_match(&data, &clip.text);
+                if result.is_none() {
+                    continue;
+                }
+                let result = result.unwrap();
+                if result.score() <= 0 {
+                    continue;
+                }
+                clips.insert(clip.id, clip);
+                count += 1;
+            }
+            Err(_) => todo!(),
         }
-        let result = result.unwrap();
-        if result.score() <= 0 {
-            continue;
-        }
-        clips.insert(clip.id, clip);
-        count += 1;
     }
 
     Ok(clips)
@@ -299,6 +421,7 @@ pub fn search_clips(
     data: String,
     minid: i64,
     maxid: i64,
+    favorite: i64, // 0: not favorite, 1: favorite, -1: all
     searchmethod: String,
 ) -> Result<HashMap<i64, Clip>, String> {
     let config = app.state::<ConfigMutex>();
@@ -308,21 +431,21 @@ pub fn search_clips(
 
     match searchmethod.as_str() {
         "fuzzy" => {
-            let res = fuzzy_search(&app, minid, maxid, limit, data);
+            let res = fuzzy_search(&app, minid, maxid, limit, data, favorite);
             if let Err(err) = res {
                 return Err(err.message());
             }
             Ok(res.unwrap())
         }
         "fast" => {
-            let res = fast_search(&app, minid, maxid, limit, data);
+            let res = fast_search(&app, minid, maxid, limit, data, favorite);
             if let Err(err) = res {
                 return Err(err.message());
             }
             Ok(res.unwrap())
         }
         "normal" => {
-            let res = normal_search(&app, minid, maxid, limit, data);
+            let res = normal_search(&app, minid, maxid, limit, data, favorite);
             if let Err(err) = res {
                 return Err(err.message());
             }

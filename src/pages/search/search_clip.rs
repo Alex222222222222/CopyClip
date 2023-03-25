@@ -1,18 +1,29 @@
 use std::collections::HashMap;
 
 use gloo_console::log;
+use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use yew::UseStateHandle;
 
 use crate::pages::{
     invoke,
-    search::{
-        clip::{Clip, ClipRes},
-        SearchArgs,
-    },
+    search::clip::{Clip, ClipRes},
 };
 
 use super::{clip::SearchRes, search_state::SearchState, EmptyArg};
+
+/// search args
+#[derive(Serialize, Deserialize)]
+struct SearchArgs {
+    pub data: String,
+    pub minid: i64,
+    /// -1 means no limit
+    pub maxid: i64,
+    /// fuzzy, fast, normal
+    pub searchmethod: String,
+    /// favorite filter
+    pub favorite: i64,
+}
 
 /// search for a clip in the database
 ///
@@ -27,6 +38,7 @@ pub async fn search_clips(
     search_state: UseStateHandle<SearchState>,
     search_res: UseStateHandle<SearchRes>,
     search_res_num: UseStateHandle<usize>,
+    favorite_filter: i64,
 ) -> Result<(), String> {
     let search_method_now = search_method.clone().to_string();
     let data_now = data.clone().to_string();
@@ -51,6 +63,7 @@ pub async fn search_clips(
             minid: -1,
             maxid: max_id,
             searchmethod: search_method.clone().to_string(),
+            favorite: favorite_filter,
         })
         .unwrap();
 
