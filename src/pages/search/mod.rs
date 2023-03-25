@@ -19,7 +19,7 @@ use crate::{
         order::{sort_search_res, OrderOrder},
         search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
-        trash_clip_button::TrashClipButton,
+        trash_clip_button::TrashClipButton, time_display::TimeDisplay,
     },
 };
 
@@ -30,6 +30,7 @@ mod order;
 mod search_clip;
 mod search_state;
 mod trash_clip_button;
+mod time_display;
 
 /// empty args
 #[derive(Clone, Debug, Default, PartialEq, Properties, Serialize, Deserialize)]
@@ -245,7 +246,7 @@ fn search_res_table_html(
                             html! {
                                 <tr>
                                     <td class="border border-gray-200">{"Tick Box"}</td>
-                                    <td class="border border-gray-200">{clip.timestamp}</td>
+                                    <TimeDisplay time={clip.timestamp}></TimeDisplay>
                                     <td class="border border-gray-200">{clip.favorite}</td>
                                     <td class="border border-gray-200">{clip.score}</td>
                                     <CopyClipButton id = {id}></CopyClipButton>
