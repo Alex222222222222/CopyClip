@@ -15,22 +15,25 @@ use crate::{
     pages::search::{
         clip::{Clip, SearchRes},
         copy_clip_button::CopyClipButton,
+        favorite_button::FavoriteClipButton,
         fuzzy_search_text::FuzzySearchText,
         order::{sort_search_res, OrderOrder},
         search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
-        trash_clip_button::TrashClipButton, time_display::TimeDisplay,
+        time_display::TimeDisplay,
+        trash_clip_button::TrashClipButton,
     },
 };
 
 mod clip;
 mod copy_clip_button;
+mod favorite_button;
 mod fuzzy_search_text;
 mod order;
 mod search_clip;
 mod search_state;
-mod trash_clip_button;
 mod time_display;
+mod trash_clip_button;
 
 /// empty args
 #[derive(Clone, Debug, Default, PartialEq, Properties, Serialize, Deserialize)]
@@ -55,8 +58,8 @@ pub fn search() -> Html {
     let search_state: UseStateHandle<SearchState> = use_state(|| SearchState::NotStarted);
     let text_data: UseStateHandle<String> = use_state_eq(|| "".to_string());
     let search_res_num: UseStateHandle<usize> = use_state_eq(|| 0);
-    let order_by: UseStateHandle<String> = use_state_eq(|| "id".to_string());
-    let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Asc); // true is desc false is asc
+    let order_by: UseStateHandle<String> = use_state_eq(|| "time".to_string());
+    let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Desc); // true is desc false is asc
 
     let text_data_1 = text_data.clone();
     let text_box_on_change = Callback::from(move |event: Event| {
@@ -176,8 +179,8 @@ pub fn search() -> Html {
                         class="border border-gray-200 rounded-md p-2"
                         onchange={order_order_on_change}
                     >
-                        <option value="asc">{"Asc"}</option>
                         <option value="desc">{"Desc"}</option>
+                        <option value="asc">{"Asc"}</option>
                     </select>
                     <br/>
 
@@ -220,12 +223,14 @@ fn search_res_table_html(
             <table class="table-auto">
                 <thead>
                     <tr>
-                        // select box, a icon
-                        <th class="border border-gray-200">{ "Box" }</th>
                         // the time of the clip
-                        <th class="border border-gray-200">{ "Time" }</th>
+                        <th class="border border-gray-200">
+                            <Icon icon_id={IconId::LucideTimer}/>
+                        </th>
                         // favorite or not, use heart icon
-                        <th class="border border-gray-200">{ "Favorite" }</th>
+                        <th class="border border-gray-200">
+                            <Icon icon_id={IconId::BootstrapHeartHalf}/>
+                        </th>
                         // the fuzzy score of the clip
                         <th class="border border-gray-200">{ "Score" }</th>
                         // copy the clip button icon
@@ -245,9 +250,8 @@ fn search_res_table_html(
                         res.into_iter().map(|(id, clip)| {
                             html! {
                                 <tr>
-                                    <td class="border border-gray-200">{"Tick Box"}</td>
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
-                                    <td class="border border-gray-200">{clip.favorite}</td>
+                                    <FavoriteClipButton id={id} is_favorite={clip.favorite}></FavoriteClipButton>
                                     <td class="border border-gray-200">{clip.score}</td>
                                     <CopyClipButton id = {id}></CopyClipButton>
                                     <TrashClipButton id = {id}></TrashClipButton>
