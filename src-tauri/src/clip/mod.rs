@@ -124,11 +124,10 @@ impl ClipData {
         max_page
     }
 
+    /// get the position of the id in the whole list of ids
+    /// if the id is not in the list, return None
+    /// use binary search
     pub fn get_id_pos_in_whole_list_of_ids(&self, id: i64) -> Option<i64> {
-        // get the position of the id in the whole list of ids
-        // if the id is not in the list, return None
-        // use binary search
-
         let pos = self.clips.whole_list_of_ids.binary_search(&id);
         if pos.is_err() {
             return None;
@@ -339,7 +338,7 @@ impl ClipData {
                 ][..],
             )
             .unwrap();
-            
+
         match statement.next() {
             Ok(State::Done) => {
                 // do noting

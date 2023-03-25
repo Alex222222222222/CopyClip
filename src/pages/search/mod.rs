@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::collections::HashMap;
 
 use gloo_console::log;
 
@@ -16,46 +13,18 @@ use yew::{
 
 use web_sys::{Event, HtmlInputElement};
 
-use crate::components::head_bar::HeadBar;
+use crate::{
+    components::head_bar::HeadBar,
+    pages::search::{
+        clip::{Clip, ClipRes, SearchRes},
+        search::search_clips,
+        search_state::{SearchState, SearchStateHtml},
+    },
+};
 
-#[derive(Clone, PartialEq, Properties, Serialize, Deserialize)]
-struct EmptyArg {}
-
-#[derive(Clone, PartialEq, Properties, Serialize, Deserialize)]
-struct Clip {
-    id: i64,
-    text: String,
-    timestamp: i64,
-    favorite: bool,
-    score: i64,
-}
-
-impl Clip {
-    fn from_clip_res(search_data: String, clip_res: ClipRes) -> Self {
-        let res = sublime_fuzzy::best_match(&search_data, &clip_res.text);
-        let score = if res.is_none() {
-            0
-        } else {
-            res.unwrap().score()
-        } as i64;
-
-        Self {
-            id: clip_res.id,
-            text: clip_res.text,
-            timestamp: clip_res.timestamp,
-            favorite: clip_res.favorite,
-            score,
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Properties, Serialize, Deserialize)]
-struct ClipRes {
-    id: i64,
-    text: String,
-    timestamp: i64,
-    favorite: bool,
-}
+mod clip;
+mod search;
+mod search_state;
 
 #[wasm_bindgen]
 extern "C" {
@@ -63,53 +32,20 @@ extern "C" {
     async fn invoke(cmd: &str, args: JsValue) -> JsValue;
 }
 
+/// empty args
+#[derive(Clone, Debug, Default, PartialEq, Properties, Serialize, Deserialize)]
+struct EmptyArg {}
+
+/// search args
 #[derive(Serialize, Deserialize)]
 struct SearchArgs {
-    data: String,
-    minid: i64,
+    pub data: String,
+    pub minid: i64,
     /// -1 means no limit
-    maxid: i64,
+    pub maxid: i64,
     /// fuzzy, fast, normal
-    searchmethod: String,
+    pub searchmethod: String,
     // limit get from the use config by the backend
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-enum SearchState {
-    NotStarted,
-    Searching,
-    Error(String),
-    Finished,
-}
-
-impl SearchState {
-    fn state(&self) -> SearchState {
-        self.clone()
-    }
-
-    fn is_err(&self) -> bool {
-        match self {
-            SearchState::Error(_) => true,
-            _ => false,
-        }
-    }
-}
-
-#[derive(Clone)]
-struct SearchRes {
-    res: Arc<Mutex<HashMap<i64, Clip>>>,
-}
-
-impl SearchRes {
-    fn new() -> Self {
-        Self {
-            res: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    fn get(&self) -> Arc<Mutex<HashMap<i64, Clip>>> {
-        self.res.clone()
-    }
 }
 
 #[function_component(Search)]
@@ -139,8 +75,6 @@ pub fn search() -> Html {
             search_res_1.set(SearchRes::new());
         }
     });
-
-    let search_state_html = search_state_html(search_state.state());
 
     let search_res_1 = search_res.clone();
     let search_method_1 = search_method.clone();
@@ -212,7 +146,7 @@ pub fn search() -> Html {
                     </button>
 
                     // search state
-                    {search_state_html}
+                    <SearchStateHtml state={search_state.state()}></SearchStateHtml>
 
                     // search res
                     {search_res_table_html(search_res, order_by,order_order)}
@@ -220,98 +154,6 @@ pub fn search() -> Html {
             </div>
         </div>
     }
-}
-
-/// search for a clip in the database
-///
-/// the method is decide by the input, and whenever the method is changed, the search will be reset
-///
-/// the search method is fuzzy, fast, normal
-///
-/// search state, if not finished, it will be None, if finished, it will be Some(Ok(())) or Some(Err(String))
-async fn search_clips(
-    data: UseStateHandle<String>,
-    search_method: UseStateHandle<String>,
-    search_state: UseStateHandle<SearchState>,
-    search_res: UseStateHandle<SearchRes>,
-    search_res_num: UseStateHandle<usize>,
-) -> Result<(), String> {
-    let search_method_now = search_method.clone().to_string();
-    let data_now = data.clone().to_string();
-    let args = to_value(&EmptyArg {}).unwrap();
-    let max_id = invoke("get_max_id", args).await;
-    let mut max_id = max_id.as_f64().unwrap() as i64 + 1;
-
-    // try get the search_res raw data
-    let search_res_clone = search_res.clone();
-    let search_res_clone = search_res_clone.get();
-    let search_res_clone_clone = search_res_clone.clone();
-    let mut search_res_clone = search_res_clone.lock().unwrap();
-
-    while max_id > 0
-        && search_method_now == search_method.to_string()
-        && data_now == data.to_string()
-    {
-        // the min_id is 0
-        // data is the value
-        // search_method is the search_method
-        let args = to_value(&SearchArgs {
-            data: data.clone().to_string(),
-            minid: -1,
-            maxid: max_id,
-            searchmethod: search_method.clone().to_string(),
-        })
-        .unwrap();
-
-        let res = invoke("search_clips", args).await;
-        log!("res", res.clone());
-        let res = serde_wasm_bindgen::from_value::<HashMap<String, ClipRes>>(res);
-        if let Ok(res) = res {
-            log!("current length ".to_owned() + &search_res_clone.len().to_string());
-            if res.len() == 0 {
-                break;
-            }
-            for (id, clip) in res {
-                log!("searching got id ".to_owned() + &id.to_string());
-                let id = str::parse::<i64>(id.as_str()).unwrap();
-                max_id -= 1;
-                if id < max_id {
-                    max_id = id;
-                }
-
-                /*
-                let res = sublime_fuzzy::best_match(data.as_str(), clip.text.as_str());
-                let clip = Clip {
-                    id: str::parse::<i64>(clip.id.as_str()).unwrap(),
-                    text: clip.text,
-                    timestamp: str::parse::<i64>(clip.timestamp.as_str()).unwrap(),
-                    favorite: str::parse::<bool>(clip.favorite.as_str()).unwrap(),
-                    score: res.unwrap().score() as i64,
-                };
-                */
-
-                search_res_clone.insert(id, Clip::from_clip_res(data.to_string(), clip));
-            }
-            log!("current length ".to_owned() + &search_res_clone.len().to_string());
-
-            search_res_num.set(search_res_clone.len());
-        } else {
-            let res = res.err().unwrap();
-            let err = res.to_string();
-            log!("res", err.clone());
-            search_state.set(SearchState::Error(err.clone()));
-            return Err(err);
-        }
-    }
-
-    if !search_state.is_err() {
-        search_res.set(SearchRes {
-            res: search_res_clone_clone,
-        });
-        search_state.set(SearchState::Finished);
-    }
-
-    Ok(())
 }
 
 fn search_res_table_html(
@@ -359,11 +201,11 @@ fn search_res_table_html(
                             log!("searching".to_owned() + &id.to_string());
                             html! {
                                 <tr>
+                                    <td class="border border-gray-200">{"Tick Box"}</td>
                                     <td class="border border-gray-200">{clip.timestamp}</td>
                                     <td class="border border-gray-200">{clip.favorite}</td>
                                     <td class="border border-gray-200">{clip.score}</td>
                                     <td class="border border-gray-200">{"Copy Button"}</td>
-                                    <td class="border border-gray-200">{"Tick Box"}</td>
                                     <td class="border border-gray-200">{clip.text}</td>
                                 </tr>
                             }
@@ -372,30 +214,5 @@ fn search_res_table_html(
                 </tbody>
             </table>
         </div>
-    }
-}
-
-fn search_state_html(state: SearchState) -> Html {
-    match state {
-        SearchState::NotStarted => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Press search to start"}
-            </label>
-        },
-        SearchState::Searching => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Searching"}
-            </label>
-        },
-        SearchState::Error(message) => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {message}
-            </label>
-        },
-        SearchState::Finished => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Search finished"}
-            </label>
-        },
     }
 }
