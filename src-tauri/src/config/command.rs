@@ -5,9 +5,9 @@ use crate::event::{CopyClipEvent, EventSender};
 use super::ConfigMutex;
 
 /// get the number of clips to show in the tray menu
-/// 
+///
 /// input: {}
-/// 
+///
 /// output: {
 ///    data: i64
 /// }
@@ -23,11 +23,11 @@ pub fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<String, Strin
 ///
 /// this will also rebuild the tray menu
 /// also trigger save config
-/// 
+///
 /// input: {
 ///     data: i64
 /// }
-/// 
+///
 /// output: {}
 #[tauri::command]
 pub async fn set_per_page_data<R: Runtime>(
@@ -49,9 +49,9 @@ pub async fn set_per_page_data<R: Runtime>(
 /// if the len is 0, then the clip will not be truncated
 ///
 /// this is used to prevent the tray menu from being too long
-/// 
+///
 /// input: {}
-/// 
+///
 /// output: {
 ///    i64.to_string()
 /// }
@@ -67,11 +67,11 @@ pub fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<String, String
 ///
 /// this will also rebuild the tray menu
 /// also trigger save config
-/// 
+///
 /// input: {
 ///     data: i64
 /// }
-/// 
+///
 /// output: {}
 #[tauri::command]
 pub async fn set_max_clip_len<R: Runtime>(
@@ -91,9 +91,9 @@ pub async fn set_max_clip_len<R: Runtime>(
 
 /// get search_clip_per_page
 /// this define how many clips to show per page in the search page
-/// 
+///
 /// input: {}
-/// 
+///
 /// output: {
 ///     i64.to_string()
 /// }
@@ -106,11 +106,11 @@ pub fn get_search_clip_per_page(config: State<'_, ConfigMutex>) -> Result<String
 }
 
 /// set search_clip_per_page
-/// 
+///
 /// input: {
 ///     data: i64
 /// }
-/// 
+///
 /// output: {}
 #[tauri::command]
 pub fn set_search_clip_per_page(

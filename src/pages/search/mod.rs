@@ -1,7 +1,6 @@
 use gloo_console::log;
 
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use wasm_bindgen_futures::spawn_local;
 use yew::{
     function_component, html, use_state, use_state_eq, Callback, Html, Properties, TargetCast,
@@ -18,7 +17,7 @@ use crate::{
         copy_clip_button::CopyClipButton,
         fuzzy_search_text::FuzzySearchText,
         order::{sort_search_res, OrderOrder},
-        search::search_clips,
+        search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
     },
 };
@@ -27,7 +26,7 @@ mod clip;
 mod copy_clip_button;
 mod fuzzy_search_text;
 mod order;
-mod search;
+mod search_clip;
 mod search_state;
 
 /// empty args
@@ -94,10 +93,10 @@ pub fn search() -> Html {
     });
 
     let search_res_1 = search_res.clone();
-    let search_method_1 = search_method.clone();
+    let search_method_1 = search_method;
     let search_state_1 = search_state.clone();
     let text_data_1 = text_data.clone();
-    let search_res_num_1 = search_res_num.clone();
+    let search_res_num_1 = search_res_num;
     let search_button_on_click = Callback::from(move |_| {
         let search_res_clone = search_res_1.clone();
         let search_method_clone = search_method_1.clone();

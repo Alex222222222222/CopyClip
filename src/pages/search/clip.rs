@@ -1,4 +1,7 @@
-use std::{sync::{Arc, Mutex}, collections::HashMap};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use serde::{Deserialize, Serialize};
 use yew::Properties;
@@ -17,11 +20,11 @@ impl Clip {
     /// create a new clip from the search data and the clip data
     pub fn from_clip_res(search_data: String, clip_res: ClipRes) -> Self {
         let res = sublime_fuzzy::best_match(&search_data, &clip_res.text);
-        let score = if res.is_none() {
-            0
+        let score = if let Some(score) = res {
+            score.score() as i64
         } else {
-            res.unwrap().score()
-        } as i64;
+            0
+        };
 
         Self {
             id: clip_res.id,

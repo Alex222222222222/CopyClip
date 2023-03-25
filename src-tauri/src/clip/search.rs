@@ -226,26 +226,26 @@ pub fn fuzzy_search(
     let max_id_pos_res = clip_data.clips.whole_list_of_ids.binary_search(&max_id);
     let mut min_id_pos = 0;
     let mut max_id_pos = 0;
-    if min_id_pos_res.is_ok() {
-        min_id_pos = min_id_pos_res.unwrap();
+    if let Ok(pos) = max_id_pos_res {
+        max_id_pos = pos;
     }
-    if max_id_pos_res.is_ok() {
-        max_id_pos = max_id_pos_res.unwrap();
-    }
-    if let Err(err) = min_id_pos_res {
-        min_id_pos = err;
+    if let Ok(pos) = min_id_pos_res {
+        min_id_pos = pos;
     }
     if let Err(err) = max_id_pos_res {
         max_id_pos = err - 1;
+    }
+    if let Err(err) = min_id_pos_res {
+        min_id_pos = err;
     }
 
     let mut clips = HashMap::new();
     let mut count = 0;
     let mut pos = max_id_pos + 1;
-    while pos >= min_id_pos + 1 && count < limit {
+    while pos > min_id_pos && count < limit {
         pos -= 1;
         println!("pos: {}", pos);
-        let id = clip_data.clips.whole_list_of_ids.get(pos as usize);
+        let id = clip_data.clips.whole_list_of_ids.get(pos);
         if id.is_none() {
             continue;
         }
@@ -312,25 +312,23 @@ pub fn search_clips(
             if let Err(err) = res {
                 return Err(err.message());
             }
-            return Ok(res.unwrap());
+            Ok(res.unwrap())
         }
         "fast" => {
             let res = fast_search(&app, minid, maxid, limit, data);
             if let Err(err) = res {
                 return Err(err.message());
             }
-            return Ok(res.unwrap());
+            Ok(res.unwrap())
         }
         "normal" => {
             let res = normal_search(&app, minid, maxid, limit, data);
             if let Err(err) = res {
                 return Err(err.message());
             }
-            return Ok(res.unwrap());
+            Ok(res.unwrap())
         }
-        _ => {
-            return Err("invalid search method".to_string());
-        }
+        _ => Err("invalid search method".to_string()),
     }
 }
 
