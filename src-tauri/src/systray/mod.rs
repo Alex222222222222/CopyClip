@@ -1,9 +1,10 @@
+use log::{info, warn};
 use tauri::{
     AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
     SystemTrayMenuItem,
 };
 
-use crate::{clip::ClipDataMutex, event::EventSender};
+use crate::{clip::ClipDataMutex, event::EventSender, log::panic_app};
 
 /// create the tray
 pub fn create_tray(num: i64) -> SystemTray {
@@ -129,8 +130,7 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
             if let Some(preferences_window) = preferences_window {
                 let res = preferences_window.show();
                 if let Err(e) = res {
-                    // TODO send the error notification and panic
-                    panic!("Failed to show preferences window: {e}");
+                    panic_app(&format!("Failed to show preferences window: {e}"));
                 }
             }
 
@@ -144,8 +144,7 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
                 .title("Copy Clip")
                 .build();
                 if let Err(e) = preferences_window {
-                    // TODO send the error notification and panic
-                    panic!("Failed to open preferences window: {e}");
+                    panic_app(&format!("Failed to open preferences window: {e}"));
                 }
             });
         }
@@ -157,8 +156,7 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
             if let Some(preferences_window) = preferences_window {
                 let res = preferences_window.show();
                 if let Err(e) = res {
-                    // TODO send the error notification and panic
-                    panic!("Failed to show search window: {e}");
+                    panic_app(&format!("Failed to show search window: {e}"));
                 }
             }
 
@@ -172,8 +170,7 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
                 .title("Copy Clip")
                 .build();
                 if let Err(e) = preferences_window {
-                    // TODO send the error notification and panic
-                    panic!("Failed to open search window: {e}");
+                    panic_app(&format!("Failed to open search window: {e}"));
                 }
             });
         }
@@ -188,16 +185,21 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
                 let mut clips = clips.clip_data.lock().unwrap();
                 let item_id = clips.clips.tray_ids_map.get(index as usize);
                 if item_id.is_none() {
-                    // TODO send the error notification and panic
+                    warn!("Failed to get the item id for the tray id: {}", index);
                     return;
                 }
                 let item_id = item_id.unwrap();
                 let item_id = *item_id;
                 let res = clips.select_clip(app, item_id);
                 if res.is_err() {
-                    // TODO send the error notification and panic
+                    warn!("Failed to select the clip: {}", res.err().unwrap());
+                    return;
                 }
+            } else {
+                warn!("Unknown menu item id: {}", id);
             }
+
+            info!("Menu item clicked: {}", id)
         }
     }
 }

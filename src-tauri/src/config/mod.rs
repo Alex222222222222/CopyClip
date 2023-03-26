@@ -1,9 +1,10 @@
 use std::{fs, sync::Mutex};
 
+use log::warn;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
-use crate::error;
+use crate::{error, log::LogLevelFilter};
 
 pub mod command;
 
@@ -21,9 +22,9 @@ pub struct Config {
     pub clip_max_show_length: i64,
     /// clip per page in the search page
     pub search_clip_per_page: i64,
+    /// log level
+    pub log_level: LogLevelFilter,
 }
-
-// TODO save config
 
 /// load the config from app data folder
 /// if the config file does not exist, create it
@@ -38,7 +39,7 @@ pub fn load_config(app: &AppHandle) -> Config {
 
     let data_dir = app.path_resolver().app_data_dir();
     if data_dir.is_none() {
-        // TODO log error
+        warn!("can not find app data dir");
         return Config::default();
     }
 
@@ -49,7 +50,7 @@ pub fn load_config(app: &AppHandle) -> Config {
     // test if data_dir exist
     let data_dir_exist = data_dir.try_exists();
     if data_dir_exist.is_err() {
-        // TODO log error
+        warn!("can not verify existence of app data dir");
         return Config::default();
     }
 
@@ -58,7 +59,7 @@ pub fn load_config(app: &AppHandle) -> Config {
         // create the data_dir
         let create_data_dir = fs::create_dir(data_dir.as_path());
         if create_data_dir.is_err() {
-            // TODO log error
+            warn!("can not create app data dir");
             return Config::default();
         }
     }
@@ -66,7 +67,7 @@ pub fn load_config(app: &AppHandle) -> Config {
     // test if config_file exist
     let config_file_exist = config_file.try_exists();
     if config_file_exist.is_err() {
-        // TODO log error
+        warn!("can not verify existence of config file");
         return Config::default();
     }
 
@@ -77,7 +78,7 @@ pub fn load_config(app: &AppHandle) -> Config {
         let c_json = serde_json::to_string(&c);
 
         if c_json.is_err() {
-            // TODO log error
+            warn!("can not serialize config to json");
             return Config::default();
         }
 
@@ -85,7 +86,7 @@ pub fn load_config(app: &AppHandle) -> Config {
 
         let write_config_file = fs::write(config_file.as_path(), c_json);
         if write_config_file.is_err() {
-            // TODO log error
+            warn!("can not write config file");
             return Config::default();
         }
 
@@ -95,7 +96,7 @@ pub fn load_config(app: &AppHandle) -> Config {
     // config file exist, load it
     let read_config_file = fs::read_to_string(config_file.as_path());
     if read_config_file.is_err() {
-        // TODO log error
+        warn!("can not read config file");
         return Config::default();
     }
 
@@ -107,7 +108,7 @@ pub fn load_config(app: &AppHandle) -> Config {
         let c_json = serde_json::to_string(&c);
 
         if c_json.is_err() {
-            // TODO log error
+            warn!("can not serialize config to json");
             return Config::default();
         }
 
@@ -115,7 +116,7 @@ pub fn load_config(app: &AppHandle) -> Config {
 
         let write_config_file = fs::write(config_file.as_path(), c_json);
         if write_config_file.is_err() {
-            // TODO log error
+            warn!("can not write config file");
             return Config::default();
         }
 
@@ -173,6 +174,7 @@ impl Default for Config {
             clip_per_page: 20,
             clip_max_show_length: 50,
             search_clip_per_page: 20,
+            log_level: LogLevelFilter::Info,
         }
     }
 }

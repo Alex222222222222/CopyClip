@@ -1,3 +1,4 @@
+use log::warn;
 use tauri::{AppHandle, Manager};
 
 use crate::config::ConfigMutex;
@@ -41,8 +42,8 @@ pub fn cache_daemon(app: &AppHandle) {
             let ok = clips.clips.cached_clips.contains_key(&id);
             if !ok {
                 let res = clips.get_clip(id);
-                if res.is_err() {
-                    // TODO log
+                if let Err(e) = res {
+                    warn!("Failed to get clip: {}, err: {}", id, e);
                     break;
                 }
             }
