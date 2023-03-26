@@ -4,7 +4,7 @@ use crate::components::{
     head_bar::HeadBar,
     preferences::{
         clips_per_page_config::ClipsPerPageConfig, log_level_filter_config::LogLevelFilterConfig,
-        max_clip_len_config::MaxClipLenConfig, search_clip_per_page::SearchClipPerPageConfig,
+        max_clip_len_config::MaxClipLenConfig,
     },
 };
 
@@ -18,8 +18,6 @@ pub fn preferences() -> Html {
                 <ClipsPerPageConfig></ClipsPerPageConfig>
                 <br />
                 <MaxClipLenConfig></MaxClipLenConfig>
-                <br />
-                <SearchClipPerPageConfig></SearchClipPerPageConfig>
                 <br />
                 <LogLevelFilterConfig></LogLevelFilterConfig>
             </div>

@@ -178,10 +178,10 @@ fn check_save_version_and_current_version(
 
 /// deal with the backward comparability based on the save version
 fn backward_comparability(
-    _app: &AppHandle,
+    app: &AppHandle,
     connection: &Connection,
     save_version: String,
-) -> Result<(), error::Error> {
+) -> Result<String, error::Error> {
     // get the three version number from save_version
     let version = save_version.split('.').collect::<Vec<&str>>();
     if version.len() != 3 {
@@ -200,17 +200,30 @@ fn backward_comparability(
     }
 
     let major = major.unwrap();
-    let minor = minor.unwrap();
-    let _patch = patch.unwrap();
+    let mut minor = minor.unwrap();
+    let mut patch = patch.unwrap();
 
     // deal with the backward comparability
+
     // if the major version is 0, the minor version is smaller than 3, need to upgrade the database to 0.3.0
     if major == 0 && minor < 3 {
         // upgrade the database to 0.3.0
         let res = backward::v0_2_x_to_0_3_0_database::upgrade(connection);
-        res?
+        res?;
+        minor = 3;
+        patch = 0;
     }
-    Ok(())
+
+    // if the major version is 0, the minor version is 3, the patch version is smaller than 3, need to upgrade the config file to 0.3.3
+    // before 0.3.3, there is search_clip_per_page in the config file, after 0.3.3, this entry changed to search_clip_per_batch
+    if major == 0 && minor == 3 && patch < 3 {
+        // upgrade the config file to 0.3.3
+        let res = backward::v0_3_x_to_0_3_3_config::upgrade(app);
+        res?;
+        patch = 3;
+    }
+
+    Ok(format!("{}.{}.{}", major, minor, patch))
 }
 
 /// init the version table
