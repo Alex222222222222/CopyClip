@@ -572,5 +572,3 @@ pub fn search_clips(
         _ => Err("invalid search method".to_string()),
     }
 }
-
-// TODO add regexp search

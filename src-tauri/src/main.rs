@@ -22,15 +22,11 @@ use copy_clip::{
     config,
     config::{Config, ConfigMutex},
     event::{event_daemon, CopyClipEvent, EventSender},
+    log::{panic_app, setup_logger},
     systray::handle_tray_event,
 };
+use log::info;
 use tauri::{Manager, SystemTray};
-
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {name}! You've been greeted from Rust!")
-}
 
 fn main() {
     tauri::Builder::default()
@@ -51,11 +47,21 @@ fn main() {
             *config_mutex = config;
             drop(config_mutex);
 
+            // set up the logger
+            let app_handle = app.handle();
+            let res = setup_logger(&app_handle);
+            if res.is_err() {
+                println!("failed to init logger");
+                panic!("{}", res.err().unwrap().to_string());
+            }
+
             // set up the database connection and create the table
             let res = init_database_connection(&app_handle);
             if res.is_err() {
-                println!("failed to init database connection");
-                panic!("{}", res.err().unwrap().message());
+                panic_app(&format!(
+                    "Failed to init database connection, error: {}",
+                    res.err().unwrap().message()
+                ));
             }
 
             // set up event sender and receiver
@@ -82,6 +88,8 @@ fn main() {
             let event = app.state::<EventSender>();
             event.send(CopyClipEvent::RebuildTrayMenuEvent);
 
+            info!("app setup finished");
+
             Ok(())
         })
         // tauri setup the system tray before the app.setup
@@ -99,7 +107,6 @@ fn main() {
             clip::change_favorite_clip,
             clip::search::search_clips,
             clip::search::get_max_id,
-            greet,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

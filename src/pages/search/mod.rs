@@ -202,8 +202,7 @@ pub fn search() -> Html {
                             {"Type to search"}
                         </label>
                         <input
-                            // TODO change the id
-                            id="text-input-box"
+                            id="search-data-text-input-box"
                             type="text"
                             class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-8/12"
                             onchange={text_box_on_change}
@@ -273,8 +272,7 @@ pub fn search() -> Html {
                             {"Total search res num limit"}
                         </label>
                         <input
-                            // TODO change the id
-                            id="text-input-box"
+                            id="totally-search-res-limit-input-box"
                             type="number"
                             class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-6/12"
                             onchange={total_search_res_limit_on_change}
@@ -289,8 +287,7 @@ pub fn search() -> Html {
                             {"Min ID"}
                         </label>
                         <input
-                            // TODO change the id
-                            id="text-input-box"
+                            id="user-id-limit-min-input-box"
                             type="number"
                             class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-3/12"
                             onchange={user_id_limit_min_on_change}
@@ -300,8 +297,7 @@ pub fn search() -> Html {
                             {"Max ID"}
                         </label>
                         <input
-                            // TODO change the id
-                            id="text-input-box"
+                            id="user-id-limit-max-input-box"
                             type="number"
                             class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-3/12"
                             onchange={user_id_limit_max_on_change}

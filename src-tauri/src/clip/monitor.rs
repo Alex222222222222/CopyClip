@@ -11,7 +11,7 @@ use tauri::{AppHandle, ClipboardManager, Manager};
 
 use std::io;
 
-use crate::systray::send_tray_update_event;
+use crate::{log::panic_app, systray::send_tray_update_event};
 
 use super::ClipDataMutex;
 
@@ -81,8 +81,9 @@ impl ClipboardHandler for &mut Handler<'_> {
     }
 
     /// the handler for the error
-    /// TODO: send a notification of the error, and panic the whole app
-    fn on_clipboard_error(&mut self, _error: io::Error) -> CallbackResult {
+    /// send a notification of the error, and panic the whole app
+    fn on_clipboard_error(&mut self, error: io::Error) -> CallbackResult {
+        panic_app(&format!("error reading clipboard: {}", error));
         CallbackResult::Next
     }
 }
