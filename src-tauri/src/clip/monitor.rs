@@ -11,7 +11,7 @@ use tauri::{AppHandle, ClipboardManager, Manager};
 
 use std::io;
 
-use crate::{log::panic_app, systray::send_tray_update_event};
+use crate::{error, log::panic_app, systray::send_tray_update_event};
 
 use super::ClipDataMutex;
 
@@ -53,14 +53,20 @@ impl ClipboardHandler for &mut Handler<'_> {
         let clips = self.app.state::<ClipDataMutex>();
         let mut clip_data = clips.clip_data.lock().unwrap();
         let current_clip = clip_data.get_current_clip();
-        if current_clip.is_err() {
-            return CallbackResult::StopWithError(io::Error::new(
-                io::ErrorKind::Other,
-                "error: ".to_string() + &current_clip.err().unwrap().message(),
-            ));
+        let mut current_clip_text = String::new();
+        if let Err(err) = current_clip {
+            if err == error::Error::WholeListIDSEmptyErr {
+            } else {
+                return CallbackResult::StopWithError(io::Error::new(
+                    io::ErrorKind::Other,
+                    "error: ".to_string() + &err.message(),
+                ));
+            }
+        } else {
+            current_clip_text = current_clip.unwrap().text;
         }
-        let current_clip = current_clip.unwrap().text;
-        if clip == current_clip {
+
+        if clip == current_clip_text {
             return CallbackResult::Next;
         }
 
