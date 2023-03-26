@@ -537,7 +537,7 @@ pub fn search_clips(
 ) -> Result<HashMap<i64, Clip>, String> {
     let config = app.state::<ConfigMutex>();
     let config = config.config.lock().unwrap();
-    let limit = config.search_clip_per_page;
+    let limit = config.search_clip_per_batch;
     drop(config);
 
     match searchmethod.as_str() {

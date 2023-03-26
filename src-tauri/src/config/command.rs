@@ -92,44 +92,6 @@ pub async fn set_max_clip_len<R: Runtime>(
     Ok(())
 }
 
-/// get search_clip_per_page
-/// this define how many clips to show per page in the search page
-///
-/// input: {}
-///
-/// output: {
-///     i64.to_string()
-/// }
-#[tauri::command]
-pub fn get_search_clip_per_page(config: State<'_, ConfigMutex>) -> Result<String, String> {
-    let config = config.config.lock().unwrap();
-    let res = config.search_clip_per_page.to_string();
-    drop(config);
-    Ok(res)
-}
-
-/// set search_clip_per_page
-///
-/// input: {
-///     data: i64
-/// }
-///
-/// output: {}
-#[tauri::command]
-pub fn set_search_clip_per_page(
-    app: tauri::AppHandle,
-    config: State<'_, ConfigMutex>,
-    data: i64,
-) -> Result<(), String> {
-    let mut config = config.config.lock().unwrap();
-    config.search_clip_per_page = data;
-
-    let event_sender = app.state::<EventSender>();
-    event_sender.send(CopyClipEvent::SaveConfigEvent);
-
-    Ok(())
-}
-
 /// get log_level_filter
 ///
 /// input: {}
