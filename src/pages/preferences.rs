@@ -21,6 +21,7 @@ pub fn preferences() -> Html {
                 <br />
                 <LogLevelFilterConfig></LogLevelFilterConfig>
                 <br />
+                // TODO add follow system theme
                 <DarkModeSwitch></DarkModeSwitch>
             </div>
         </div>
