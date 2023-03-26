@@ -1,17 +1,17 @@
 /// invoke delete_clip_from_database
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, Callback, Html, Properties};
 use yew_icons::{Icon, IconId};
 
 use crate::pages::invoke;
 
-#[derive(Clone, Debug, PartialEq, Properties)]
+#[derive(Debug, PartialEq, Properties)]
 pub struct TrashClipButtonProps {
     pub id: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 struct TrashClipArgs {
     pub id: i64,
 }

@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, use_state_eq, Callback, Html, Properties};
 use yew_icons::{Icon, IconId};
 
 use crate::pages::invoke;
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, PartialEq)]
 pub enum FavoriteFilter {
     All,
     Favorite,
@@ -28,19 +28,19 @@ impl FavoriteFilter {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Properties)]
+#[derive(Debug, PartialEq, Properties)]
 pub struct FavoriteClipButtonProps {
     pub id: i64,
     pub is_favorite: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 struct ChangeFavoriteClipArgs {
     pub id: i64,
     pub target: bool,
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Debug)]
 enum IsFavorite {
     True,
     False,

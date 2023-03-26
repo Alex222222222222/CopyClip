@@ -1,8 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{
-    function_component, html, use_state, use_state_eq, Callback, Html, Properties, TargetCast,
-    UseStateHandle,
+    function_component, html, use_state, use_state_eq, Callback, Html, TargetCast, UseStateHandle,
 };
 
 use web_sys::{Event, HtmlInputElement};
@@ -16,7 +15,7 @@ use crate::{
         favorite_button::{FavoriteClipButton, FavoriteFilter},
         fuzzy_search_text::SearchText,
         order::{sort_search_res, OrderOrder},
-        search_clip::search_clips,
+        search_clip::{search_clips, SearchPros},
         search_state::{SearchState, SearchStateHtml},
         time_display::TimeDisplay,
         trash_clip_button::TrashClipButton,
@@ -34,8 +33,38 @@ mod time_display;
 mod trash_clip_button;
 
 /// empty args
-#[derive(Clone, Debug, Default, PartialEq, Properties, Serialize, Deserialize)]
+#[derive(Serialize)]
 struct EmptyArg {}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct UserIdLimit {
+    pub min: i64, // 0 is always the min for all
+    pub max: i64, // -1 means no limit
+}
+
+impl Default for UserIdLimit {
+    fn default() -> Self {
+        Self { min: 0, max: -1 }
+    }
+}
+
+impl UserIdLimit {
+    pub fn new_min(&self, min: i64) -> UserIdLimit {
+        let mut new = self.clone();
+        new.min = min;
+        new
+    }
+
+    pub fn new_max(&self, max: i64) -> UserIdLimit {
+        let mut new = self.clone();
+        new.max = max;
+        new
+    }
+
+    pub fn self_copy(&self) -> UserIdLimit {
+        self.clone()
+    }
+}
 
 #[function_component(Search)]
 pub fn search() -> Html {
@@ -48,6 +77,7 @@ pub fn search() -> Html {
     let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Desc); // true is desc false is asc
     let favorite_filter: UseStateHandle<FavoriteFilter> = use_state_eq(FavoriteFilter::default);
     let total_search_res_limit: UseStateHandle<usize> = use_state_eq(|| 100);
+    let user_id_limit: UseStateHandle<UserIdLimit> = use_state_eq(UserIdLimit::default);
 
     let text_data_1 = text_data.clone();
     let text_box_on_change = Callback::from(move |event: Event| {
@@ -107,6 +137,7 @@ pub fn search() -> Html {
     let text_data_1 = text_data.clone();
     let search_res_num_1 = search_res_num;
     let total_search_res_limit_1 = total_search_res_limit.clone();
+    let user_id_limit_1 = user_id_limit.clone();
     let search_button_on_click = Callback::from(move |_| {
         let search_res_clone = search_res_1.clone();
         let search_method_clone = search_method_1.clone();
@@ -116,18 +147,25 @@ pub fn search() -> Html {
         let search_res_num_clone = search_res_num_1.clone();
         let favorite_filter_1 = favorite_filter.clone();
         let total_search_res_limit = total_search_res_limit_1.clone();
+        let user_id_limit = user_id_limit_1.clone();
         spawn_local(async move {
             search_state_clone.set(SearchState::Searching);
             search_res_num_clone.set(0);
             search_res_clone.set(SearchRes::new());
             let res = search_clips(
-                text_data_clone.to_string(),
-                search_method_clone.to_string(),
                 search_state_clone_clone,
                 search_res_clone,
                 search_res_num_clone,
-                favorite_filter_1.to_int(),
-                total_search_res_limit.to_string().parse::<usize>().unwrap(),
+                SearchPros {
+                    data: text_data_clone.to_string(),
+                    search_method: search_method_clone.to_string(),
+                    favorite_filter: favorite_filter_1.to_int(),
+                    total_search_res_limit: total_search_res_limit
+                        .to_string()
+                        .parse::<usize>()
+                        .unwrap(),
+                    user_id_limit: user_id_limit.self_copy(),
+                },
             )
             .await;
             if let Err(err) = res {
@@ -142,6 +180,17 @@ pub fn search() -> Html {
         total_search_res_limit_1.set(value.parse().unwrap());
     });
 
+    let user_id_limit_1 = user_id_limit.clone();
+    let user_id_limit_min_on_change = Callback::from(move |event: Event| {
+        let value = event.target_unchecked_into::<HtmlInputElement>().value();
+        user_id_limit_1.set(user_id_limit_1.new_min(value.parse().unwrap()));
+    });
+    let user_id_limit_1 = user_id_limit.clone();
+    let user_id_limit_max_on_change = Callback::from(move |event: Event| {
+        let value = event.target_unchecked_into::<HtmlInputElement>().value();
+        user_id_limit_1.set(user_id_limit_1.new_max(value.parse().unwrap()));
+    });
+
     html! {
         <div class="flex min-h-screen flex-col bg-white">
             <HeadBar></HeadBar>
@@ -153,6 +202,7 @@ pub fn search() -> Html {
                             {"Type to search"}
                         </label>
                         <input
+                            // TODO change the id
                             id="text-input-box"
                             type="text"
                             class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-8/12"
@@ -223,11 +273,39 @@ pub fn search() -> Html {
                             {"Total search res num limit"}
                         </label>
                         <input
+                            // TODO change the id
                             id="text-input-box"
                             type="number"
                             class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-6/12"
                             onchange={total_search_res_limit_on_change}
                             value={total_search_res_limit.to_string()}
+                        />
+                    </div>
+
+                    // id min and id max
+                    // total search res num limit
+                    <div class="flex flex-row my-2 w-11/12">
+                        <label htmlFor="int-input-box" class="text-xl py-1">
+                            {"Min ID"}
+                        </label>
+                        <input
+                            // TODO change the id
+                            id="text-input-box"
+                            type="number"
+                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-3/12"
+                            onchange={user_id_limit_min_on_change}
+                            value={user_id_limit.min.to_string()}
+                        />
+                        <label htmlFor="int-input-box" class="text-xl py-1">
+                            {"Max ID"}
+                        </label>
+                        <input
+                            // TODO change the id
+                            id="text-input-box"
+                            type="number"
+                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-3/12"
+                            onchange={user_id_limit_max_on_change}
+                            value={user_id_limit.max.to_string()}
                         />
                     </div>
 

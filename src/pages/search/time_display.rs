@@ -1,6 +1,6 @@
 use yew::{function_component, html, Html, Properties};
 
-#[derive(Clone, Debug, PartialEq, Properties)]
+#[derive(Debug, PartialEq, Properties)]
 pub struct TimeDisplayProps {
     pub time: i64, // unix time epoch in seconds
 }

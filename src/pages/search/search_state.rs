@@ -1,8 +1,7 @@
-use serde::{Deserialize, Serialize};
 use yew::{function_component, html, Html, Properties};
 
 /// search state of the search page
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SearchState {
     NotStarted,
     Searching,

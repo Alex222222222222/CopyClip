@@ -1,19 +1,19 @@
 use sublime_fuzzy::ContinuousMatch;
 use yew::{function_component, html, Html, Properties};
 
-#[derive(Clone, PartialEq, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct FuzzySearchTextProps {
     pub data: String,
     pub text: String,
 }
 
-#[derive(Clone, PartialEq, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct RegexpSearchTextProps {
     pub data: String,
     pub text: String,
 }
 
-#[derive(Clone, PartialEq, Properties)]
+#[derive(PartialEq, Properties)]
 pub struct SearchTextProps {
     pub data: String,
     pub text: String,
