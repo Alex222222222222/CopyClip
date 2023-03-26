@@ -130,3 +130,118 @@
     transform: translateX(0) scale(1);
   }
 }
+
+
+
+.search-button {
+  padding: 0.1em 0.25em;
+  width: 100%;
+  height: 4.2em;
+  /* background-color: #212121; */
+  border: 0.08em solid #fff;
+  border-radius: 0.3em;
+  font-size: 12px;
+}
+
+.search-button span {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  bottom: 0.4em;
+  width: 100%;
+  height: 2.5em;
+  /* background-color: #212121; */
+  border-radius: 0.2em;
+  font-size: 1.5em;
+  border: 0.08em solid #fff;
+  box-shadow: 0 0.4em 0.1em 0.019em #fff;
+}
+
+.search-button span:hover {
+  transition: all 0.5s;
+  transform: translate(0, 0.4em);
+  box-shadow: 0 0 0 0 #fff;
+}
+
+.search-button span:not(hover) {
+  transition: all 1s;
+}
+
+
+
+.head-bar-button {
+  text-decoration: none;
+  font-size: 25px;
+  border: none;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.head-bar-button::before {
+  margin-left: auto;
+}
+
+.head-bar-button::after, .head-bar-button::before {
+  content: '';
+  width: 0%;
+  height: 2px;
+  background: #f44336;
+  display: block;
+  transition: 0.5s;
+}
+
+.head-bar-button:hover::after, .head-bar-button:hover::before {
+  width: 100%;
+}
+
+
+/* The switch - the box around the slider */
+.switch {
+  font-size: 17px;
+  position: relative;
+  display: inline-block;
+  width: 3.5em;
+  height: 2em;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  box-shadow: inset 2px 5px 10px rgba(0, 0, 0, 0.3);
+  transition: 0.4s;
+  border-radius: 5px;
+}
+
+.slider:before {
+  position: absolute;
+  content: '';
+  height: 1.4em;
+  width: 0.1em;
+  border-radius: 0px;
+  left: 0.3em;
+  bottom: 0.3em;
+  background-color: white;
+  transition: 0.4s;
+}
+
+input:checked + .slider {
+  box-shadow: inset 2px 5px 10px rgb(0, 0, 0);
+}
+
+input:checked + .slider:before {
+  transform: translateX(2.8em) rotate(360deg);
+}

@@ -30,10 +30,10 @@ pub fn trash_clip_button(props: &TrashClipButtonProps) -> Html {
     html! {
         <td class="border border-gray-200">
             <button
-                class="font-bold"
+                class="font-bold w-full"
                 onclick={trash_clip_button_on_click}
             >
-                <Icon icon_id={IconId::BootstrapTrash}/>
+                <Icon icon_id={IconId::BootstrapTrash} class="mx-auto mt-0.5"/>
             </button>
         </td>
     }

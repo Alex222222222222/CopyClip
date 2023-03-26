@@ -91,10 +91,10 @@ pub fn favorite_clip_button(props: &FavoriteClipButtonProps) -> Html {
     html! {
         <td class="border border-gray-200">
             <button
-                class="font-bold"
+                class="font-bold w-full"
                 onclick={copy_clip_button_on_click}
             >
-                <Icon icon_id={icon}/>
+                <Icon icon_id={icon} class="mx-auto mt-0.5"/>
             </button>
         </td>
     }

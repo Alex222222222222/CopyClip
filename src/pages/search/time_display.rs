@@ -17,6 +17,6 @@ pub fn time_display_html(props: &TimeDisplayProps) -> Html {
     let time = time_display(props);
 
     html! {
-        <td class="border border-gray-200">{time}</td>
+        <td class="border border-gray-200 text-center">{time}</td>
     }
 }
