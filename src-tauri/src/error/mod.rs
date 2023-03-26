@@ -4,7 +4,7 @@
 // Path: src-tauri/src/error.rs
 use std::fmt;
 
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize, PartialEq)]
 pub enum Error {
     /// unknown error
     Unknown,
