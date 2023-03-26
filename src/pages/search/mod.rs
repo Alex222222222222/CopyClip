@@ -47,6 +47,7 @@ pub fn search() -> Html {
     let order_by: UseStateHandle<String> = use_state_eq(|| "time".to_string());
     let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Desc); // true is desc false is asc
     let favorite_filter: UseStateHandle<FavoriteFilter> = use_state_eq(FavoriteFilter::default);
+    let total_search_res_limit: UseStateHandle<usize> = use_state_eq(|| 100);
 
     let text_data_1 = text_data.clone();
     let text_box_on_change = Callback::from(move |event: Event| {
@@ -105,6 +106,7 @@ pub fn search() -> Html {
     let search_state_1 = search_state.clone();
     let text_data_1 = text_data.clone();
     let search_res_num_1 = search_res_num;
+    let total_search_res_limit_1 = total_search_res_limit.clone();
     let search_button_on_click = Callback::from(move |_| {
         let search_res_clone = search_res_1.clone();
         let search_method_clone = search_method_1.clone();
@@ -113,17 +115,19 @@ pub fn search() -> Html {
         let text_data_clone = text_data_1.clone();
         let search_res_num_clone = search_res_num_1.clone();
         let favorite_filter_1 = favorite_filter.clone();
+        let total_search_res_limit = total_search_res_limit_1.clone();
         spawn_local(async move {
             search_state_clone.set(SearchState::Searching);
             search_res_num_clone.set(0);
             search_res_clone.set(SearchRes::new());
             let res = search_clips(
-                text_data_clone,
-                search_method_clone,
+                text_data_clone.to_string(),
+                search_method_clone.to_string(),
                 search_state_clone_clone,
                 search_res_clone,
                 search_res_num_clone,
                 favorite_filter_1.to_int(),
+                total_search_res_limit.to_string().parse::<usize>().unwrap(),
             )
             .await;
             if let Err(err) = res {
@@ -132,80 +136,104 @@ pub fn search() -> Html {
         });
     });
 
+    let total_search_res_limit_1 = total_search_res_limit.clone();
+    let total_search_res_limit_on_change = Callback::from(move |event: Event| {
+        let value = event.target_unchecked_into::<HtmlInputElement>().value();
+        total_search_res_limit_1.set(value.parse().unwrap());
+    });
+
     html! {
         <div class="flex min-h-screen flex-col bg-white">
             <HeadBar></HeadBar>
             <h1 class="text-center text-6xl m-0">{ "Search" }</h1>
             <div class="mx-5 my-2">
                 <div class="flex flex-col">
-                    <label htmlFor="int-input-box" class=" text-xl">
-                        {"Type to search"}
-                    </label>
-                    <input
-                        id="text-input-box"
-                        type="text"
-                        class="border border-gray-200 rounded-md p-2"
-                        onchange={text_box_on_change}
-                        // value={"test"}
-                        placeholder={"Search"}
-                    />
-                    <br/>
+                    <div class="flex flex-row my-2 w-11/12">
+                        <label htmlFor="int-input-box" class="text-xl py-1">
+                            {"Type to search"}
+                        </label>
+                        <input
+                            id="text-input-box"
+                            type="text"
+                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-8/12"
+                            onchange={text_box_on_change}
+                            placeholder={"Search"}
+                        />
+                    </div>
 
-                    <label htmlFor="int-input-box" class=" text-xl">
-                        {"Choose search method"}
-                    </label>
-                    // search method drop list
-                    <select
-                        class="border border-gray-200 rounded-md p-2"
-                        onchange={search_method_on_change}
-                    >
-                        <option value="fuzzy">{"Fuzzy"}</option>
-                        <option value="fast">{"Fast"}</option>
-                        <option value="normal">{"Normal"}</option>
-                        <option value="regexp">{"Regexp"}</option>
-                    </select>
-                    <br/>
+                    <div class="flex flex-row my-2">
+                        <label htmlFor="int-input-box" class="text-xl">
+                            {"Choose search method"}
+                        </label>
+                        // search method drop list
+                        <select
+                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
+                            onchange={search_method_on_change}
+                        >
+                            <option value="fuzzy">{"Fuzzy"}</option>
+                            <option value="fast">{"Fast"}</option>
+                            <option value="normal">{"Normal"}</option>
+                            <option value="regexp">{"Regexp"}</option>
+                        </select>
+                    </div>
 
-                    <label htmlFor="int-input-box" class=" text-xl">
-                        {"Choose order method"}
-                    </label>
-                    // order method drop list
-                    <select
-                        class="border border-gray-200 rounded-md p-2"
-                        onchange={order_method_on_change}
-                    >
-                        <option value="time">{"Time"}</option>
-                        <option value="score">{"Score"}</option>
-                        <option value="id">{"Id"}</option>
-                        <option value="text">{"Text"}</option>
-                    </select>
-                    // order order drop list
-                    <select
-                        class="border border-gray-200 rounded-md p-2"
-                        onchange={order_order_on_change}
-                    >
-                        <option value="desc">{"Desc"}</option>
-                        <option value="asc">{"Asc"}</option>
-                    </select>
-                    <br/>
+                    <div class="flex flex-row my-2">
+                        <label htmlFor="int-input-box" class="text-xl">
+                            {"Choose order method"}
+                        </label>
+                        // order method drop list
+                        <select
+                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
+                            onchange={order_method_on_change}
+                        >
+                            <option value="time">{"Time"}</option>
+                            <option value="score">{"Score"}</option>
+                            <option value="id">{"Id"}</option>
+                            <option value="text">{"Text"}</option>
+                        </select>
+                        // order order drop list
+                        <select
+                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
+                            onchange={order_order_on_change}
+                        >
+                            <option value="desc">{"Desc"}</option>
+                            <option value="asc">{"Asc"}</option>
+                        </select>
+                    </div>
 
-                    // favorite filter
-                    <label htmlFor="int-input-box" class=" text-xl">
-                        {"Favorite filter"}
-                    </label>
-                    <select
-                        class="border border-gray-200 rounded-md p-2"
-                        onchange={favorite_filter_on_change}
-                    >
-                        <option value="all">{"All"}</option>
-                        <option value="favorite">{"Favorite"}</option>
-                        <option value="not_favorite">{"NotFavorite"}</option>
-                    </select>
-                    <br/>
+                    <div class="flex flex-row my-2">
+                        // favorite filter
+                        <label htmlFor="int-input-box" class=" text-xl">
+                            {"Favorite filter"}
+                        </label>
+                        <select
+                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
+                            onchange={favorite_filter_on_change}
+                        >
+                            <option value="all">{"All"}</option>
+                            <option value="favorite">{"Favorite"}</option>
+                            <option value="not_favorite">{"NotFavorite"}</option>
+                        </select>
+                        <br/>
+                    </div>
+
+                    // total search res num limit
+                    <div class="flex flex-row my-2 w-11/12">
+                        <label htmlFor="int-input-box" class="text-xl py-1">
+                            {"Total search res num limit"}
+                        </label>
+                        <input
+                            id="text-input-box"
+                            type="number"
+                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-6/12"
+                            onchange={total_search_res_limit_on_change}
+                            value={total_search_res_limit.to_string()}
+                        />
+                    </div>
 
                     // search button
                     <button
-                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-2"
                         onclick={search_button_on_click}
                     >
                         {"Search"}
@@ -215,7 +243,15 @@ pub fn search() -> Html {
                     <SearchStateHtml state={search_state.state()}></SearchStateHtml>
 
                     // search res
-                    {search_res_table_html(text_data.to_string(),search_res, order_by,order_order,search_method.to_string())}
+                    {
+                        search_res_table_html(
+                            text_data.to_string(),
+                            search_res,
+                            order_by,
+                            order_order,
+                            search_method.to_string(),
+                        )
+                    }
                 </div>
             </div>
         </div>
@@ -237,9 +273,6 @@ fn search_res_table_html(
 
     html! {
         <div class="flex flex-col">
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Search result"}
-            </label>
             <table class="table-auto">
                 <thead>
                     <tr>
