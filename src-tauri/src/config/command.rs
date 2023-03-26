@@ -125,3 +125,36 @@ pub fn set_log_level_filter(
 
     Ok(())
 }
+
+/// get dark_mode
+///
+/// input: {}
+#[tauri::command]
+pub fn get_dark_mode(config: State<'_, ConfigMutex>) -> Result<bool, String> {
+    let config = config.config.lock().unwrap();
+    let res = config.dark_mode;
+    drop(config);
+    Ok(res)
+}
+
+/// set dark_mode
+///
+/// input: {
+///   data: bool
+/// }
+#[tauri::command]
+pub fn set_dark_mode(
+    app: tauri::AppHandle,
+    config: State<'_, ConfigMutex>,
+    data: bool,
+) -> Result<(), String> {
+    let mut config = config.config.lock().unwrap();
+    if config.dark_mode != data {
+        config.dark_mode = data;
+        let event_sender = app.state::<EventSender>();
+        event_sender.send(CopyClipEvent::SaveConfigEvent);
+        // TODO send event to change theme
+    }
+
+    Ok(())
+}

@@ -32,15 +32,10 @@ pub fn search_state_html(props: &SearchStateHtmlProps) -> Html {
     let state = props.state.clone();
     match state {
         SearchState::NotStarted => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Press search to start"}
-            </label>
+            <></>
         },
         SearchState::Searching => html! {
             <>
-                <label htmlFor="int-input-box" class=" text-xl">
-                    {"Searching"}
-                </label>
                 <LoadingComponent />
             </>
         },
@@ -50,9 +45,7 @@ pub fn search_state_html(props: &SearchStateHtmlProps) -> Html {
             </label>
         },
         SearchState::Finished => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Search finished"}
-            </label>
+            <></>
         },
     }
 }

@@ -24,6 +24,8 @@ pub struct Config {
     pub search_clip_per_batch: i64,
     /// log level
     pub log_level: LogLevelFilter,
+    /// dark mode
+    pub dark_mode: bool,
 }
 
 /// load the config from app data folder
@@ -175,6 +177,7 @@ impl Default for Config {
             clip_max_show_length: 50,
             search_clip_per_batch: 2,
             log_level: LogLevelFilter::Info,
+            dark_mode: false,
         }
     }
 }

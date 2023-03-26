@@ -29,10 +29,10 @@ pub fn copy_clip_button(props: &CopyClipButtonProps) -> Html {
     html! {
         <td class="border border-gray-200">
             <button
-                class="font-bold"
+                class="font-bold w-full"
                 onclick={copy_clip_button_on_click}
             >
-                <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList}/>
+                <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList} class="mx-auto mt-0.5"/>
             </button>
         </td>
     }
