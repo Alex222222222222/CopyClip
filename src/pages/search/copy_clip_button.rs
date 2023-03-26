@@ -1,16 +1,16 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, Callback, Html, Properties};
 use yew_icons::{Icon, IconId};
 
 use crate::pages::invoke;
 
-#[derive(Clone, Debug, PartialEq, Properties)]
+#[derive(Debug, PartialEq, Properties)]
 pub struct CopyClipButtonProps {
     pub id: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 struct CopyClipToClipBoardArgs {
     pub id: i64,
 }

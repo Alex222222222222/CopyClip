@@ -1,8 +1,6 @@
-use serde::{Deserialize, Serialize};
-
 use super::clip::Clip;
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum OrderOrder {
     Desc,
     Asc,
