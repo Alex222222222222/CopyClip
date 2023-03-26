@@ -20,10 +20,12 @@ pub struct Config {
     pub clip_per_page: i64,
     /// the max length of a clip to show in the tray menu
     pub clip_max_show_length: i64,
-    /// clip per page in the search page
-    pub search_clip_per_page: i64,
+    /// the number of clips to search in one batch
+    pub search_clip_per_batch: i64,
     /// log level
     pub log_level: LogLevelFilter,
+    /// dark mode
+    pub dark_mode: bool,
 }
 
 /// load the config from app data folder
@@ -173,8 +175,9 @@ impl Default for Config {
         Self {
             clip_per_page: 20,
             clip_max_show_length: 50,
-            search_clip_per_page: 20,
+            search_clip_per_batch: 2,
             log_level: LogLevelFilter::Info,
+            dark_mode: false,
         }
     }
 }

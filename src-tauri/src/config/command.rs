@@ -158,37 +158,3 @@ pub fn set_dark_mode(
 
     Ok(())
 }
-
-/// get log_level_filter
-///
-/// input: {}
-#[tauri::command]
-pub fn get_log_level_filter(config: State<'_, ConfigMutex>) -> Result<String, String> {
-    let config = config.config.lock().unwrap();
-    let res = config.log_level.to_string();
-    drop(config);
-    Ok(res)
-}
-
-/// set log_level_filter
-///
-/// input: {
-///    data: i64
-/// }
-#[tauri::command]
-pub fn set_log_level_filter(
-    app: tauri::AppHandle,
-    config: State<'_, ConfigMutex>,
-    data: String,
-) -> Result<(), String> {
-    let mut config = config.config.lock().unwrap();
-    let log_level = LogLevelFilter::from(data);
-    if log_level != config.log_level {
-        config.log_level = log_level;
-        let event_sender = app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::SaveConfigEvent);
-        // TODO add restart to take effect to description
-    }
-
-    Ok(())
-}
