@@ -1,5 +1,7 @@
 use yew::{function_component, html, Html, Properties};
 
+use crate::components::loading::LoadingComponent;
+
 /// search state of the search page
 #[derive(Clone, Debug, PartialEq)]
 pub enum SearchState {
@@ -35,9 +37,12 @@ pub fn search_state_html(props: &SearchStateHtmlProps) -> Html {
             </label>
         },
         SearchState::Searching => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Searching"}
-            </label>
+            <>
+                <label htmlFor="int-input-box" class=" text-xl">
+                    {"Searching"}
+                </label>
+                <LoadingComponent />
+            </>
         },
         SearchState::Error(message) => html! {
             <label htmlFor="int-input-box" class=" text-xl">
