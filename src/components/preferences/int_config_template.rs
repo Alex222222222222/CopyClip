@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{Event, HtmlInputElement};
 use yew::{
@@ -8,14 +7,7 @@ use yew::{
     TargetCast, UseStateHandle,
 };
 
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "tauri"])]
-    async fn invoke(cmd: &str, args: JsValue) -> JsValue;
-}
-
-#[derive(Serialize, Deserialize)]
-struct EmptyArg {}
+use crate::invoke::invoke;
 
 #[derive(Serialize, Deserialize)]
 struct SetPerPageDataArg {
@@ -41,7 +33,6 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     }
 
     let label = props.label.clone();
-    let label1 = label.clone();
 
     let set_value_invoke = props.set_value_invoke.clone();
     let on_change = Callback::from(move |event: Event| {
@@ -55,13 +46,13 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     use_effect_with_deps(
         move |_| {
             spawn_local(async move {
-                let args = to_value(&EmptyArg {}).unwrap();
+                let args = to_value(&()).unwrap();
                 let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
                 let res = res.parse::<i64>().unwrap();
                 value_handle.set(res);
             });
         },
-        label1,
+        (),
     );
 
     html! {

@@ -5,12 +5,12 @@ use serde_wasm_bindgen::to_value;
 use yew::UseStateHandle;
 
 /// TODO because of I cannot find a component for the date-picker, so I do not implement the date-picker
-use crate::pages::{
-    invoke,
-    search::clip::{Clip, ClipRes},
+use crate::{
+    invoke::invoke,
+    pages::search::clip::{Clip, ClipRes},
 };
 
-use super::{clip::SearchRes, search_state::SearchState, EmptyArg, UserIdLimit};
+use super::{clip::SearchRes, search_state::SearchState, UserIdLimit};
 
 /// search args
 #[derive(Serialize)]
@@ -46,7 +46,7 @@ pub async fn search_clips(
     search_res_num: UseStateHandle<usize>,
     search_props: SearchPros,
 ) -> Result<(), String> {
-    let args = to_value(&EmptyArg {}).unwrap();
+    let args = to_value(&()).unwrap();
     let mut max_id = search_props.user_id_limit.max;
     if max_id < 0 {
         let res = invoke("get_max_id", args).await;

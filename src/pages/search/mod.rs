@@ -1,4 +1,3 @@
-use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{
     function_component, html, use_state, use_state_eq, Callback, Html, TargetCast, UseStateHandle,
@@ -31,10 +30,6 @@ mod search_clip;
 mod search_state;
 mod time_display;
 mod trash_clip_button;
-
-/// empty args
-#[derive(Serialize)]
-struct EmptyArg {}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct UserIdLimit {

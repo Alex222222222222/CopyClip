@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fmt::Display, path::PathBuf};
 
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -71,6 +71,33 @@ impl From<LogLevelFilter> for log::LevelFilter {
             LogLevelFilter::Warn => log::LevelFilter::Warn,
             LogLevelFilter::Error => log::LevelFilter::Error,
             LogLevelFilter::Off => log::LevelFilter::Off,
+        }
+    }
+}
+
+impl Display for LogLevelFilter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogLevelFilter::Trace => write!(f, "trace"),
+            LogLevelFilter::Debug => write!(f, "debug"),
+            LogLevelFilter::Info => write!(f, "info"),
+            LogLevelFilter::Warn => write!(f, "warn"),
+            LogLevelFilter::Error => write!(f, "error"),
+            LogLevelFilter::Off => write!(f, "off"),
+        }
+    }
+}
+
+impl From<String> for LogLevelFilter {
+    fn from(level: String) -> Self {
+        match level.as_str() {
+            "trace" => LogLevelFilter::Trace,
+            "debug" => LogLevelFilter::Debug,
+            "info" => LogLevelFilter::Info,
+            "warn" => LogLevelFilter::Warn,
+            "error" => LogLevelFilter::Error,
+            "off" => LogLevelFilter::Off,
+            _ => LogLevelFilter::Info,
         }
     }
 }
