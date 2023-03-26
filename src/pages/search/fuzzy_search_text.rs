@@ -1,4 +1,3 @@
-use gloo_console::log;
 use sublime_fuzzy::ContinuousMatch;
 use yew::{function_component, html, Html, Properties};
 
@@ -101,17 +100,13 @@ pub fn fuzzy_search_text(props: &FuzzySearchTextProps) -> Html {
     let res = res.unwrap();
     let mut start = 0;
     let mut end = 0;
-    log!("res: {:?}", text.clone());
     let text_data = res
         .continuous_matches()
         .map(|data: ContinuousMatch| {
             end = data.start();
             let res = try_get_uft8_code(&text, start, end);
-            log!("start: {}, end: {}, len: {}", start, end, data.len());
             start = end + data.len();
-            log!("start: {}, end: {}, len: {}", start, end, data.len());
             end = res.0;
-            log!("start: {}, end: {}, len: {}", start, end, data.len());
             let before = res.1;
             let res = try_get_uft8_code(&text, end, start);
             start = res.0;

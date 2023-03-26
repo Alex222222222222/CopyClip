@@ -1,5 +1,3 @@
-use gloo_console::log;
-
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 use yew::{
@@ -233,7 +231,7 @@ fn search_res_table_html(
 ) -> Html {
     let res = res.get();
     let mut res = res.lock().unwrap();
-    log!("searching len got".to_owned() + &res.len().to_string());
+
     let res: Vec<(i64, Clip)> = res.drain().collect();
     let res = sort_search_res(res, order_by.to_string(), order_order.to_bool());
 
@@ -245,6 +243,8 @@ fn search_res_table_html(
             <table class="table-auto">
                 <thead>
                     <tr>
+                        // the id of the clip
+                        <th class="border border-gray-200">{ "ID" }</th>
                         // the time of the clip
                         <th class="border border-gray-200">
                             <Icon icon_id={IconId::LucideTimer}/>
@@ -273,6 +273,7 @@ fn search_res_table_html(
                             let search_method_1 = search_method.clone();
                             html! {
                                 <tr>
+                                    <td class="border border-gray-200">{clip.id}</td>
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
                                     <FavoriteClipButton id={id} is_favorite={clip.favorite}></FavoriteClipButton>
                                     <td class="border border-gray-200">{clip.score}</td>
