@@ -1,5 +1,3 @@
-use gloo_console::log;
-
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 use yew::{
@@ -16,7 +14,7 @@ use crate::{
         clip::{Clip, SearchRes},
         copy_clip_button::CopyClipButton,
         favorite_button::{FavoriteClipButton, FavoriteFilter},
-        fuzzy_search_text::FuzzySearchText,
+        fuzzy_search_text::SearchText,
         order::{sort_search_res, OrderOrder},
         search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
@@ -103,7 +101,7 @@ pub fn search() -> Html {
     });
 
     let search_res_1 = search_res.clone();
-    let search_method_1 = search_method;
+    let search_method_1 = search_method.clone();
     let search_state_1 = search_state.clone();
     let text_data_1 = text_data.clone();
     let search_res_num_1 = search_res_num;
@@ -164,6 +162,7 @@ pub fn search() -> Html {
                         <option value="fuzzy">{"Fuzzy"}</option>
                         <option value="fast">{"Fast"}</option>
                         <option value="normal">{"Normal"}</option>
+                        <option value="regexp">{"Regexp"}</option>
                     </select>
                     <br/>
 
@@ -216,7 +215,7 @@ pub fn search() -> Html {
                     <SearchStateHtml state={search_state.state()}></SearchStateHtml>
 
                     // search res
-                    {search_res_table_html(text_data.to_string(),search_res, order_by,order_order)}
+                    {search_res_table_html(text_data.to_string(),search_res, order_by,order_order,search_method.to_string())}
                 </div>
             </div>
         </div>
@@ -228,10 +227,11 @@ fn search_res_table_html(
     res: UseStateHandle<SearchRes>,
     order_by: UseStateHandle<String>,
     order_order: UseStateHandle<OrderOrder>, // asc or desc
+    search_method: String,
 ) -> Html {
     let res = res.get();
     let mut res = res.lock().unwrap();
-    log!("searching len got".to_owned() + &res.len().to_string());
+
     let res: Vec<(i64, Clip)> = res.drain().collect();
     let res = sort_search_res(res, order_by.to_string(), order_order.to_bool());
 
@@ -243,6 +243,8 @@ fn search_res_table_html(
             <table class="table-auto">
                 <thead>
                     <tr>
+                        // the id of the clip
+                        <th class="border border-gray-200">{ "ID" }</th>
                         // the time of the clip
                         <th class="border border-gray-200">
                             <Icon icon_id={IconId::LucideTimer}/>
@@ -268,14 +270,16 @@ fn search_res_table_html(
                 <tbody>
                     {
                         res.into_iter().map(|(id, clip)| {
+                            let search_method_1 = search_method.clone();
                             html! {
                                 <tr>
+                                    <td class="border border-gray-200">{clip.id}</td>
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
                                     <FavoriteClipButton id={id} is_favorite={clip.favorite}></FavoriteClipButton>
                                     <td class="border border-gray-200">{clip.score}</td>
                                     <CopyClipButton id = {id}></CopyClipButton>
                                     <TrashClipButton id = {id}></TrashClipButton>
-                                    <FuzzySearchText text={clip.text} data={data.clone()}></FuzzySearchText>
+                                    <SearchText text={clip.text} data={data.clone()} search_method={search_method_1}></SearchText>
                                 </tr>
                             }
                         }).collect::<Html>()

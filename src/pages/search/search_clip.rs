@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use gloo_console::log;
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use yew::UseStateHandle;
@@ -70,15 +69,12 @@ pub async fn search_clips(
         let res = invoke("search_clips", args).await;
         let search_res_clone = search_res_clone_clone.clone();
         let mut search_res_clone = search_res_clone.lock().unwrap();
-        log!("res", res.clone());
         let res = serde_wasm_bindgen::from_value::<HashMap<String, ClipRes>>(res);
         if let Ok(res) = res {
-            log!("current length ".to_owned() + &search_res_clone.len().to_string());
             if res.is_empty() {
                 break;
             }
             for (id, clip) in res {
-                log!("searching got id ".to_owned() + &id.to_string());
                 let id = str::parse::<i64>(id.as_str()).unwrap();
                 max_id -= 1;
                 if id < max_id {
@@ -87,13 +83,11 @@ pub async fn search_clips(
 
                 search_res_clone.insert(id, Clip::from_clip_res(data.to_string(), clip));
             }
-            log!("current length ".to_owned() + &search_res_clone.len().to_string());
 
             search_res_num.set(search_res_clone.len());
         } else {
             let res = res.err().unwrap();
             let err = res.to_string();
-            log!("res", err.clone());
             search_state.set(SearchState::Error(err.clone()));
             return Err(err);
         }
