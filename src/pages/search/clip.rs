@@ -3,11 +3,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use yew::Properties;
 
 /// clip data
-#[derive(Clone, PartialEq, Properties, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Clip {
     pub id: i64,
     pub text: String,
@@ -37,7 +37,7 @@ impl Clip {
 }
 
 /// clip data get from the backend
-#[derive(Clone, PartialEq, Properties, Serialize, Deserialize)]
+#[derive(PartialEq, Properties, Deserialize)]
 pub struct ClipRes {
     pub id: i64,
     pub text: String,

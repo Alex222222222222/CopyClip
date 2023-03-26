@@ -386,9 +386,12 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "copy_clip"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
+ "chrono",
  "clipboard-master",
+ "fern",
+ "log",
  "regex",
  "serde",
  "serde_json",
@@ -400,7 +403,7 @@ dependencies = [
 
 [[package]]
 name = "copy_clip_ui"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "chrono",
  "futures",
@@ -747,6 +750,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
 dependencies = [
  "instant",
+]
+
+[[package]]
+name = "fern"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9f0c14694cbd524c8720dd69b0e3179344f04ebb5f90f2e4a440c6ea3b2f1ee"
+dependencies = [
+ "log",
 ]
 
 [[package]]

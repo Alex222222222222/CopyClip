@@ -1,18 +1,19 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_wasm_bindgen::to_value;
 use yew::UseStateHandle;
 
-use crate::pages::{
-    invoke,
-    search::clip::{Clip, ClipRes},
+/// TODO because of I cannot find a component for the date-picker, so I do not implement the date-picker
+use crate::{
+    invoke::invoke,
+    pages::search::clip::{Clip, ClipRes},
 };
 
-use super::{clip::SearchRes, search_state::SearchState, EmptyArg};
+use super::{clip::SearchRes, search_state::SearchState, UserIdLimit};
 
 /// search args
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 struct SearchArgs {
     pub data: String,
     pub minid: i64,
@@ -24,6 +25,14 @@ struct SearchArgs {
     pub favorite: i64,
 }
 
+pub struct SearchPros {
+    pub data: String,
+    pub search_method: String,
+    pub favorite_filter: i64,
+    pub user_id_limit: UserIdLimit,
+    pub total_search_res_limit: usize,
+}
+
 /// search for a clip in the database
 ///
 /// the method is decide by the input, and whenever the method is changed, the search will be reset
@@ -32,37 +41,35 @@ struct SearchArgs {
 ///
 /// search state, if not finished, it will be None, if finished, it will be Some(Ok(())) or Some(Err(String))
 pub async fn search_clips(
-    data: UseStateHandle<String>,
-    search_method: UseStateHandle<String>,
     search_state: UseStateHandle<SearchState>,
     search_res: UseStateHandle<SearchRes>,
     search_res_num: UseStateHandle<usize>,
-    favorite_filter: i64,
+    search_props: SearchPros,
 ) -> Result<(), String> {
-    let search_method_now = search_method.clone().to_string();
-    let data_now = data.clone().to_string();
-    let args = to_value(&EmptyArg {}).unwrap();
-    let max_id = invoke("get_max_id", args).await;
-    let mut max_id = max_id.as_f64().unwrap() as i64 + 1;
+    let args = to_value(&()).unwrap();
+    let mut max_id = search_props.user_id_limit.max;
+    if max_id < 0 {
+        let res = invoke("get_max_id", args).await;
+        max_id = res.as_f64().unwrap() as i64 + 1;
+    }
+    let mut total_len = 0;
 
     // try get the search_res raw data
     let search_res_clone = search_res.clone();
     let search_res_clone = search_res_clone.get();
     let search_res_clone_clone = search_res_clone.clone();
 
-    while max_id > 0
-        && search_method_now == search_method.to_string()
-        && data_now == data.to_string()
+    while max_id > search_props.user_id_limit.min && total_len < search_props.total_search_res_limit
     {
         // the min_id is 0
         // data is the value
         // search_method is the search_method
         let args = to_value(&SearchArgs {
-            data: data.clone().to_string(),
+            data: search_props.data.clone().to_string(),
             minid: -1,
             maxid: max_id,
-            searchmethod: search_method.clone().to_string(),
-            favorite: favorite_filter,
+            searchmethod: search_props.search_method.clone().to_string(),
+            favorite: search_props.favorite_filter,
         })
         .unwrap();
 
@@ -81,10 +88,12 @@ pub async fn search_clips(
                     max_id = id;
                 }
 
-                search_res_clone.insert(id, Clip::from_clip_res(data.to_string(), clip));
+                search_res_clone
+                    .insert(id, Clip::from_clip_res(search_props.data.to_string(), clip));
             }
 
             search_res_num.set(search_res_clone.len());
+            total_len = search_res_clone.len();
         } else {
             let res = res.err().unwrap();
             let err = res.to_string();

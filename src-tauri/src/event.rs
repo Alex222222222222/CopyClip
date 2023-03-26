@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager};
 use crate::{
     clip::ClipDataMutex,
     config::ConfigMutex,
+    log::{panic_app, LogLevel},
     systray::{create_tray_menu, send_tray_update_event},
 };
 
@@ -16,6 +17,8 @@ pub enum CopyClipEvent {
     RebuildTrayMenuEvent,
     /// save config event
     SaveConfigEvent,
+    /// log
+    LogEvent(LogLevel, String),
 }
 
 /// the event sender
@@ -51,8 +54,10 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let res = clip_data.update_tray(app);
                 drop(clip_data);
                 if res.is_err() {
-                    // TODO: send a notification of the error, and panic the whole app
-                    println!("error: {}", res.err().unwrap().message());
+                    panic_app(&format!(
+                        "Failed to update tray menu, error: {}",
+                        res.err().unwrap().message()
+                    ));
                 }
             }
             // rebuild the tray menu
@@ -62,9 +67,10 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let num = num.config.lock().unwrap().clip_per_page;
                 let res = app.tray_handle().set_menu(create_tray_menu(num));
                 if res.is_err() {
-                    // TODO
-                    println!("failed to set tray menu");
-                    panic!("{}", res.err().unwrap().to_string());
+                    panic_app(&format!(
+                        "Failed to set tray menu, error: {}",
+                        res.err().unwrap()
+                    ));
                 }
                 // initial the tray
                 send_tray_update_event(app);
@@ -76,9 +82,12 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
                 let res = config.save_config(app);
                 drop(config);
                 if res.is_err() {
-                    // TODO
-                    panic!("Failed to {}", res.err().unwrap().message());
+                    panic_app(&format!("Failed to {}", res.err().unwrap().message()));
                 }
+            }
+            // log
+            CopyClipEvent::LogEvent(level, msg) => {
+                log::log!(log::Level::from(level), "{msg}");
             }
         }
     }

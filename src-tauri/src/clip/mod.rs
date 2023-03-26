@@ -541,13 +541,12 @@ impl ClipData {
         }
 
         let tray_page_info_item = app.tray_handle().get_item("page_info");
-        // TODO change the method of doing this to a more clean one
-        let tray_page_info_title = "Total clips: ".to_string()
-            + &self.clips.whole_list_of_ids.len().to_string()
-            + ", Current page: "
-            + &(&current_page + 1).to_string()
-            + "/"
-            + &(whole_pages + 1).to_string();
+        let tray_page_info_title = format!(
+            "Total clips: {}, Current page: {}/{}",
+            self.clips.whole_list_of_ids.len(),
+            current_page + 1,
+            whole_pages + 1
+        );
         let res = tray_page_info_item.set_title(tray_page_info_title.clone());
         if res.is_err() {
             return Err(error::Error::SetSystemTrayTitleErr(
@@ -611,7 +610,6 @@ pub fn copy_clip_to_clipboard(
         .icon("icons/clip.png")
         .show();
     if let Err(err) = res {
-        
         #[cfg(debug_assertions)]
         println!("Error: {err}");
 
