@@ -102,6 +102,8 @@ fn main() {
             config::command::set_max_clip_len,
             config::command::get_search_clip_per_page,
             config::command::set_search_clip_per_page,
+            config::command::get_log_level_filter,
+            config::command::set_log_level_filter,
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,
             clip::change_favorite_clip,

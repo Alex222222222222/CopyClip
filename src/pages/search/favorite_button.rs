@@ -3,7 +3,7 @@ use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, use_state_eq, Callback, Html, Properties};
 use yew_icons::{Icon, IconId};
 
-use crate::pages::invoke;
+use crate::invoke::invoke;
 
 #[derive(Debug, PartialEq)]
 pub enum FavoriteFilter {
