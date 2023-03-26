@@ -611,6 +611,7 @@ pub fn copy_clip_to_clipboard(
         .icon("icons/clip.png")
         .show();
     if let Err(err) = res {
+        
         #[cfg(debug_assertions)]
         println!("Error: {err}");
 
