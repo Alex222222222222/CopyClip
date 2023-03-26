@@ -386,7 +386,7 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "copy_clip"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "chrono",
  "clipboard-master",
@@ -403,7 +403,7 @@ dependencies = [
 
 [[package]]
 name = "copy_clip_ui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "chrono",
  "futures",

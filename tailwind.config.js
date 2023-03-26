@@ -1,4 +1,5 @@
 module.exports = {
+    darkMode: 'class',
     purge: {
         mode: "all",
         content: [

@@ -187,31 +187,33 @@ pub fn search() -> Html {
     });
 
     html! {
-        <div class="flex min-h-screen flex-col bg-white">
+        <div class="flex min-h-screen flex-col">
             <HeadBar></HeadBar>
             <h1 class="text-center text-6xl m-0">{ "Search" }</h1>
             <div class="mx-5 my-2">
                 <div class="flex flex-col">
-                    <div class="flex flex-row my-2 w-11/12">
+                    <div class="flex flex-row my-2 justify-between">
+                        // TODO change htmlFor
                         <label htmlFor="int-input-box" class="text-xl py-1">
                             {"Type to search"}
                         </label>
                         <input
                             id="search-data-text-input-box"
                             type="text"
-                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-8/12"
+                            class="border border-gray-200 rounded-md px-2 py-1 ml-5 flex-1 dark:text-black"
                             onchange={text_box_on_change}
                             placeholder={"Search"}
                         />
                     </div>
 
-                    <div class="flex flex-row my-2">
+                    <div class="flex flex-row my-2 justify-between">
+                        // TODO change htmlFor
                         <label htmlFor="int-input-box" class="text-xl">
                             {"Choose search method"}
                         </label>
                         // search method drop list
                         <select
-                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
+                            class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
                             onchange={search_method_on_change}
                         >
                             <option value="fuzzy">{"Fuzzy"}</option>
@@ -221,55 +223,61 @@ pub fn search() -> Html {
                         </select>
                     </div>
 
-                    <div class="flex flex-row my-2">
+                    <div class="flex flex-row my-2 justify-between">
+                        // TODO change htmlFor
                         <label htmlFor="int-input-box" class="text-xl">
                             {"Choose order method"}
                         </label>
                         // order method drop list
-                        <select
-                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
-                            onchange={order_method_on_change}
+                        <div
+                            class="flex flex-row"
                         >
-                            <option value="time">{"Time"}</option>
-                            <option value="score">{"Score"}</option>
-                            <option value="id">{"Id"}</option>
-                            <option value="text">{"Text"}</option>
-                        </select>
-                        // order order drop list
-                        <select
-                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
-                            onchange={order_order_on_change}
-                        >
-                            <option value="desc">{"Desc"}</option>
-                            <option value="asc">{"Asc"}</option>
-                        </select>
+                            <select
+                                class="border border-gray-200 rounded-md p-2 mr-2 text-lg dark:text-black"
+                                onchange={order_method_on_change}
+                            >
+                                <option value="time">{"Time"}</option>
+                                <option value="score">{"Score"}</option>
+                                <option value="id">{"Id"}</option>
+                                <option value="text">{"Text"}</option>
+                            </select>
+                            // order order drop list
+                            <select
+                                class="border border-gray-200 rounded-md p-2 ml-2 text-lg dark:text-black"
+                                onchange={order_order_on_change}
+                            >
+                                <option value="desc">{"Desc"}</option>
+                                <option value="asc">{"Asc"}</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="flex flex-row my-2">
+                    <div class="flex flex-row my-2 justify-between">
                         // favorite filter
+                        // TODO change htmlFor
                         <label htmlFor="int-input-box" class=" text-xl">
                             {"Favorite filter"}
                         </label>
                         <select
-                            class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
+                            class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
                             onchange={favorite_filter_on_change}
                         >
                             <option value="all">{"All"}</option>
                             <option value="favorite">{"Favorite"}</option>
                             <option value="not_favorite">{"NotFavorite"}</option>
                         </select>
-                        <br/>
                     </div>
 
                     // total search res num limit
-                    <div class="flex flex-row my-2 w-11/12">
+                    <div class="flex flex-row my-2 justify-between">
+                        // TODO change htmlFor
                         <label htmlFor="int-input-box" class="text-xl py-1">
                             {"Total search res num limit"}
                         </label>
                         <input
                             id="totally-search-res-limit-input-box"
                             type="number"
-                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-6/12"
+                            class="border border-gray-200 rounded-md px-2 py-1 flex-1 ml-5 dark:text-black"
                             onchange={total_search_res_limit_on_change}
                             value={total_search_res_limit.to_string()}
                         />
@@ -277,24 +285,26 @@ pub fn search() -> Html {
 
                     // id min and id max
                     // total search res num limit
-                    <div class="flex flex-row my-2 w-11/12">
+                    <div class="flex flex-row my-2 justify-between">
+                        // TODO change htmlFor
                         <label htmlFor="int-input-box" class="text-xl py-1">
                             {"Min ID"}
                         </label>
                         <input
                             id="user-id-limit-min-input-box"
                             type="number"
-                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-3/12"
+                            class="border border-gray-200 rounded-md px-2 py-1 ml-5 flex-1 dark:text-black"
                             onchange={user_id_limit_min_on_change}
                             value={user_id_limit.min.to_string()}
                         />
-                        <label htmlFor="int-input-box" class="text-xl py-1">
+                        // TODO change htmlFor
+                        <label htmlFor="int-input-box" class="text-xl py-1 ml-5">
                             {"Max ID"}
                         </label>
                         <input
                             id="user-id-limit-max-input-box"
                             type="number"
-                            class="border border-gray-200 rounded-md px-2 py-1 mx-2 w-3/12"
+                            class="border border-gray-200 rounded-md px-2 py-1 ml-5 flex-1 dark:text-black"
                             onchange={user_id_limit_max_on_change}
                             value={user_id_limit.max.to_string()}
                         />
@@ -302,10 +312,12 @@ pub fn search() -> Html {
 
                     // search button
                     <button
-                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded my-2"
+                        class="search-button bg-black my-2"
                         onclick={search_button_on_click}
                     >
-                        {"Search"}
+                        <span
+                            class="dark:bg-white dark:text-black text-white"
+                        > {"Press To Search"} </span>
                     </button>
 
                     // search state
@@ -349,24 +361,24 @@ fn search_res_table_html(
                         <th class="border border-gray-200">{ "ID" }</th>
                         // the time of the clip
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::LucideTimer}/>
+                            <Icon icon_id={IconId::LucideTimer} class="mx-auto mt-0.5"/>
                         </th>
                         // favorite or not, use heart icon
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::BootstrapHeartHalf}/>
+                            <Icon icon_id={IconId::BootstrapHeartHalf} class="mx-auto mt-0.5"/>
                         </th>
                         // the fuzzy score of the clip
                         <th class="border border-gray-200">{ "Score" }</th>
                         // copy the clip button icon
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList}/>
+                            <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList} class="mx-auto mt-0.5"/>
                         </th>
                         // delete the clip button icon
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::BootstrapTrash}/>
+                            <Icon icon_id={IconId::BootstrapTrash} class="mx-auto mt-0.5"/>
                         </th>
                         // only part of the clip, if the user want to see the whole clip, he can click the link which will lead to the clip page
-                        <th class="border border-gray-200 w-8/12">{ "Clip" }</th>
+                        <th class="border border-gray-200">{ "Clip" }</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -375,10 +387,10 @@ fn search_res_table_html(
                             let search_method_1 = search_method.clone();
                             html! {
                                 <tr>
-                                    <td class="border border-gray-200">{clip.id}</td>
+                                    <td class="border border-gray-200 text-center">{clip.id}</td>
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
                                     <FavoriteClipButton id={id} is_favorite={clip.favorite}></FavoriteClipButton>
-                                    <td class="border border-gray-200">{clip.score}</td>
+                                    <td class="border border-gray-200 text-center">{clip.score}</td>
                                     <CopyClipButton id = {id}></CopyClipButton>
                                     <TrashClipButton id = {id}></TrashClipButton>
                                     <SearchText text={clip.text} data={data.clone()} search_method={search_method_1}></SearchText>

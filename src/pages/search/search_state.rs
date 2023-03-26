@@ -1,5 +1,7 @@
 use yew::{function_component, html, Html, Properties};
 
+use crate::components::loading::LoadingComponent;
+
 /// search state of the search page
 #[derive(Clone, Debug, PartialEq)]
 pub enum SearchState {
@@ -30,14 +32,12 @@ pub fn search_state_html(props: &SearchStateHtmlProps) -> Html {
     let state = props.state.clone();
     match state {
         SearchState::NotStarted => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Press search to start"}
-            </label>
+            <></>
         },
         SearchState::Searching => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Searching"}
-            </label>
+            <>
+                <LoadingComponent />
+            </>
         },
         SearchState::Error(message) => html! {
             <label htmlFor="int-input-box" class=" text-xl">
@@ -45,9 +45,7 @@ pub fn search_state_html(props: &SearchStateHtmlProps) -> Html {
             </label>
         },
         SearchState::Finished => html! {
-            <label htmlFor="int-input-box" class=" text-xl">
-                {"Search finished"}
-            </label>
+            <></>
         },
     }
 }
