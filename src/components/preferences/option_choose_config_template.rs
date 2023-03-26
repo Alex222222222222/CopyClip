@@ -58,30 +58,25 @@ pub fn option_choose_config_template_html(props: &OptionChooseConfigTemplateProp
 
     let options = props.option.clone();
     html! {
-        <div
-            class="flex flex-row justify-between"
-        >
-            <label class="text-xl">
+        <>
+            <label htmlFor="int-input-box" class="text-xl">
                 {props.label.clone()}
             </label>
             // search method drop list
             <select
-                class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
+                class="border border-gray-200 rounded-md p-2 mx-2 text-lg"
                 onchange={select_on_change}
             >
                 {
                     options.into_iter().map(|(key,value)| {
                         html! {
-                            <option
-                                value={key.clone()}
-                                selected={key == selected.to_string()}
-                            >
+                            <option value={key.clone()} selected={key == selected.to_string()}>
                                 {value}
                             </option>
                         }
                     }).collect::<Html>()
                 }
             </select>
-        </div>
+        </>
     }
 }

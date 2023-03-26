@@ -38,6 +38,15 @@ fn main() {
             clip_data: Mutex::<ClipData>::default(),
         })
         .setup(|app| {
+            // load the config info from the config file
+            let app_handle = app.handle();
+            let config = config::load_config(&app_handle);
+            let app_handle = app.handle();
+            let config_mutex = app_handle.state::<ConfigMutex>();
+            let mut config_mutex = config_mutex.config.lock().unwrap();
+            *config_mutex = config;
+            drop(config_mutex);
+
             // set up the logger
             let app_handle = app.handle();
             let res = setup_logger(&app_handle);
@@ -54,15 +63,6 @@ fn main() {
                     res.err().unwrap().message()
                 ));
             }
-
-            // load the config info from the config file
-            let app_handle = app.handle();
-            let config = config::load_config(&app_handle);
-            let app_handle = app.handle();
-            let config_mutex = app_handle.state::<ConfigMutex>();
-            let mut config_mutex = config_mutex.config.lock().unwrap();
-            *config_mutex = config;
-            drop(config_mutex);
 
             // set up event sender and receiver
             let app_handle = app.handle();
@@ -100,10 +100,10 @@ fn main() {
             config::command::set_per_page_data,
             config::command::get_max_clip_len,
             config::command::set_max_clip_len,
+            config::command::get_search_clip_per_page,
+            config::command::set_search_clip_per_page,
             config::command::get_log_level_filter,
             config::command::set_log_level_filter,
-            config::command::get_dark_mode,
-            config::command::set_dark_mode,
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,
             clip::change_favorite_clip,
