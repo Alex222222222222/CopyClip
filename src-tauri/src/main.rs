@@ -79,11 +79,6 @@ fn main() {
                 clip::monitor::monitor_clip_board(&app_handle);
             });
 
-            let app_handle = app.handle();
-            tauri::async_runtime::spawn(async move {
-                clip::cache::cache_daemon(&app_handle);
-            });
-
             // initial the tray
             let event = app.state::<EventSender>();
             event.send(CopyClipEvent::RebuildTrayMenuEvent);
