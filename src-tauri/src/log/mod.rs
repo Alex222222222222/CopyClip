@@ -102,7 +102,7 @@ impl From<String> for LogLevelFilter {
     }
 }
 
-pub fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
+pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
     let path = get_user_log_path(app);
     if path.is_none() {
         return Ok(());
@@ -127,7 +127,7 @@ pub fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
 
     #[cfg(not(debug_assertions))]
     {
-        let level = get_user_log_level(app);
+        let level = get_user_log_level(app).await;
         log = log.level(level);
     }
 
@@ -159,9 +159,9 @@ fn get_user_log_path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 /// get the user log level
-pub fn get_user_log_level(app: &AppHandle) -> log::LevelFilter {
+pub async fn get_user_log_level(app: &AppHandle) -> log::LevelFilter {
     let config = app.state::<ConfigMutex>();
-    let config = config.config.lock().unwrap();
+    let config = config.config.lock().await;
     let log_level = config.log_level.clone();
     log::LevelFilter::from(log_level)
 }

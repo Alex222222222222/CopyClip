@@ -80,6 +80,9 @@ pub enum Error {
     UpdateClipsInDatabaseErr(String, String),
     /// invalid regexp string
     RegexpErr(String),
+    /// read from system clipboard failed
+    /// the first string is the error message
+    ReadFromSystemClipboardErr(String),
 }
 
 impl Error {
@@ -110,6 +113,7 @@ impl Error {
             Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {err}"),
             Error::UpdateClipsInDatabaseErr(err, err2) => format!("update clips in database failed, error message: {err}, error message from sqlite::execute: {err2}"),
             Error::RegexpErr(err) => format!("invalid regexp string, error message: {err}"),
+            Error::ReadFromSystemClipboardErr(err) => format!("read from system clipboard failed, error message: {err}"),
         }
     }
 

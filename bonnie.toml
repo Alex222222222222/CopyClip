@@ -23,7 +23,7 @@ build.cmd = "cargo build"
 ## Builds the frontend
 build.subcommands.frontend = [
     "bonnie build-tailwind-prod",
-    "cargo tauri build"
+    "export CI=true && cargo tauri build"
 ]
 ## Runs the frontend, watching for changes (uses Trunk)
 ## Tailwind is assumed to be set up after `setup`
