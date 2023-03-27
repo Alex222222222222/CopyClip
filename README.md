@@ -25,7 +25,7 @@ A MacOS app used to manage your clipboard history.
     autoSave=true
     /vscode-markdown-toc-config -->
 
-<!-- /vscode-markdown-toc --># Copy Clip
+<!-- /vscode-markdown-toc -->
 
 ## Install
 
@@ -41,11 +41,13 @@ Just copy the app to the application folder.
 
 Use `dpkg` to install the `deb` bundle.
 
-### TODO
+## TODO
 
 - [x] Search Page
 
 - [x] Configuration Page
+
+- [ ] add follow system theme support
 
 - [ ] Explanation for configurations
 
@@ -57,11 +59,15 @@ Use `dpkg` to install the `deb` bundle.
 
 - [ ] Change the icon of the app so it can be seen in the white background
 
+- [ ] Export the history to a file
+
 ## Known Issues
 
 ### MacOS Security Policy
 
-The Mac aarch64 build may have a problem with the macOS security policy, you may need to manually run the following command
+The Mac aarch64 build may have a problem with the macOS security policy, apple need developer to buy a 99$ per year development program to let developer to be treated as trusted developer.
+
+ You may need to manually run the following command
 
 ```bash
 sudo spctl --master-disable
@@ -195,4 +201,11 @@ build.subcommands.frontend = [
 run.subcommands.frontend = [
     "cargo tauri dev"
 ]
+```
+
+## Cargo Outdated
+
+```bash
+cargo install cargo-outdated
+cargo outdated
 ```
