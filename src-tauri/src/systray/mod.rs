@@ -4,7 +4,11 @@ use tauri::{
     SystemTrayMenuItem,
 };
 
-use crate::{clip::ClipDataMutex, event::EventSender, log::panic_app};
+use crate::{
+    clip::ClipDataMutex,
+    event::{CopyClipEvent, EventSender},
+    log::panic_app,
+};
 
 /// create the tray
 pub fn create_tray(num: i64) -> SystemTray {
@@ -59,7 +63,10 @@ pub fn create_tray_menu(num: i64) -> SystemTrayMenu {
 /// handle the tray event
 pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
     match event {
-            SystemTrayEvent::MenuItemClick { tray_id, id, .. } => handle_menu_item_click(app, tray_id, id),
+            SystemTrayEvent::MenuItemClick {id, .. } => {
+                let event_sender = app.state::<EventSender>();
+                event_sender.send(CopyClipEvent::TrayMenuItemClickEvent(id.clone()));
+            }
             SystemTrayEvent::LeftClick {
                   // tray_id, 
                   // position, 
@@ -92,7 +99,7 @@ pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
 /// - prev_page
 /// - first_page
 /// - tray_clip_num
-fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
+pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
     match id.as_str() {
         "quit" => {
             // quit the app
@@ -100,23 +107,23 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
         }
         "next_page" => {
             let clips = app.state::<ClipDataMutex>();
-            let mut clips = clips.clip_data.lock().unwrap();
-            clips.next_page(app);
+            let mut clips = clips.clip_data.lock().await;
+            clips.next_page(app).await;
 
             // update the tray
             send_tray_update_event(app);
         }
         "prev_page" => {
             let clips = app.state::<ClipDataMutex>();
-            let mut clips = clips.clip_data.lock().unwrap();
-            clips.prev_page(app);
+            let mut clips = clips.clip_data.lock().await;
+            clips.prev_page(app).await;
 
             // update the tray
             send_tray_update_event(app);
         }
         "first_page" => {
             let clips = app.state::<ClipDataMutex>();
-            let mut clips = clips.clip_data.lock().unwrap();
+            let mut clips = clips.clip_data.lock().await;
             clips.first_page();
 
             // update the tray
@@ -177,24 +184,29 @@ fn handle_menu_item_click(app: &AppHandle, _tray_id: String, id: String) {
         _ => {
             // test if the id is a tray_clip
             if id.starts_with("tray_clip_") {
+                let app_handle = app.app_handle();
                 // get the index of the clip
                 let index = id.replace("tray_clip_", "").parse::<i64>().unwrap();
 
                 // select the index
-                let clips = app.state::<ClipDataMutex>();
-                let mut clips = clips.clip_data.lock().unwrap();
+                let clips = app_handle.state::<ClipDataMutex>();
+                let mut clips = clips.clip_data.lock().await;
                 let item_id = clips.clips.tray_ids_map.get(index as usize);
                 if item_id.is_none() {
                     warn!("Failed to get the item id for the tray id: {}", index);
+                    drop(clips);
                     return;
                 }
                 let item_id = item_id.unwrap();
                 let item_id = *item_id;
-                let res = clips.select_clip(app, item_id);
+
+                let res = clips.select_clip(app, item_id).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
+                    drop(clips);
                     return;
                 }
+                drop(clips);
             } else {
                 warn!("Unknown menu item id: {}", id);
             }

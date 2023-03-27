@@ -4,21 +4,21 @@ A MacOS app used to manage your clipboard history.
 
 <!-- vscode-markdown-toc -->
 
-* 1. [Install](#Install)
-     * 1.1. [MacOS](#MacOS)
-     * 1.2. [Linux](#Linux)
-     * 1.3. [TODO](#TODO)
-* 2. [Known Issues](#KnownIssues)
-     * 2.1. [MacOS Security Policy](#MacOSSecurityPolicy)
-     * 2.2. [Other Issues](#OtherIssues)
-* 3. [Build](#Build)
-     * 3.1. [Prerequisites](#Prerequisites)
-     * 3.2. [Build](#Build-1)
-     * 3.3. [Run](#Run)
-* 4. [Bonnie](#Bonnie)
-     * 4.1. [Install](#Install-1)
-     * 4.2. [Use](#Use)
-     * 4.3. [Config](#Config)
+- 1. [Install](#Install)
+     - 1.1. [MacOS](#MacOS)
+     - 1.2. [Linux](#Linux)
+     - 1.3. [TODO](#TODO)
+- 2. [Known Issues](#KnownIssues)
+     - 2.1. [MacOS Security Policy](#MacOSSecurityPolicy)
+     - 2.2. [Other Issues](#OtherIssues)
+- 3. [Build](#Build)
+     - 3.1. [Prerequisites](#Prerequisites)
+     - 3.2. [Build](#Build-1)
+     - 3.3. [Run](#Run)
+- 4. [Bonnie](#Bonnie)
+     - 4.1. [Install](#Install-1)
+     - 4.2. [Use](#Use)
+     - 4.3. [Config](#Config)
 
 <!-- vscode-markdown-toc-config
     numbering=true
@@ -52,7 +52,7 @@ Use `dpkg` to install the `deb` bundle.
 - [ ] Explanation for configurations
 
 - [ ] i18n support
-  
+
   - [ ] Chinese
 
 - [ ] Sign the app for MacOS build
@@ -67,7 +67,7 @@ Use `dpkg` to install the `deb` bundle.
 
 The Mac aarch64 build may have a problem with the macOS security policy, apple need developer to buy a 99$ per year development program to let developer to be treated as trusted developer.
 
- You may need to manually run the following command
+You may need to manually run the following command
 
 ```bash
 sudo spctl --master-disable
@@ -86,17 +86,7 @@ The log file is located at `~/Library/Logs/org.eu.huazifan.copyclip/log`on MacOS
 
 ### Prerequisites
 
-You need to have the following installed:
-    - Rust
-    - pnpm
-    - wasm32-unknown-unknown
-    - tauri-cli
-    - trunk
-    - bonnie
-    - wasm-opt
-    - twiggy
-    - wasm-snip
-    - tailwindcss
+You need to have the following installed: - Rust - pnpm - wasm32-unknown-unknown - tauri-cli - trunk - bonnie - wasm-opt - twiggy - wasm-snip - tailwindcss
 
 ```bash
 # wasm32-unknown-unknown
@@ -124,8 +114,7 @@ cargo install wasm-snip
 pnpm install tailwindcss@latest
 ```
 
-For linux, you need to install extra dependency:
-    - `libxcb*`
+For linux, you need to install extra dependency: - `libxcb*`
 
 ```bash
 sudo apt-get update

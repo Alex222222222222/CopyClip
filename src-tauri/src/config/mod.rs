@@ -1,8 +1,8 @@
-use std::{fs, sync::Mutex};
+use std::fs;
 
 use log::warn;
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{async_runtime::Mutex, AppHandle};
 
 use crate::{error, log::LogLevelFilter};
 
@@ -33,7 +33,7 @@ pub struct Config {
 /// if the config file exist, load it
 ///
 /// if there is an error, return the default config
-pub fn load_config(app: &AppHandle) -> Config {
+fn load_config(app: &AppHandle) -> Config {
     // find app data folder
     // find config file
     // if config file does not exist, create it
@@ -166,6 +166,15 @@ impl Config {
         }
 
         Ok(())
+    }
+
+    pub fn load_config(&mut self, app: &AppHandle) {
+        let config = load_config(app);
+        self.clip_per_page = config.clip_per_page;
+        self.clip_max_show_length = config.clip_max_show_length;
+        self.search_clip_per_batch = config.search_clip_per_batch;
+        self.log_level = config.log_level;
+        self.dark_mode = config.dark_mode;
     }
 }
 
