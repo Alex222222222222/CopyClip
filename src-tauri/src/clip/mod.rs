@@ -1,10 +1,10 @@
-pub mod cache;
 pub mod database;
 pub mod monitor;
 pub mod search;
 
-use std::{cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, num::NonZeroUsize};
 
+use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use sqlite::{State, Value};
 use tauri::{api::notification::Notification, AppHandle, ClipboardManager, Manager};
@@ -38,13 +38,18 @@ impl Clip {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Clips {
-    pub current_clip: i64,                 // the id of the current clip
-    pub current_page: i64,                 // the current page
-    pub whole_list_of_ids: Vec<i64>,       // the ids of all the clips, well sorted
-    pub tray_ids_map: Vec<i64>, // the ids of the current displaying clips, the same order with the order displaying in the tray
-    cached_clips: HashMap<i64, ClipCache>, // the clips that are currently in the cache
+    /// the id of the current clip
+    pub current_clip: i64,
+    /// the current page           
+    pub current_page: i64,
+    /// the ids of all the clips, well sorted               
+    pub whole_list_of_ids: Vec<i64>,
+    /// the ids of the current displaying clips, the same order with the order displaying in the tray     
+    pub tray_ids_map: Vec<i64>,
+    /// the clips that are currently in the cache
+    cached_clips: LruCache<i64, Clip>,
 }
 
 impl Default for Clips {
@@ -54,7 +59,23 @@ impl Default for Clips {
             current_page: 0,
             whole_list_of_ids: Default::default(),
             tray_ids_map: Default::default(),
-            cached_clips: Default::default(),
+            // TODO change the size to be configurable
+            cached_clips: LruCache::new(NonZeroUsize::new(50).unwrap()),
+        }
+    }
+}
+
+impl Clips {
+    pub fn new_with_cache_size(cache_size: usize) -> Self {
+        if cache_size == 0 {
+            return Self::default();
+        }
+        Self {
+            current_clip: -1,
+            current_page: 0,
+            whole_list_of_ids: Default::default(),
+            tray_ids_map: Default::default(),
+            cached_clips: LruCache::new(NonZeroUsize::new(cache_size).unwrap()),
         }
     }
 }
@@ -67,12 +88,6 @@ pub struct ClipData {
 
 pub struct ClipDataMutex {
     pub clip_data: std::sync::Mutex<ClipData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ClipCache {
-    pub clip: Clip,         // the clip
-    pub add_timestamp: i64, // in seconds
 }
 
 impl ClipData {
@@ -173,20 +188,9 @@ impl ClipData {
         }
 
         // if the clip is in the cache, return it
-        let clip_cache = self.clips.cached_clips.get(&id);
-        if let Some(clip_cache) = clip_cache {
-            let clip_cache = clip_cache.clone();
-            self.clips.cached_clips.insert(
-                id,
-                ClipCache {
-                    clip: clip_cache.clip.clone(),
-                    add_timestamp: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs() as i64,
-                },
-            );
-            return Ok(clip_cache.clip);
+        let clip = self.clips.cached_clips.get(&id);
+        if let Some(clip) = clip {
+            return Ok(clip.clone());
         }
 
         // if the clip is not in the cache, get it from the database
@@ -251,16 +255,8 @@ impl ClipData {
             favorite,
         };
 
-        self.clips.cached_clips.insert(
-            id,
-            ClipCache {
-                clip: clip.clone(),
-                add_timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as i64,
-            },
-        );
+        // add the clip to the cache
+        self.clips.cached_clips.put(id, clip.clone());
 
         Ok(clip)
     }
@@ -273,7 +269,7 @@ impl ClipData {
         // delete a clip from the database and the cache
 
         // first delete in cache
-        self.clips.cached_clips.remove(&id);
+        self.clips.cached_clips.pop(&id);
 
         // delete in database
         let mut statement = self
@@ -383,16 +379,8 @@ impl ClipData {
             favorite: false,
         };
 
-        self.clips.cached_clips.insert(
-            id,
-            ClipCache {
-                clip,
-                add_timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as i64,
-            },
-        );
+        // add the clip to the cache
+        self.clips.cached_clips.put(id, clip);
 
         self.clips.whole_list_of_ids.push(id);
 
@@ -411,7 +399,7 @@ impl ClipData {
         // change the clip in the cache
         let clip = self.clips.cached_clips.get_mut(&id);
         if let Some(clip) = clip {
-            clip.clip.favorite = target;
+            clip.favorite = target;
         }
 
         // change the clip in the database
