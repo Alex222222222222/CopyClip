@@ -25,8 +25,8 @@ pub struct Clip {
     pub timestamp: i64,
     /// the id of the clip
     pub id: i64,
-    ///  if the clip is a favorite 1 means true, 0 means false
-    pub favorite: bool,
+    ///  if the clip is a favourite 1 means true, 0 means false
+    pub favourite: bool,
 }
 
 impl Clip {
@@ -107,87 +107,90 @@ pub struct ClipDataMutex {
 }
 
 impl ClipData {
-    /// get the position of the clip in the whole list of ids
-    /// return the position of the clip in the whole list of ids
-    pub fn get_clip_pos(&self, id: i64) -> i64 {
-        // get the position of the clip in the whole_list_of_ids
-        // if the id is not in the list, return the highest pos
-        let clip_pos = self.get_id_pos_in_whole_list_of_ids(id);
-        if clip_pos.is_none() {
-            return self.clips.whole_list_of_ids.len() as i64 - 1;
+    /// change the clip favourite state to the target state
+    pub async fn change_favourite_clip(
+        &mut self,
+        id: i64,
+        target: bool,
+    ) -> Result<(), error::Error> {
+        // change the clip favourite state to the target state
+        // change the clip in the cache
+        // change the clip in the database
+
+        // change the clip in the cache
+        let clip = self.clips.cached_clips.get_mut(&id);
+        if let Some(clip) = clip {
+            clip.favourite = target;
         }
 
-        clip_pos.unwrap()
+        // change the clip in the database
+        let res = sqlx::query("UPDATE clips SET favourite = ? WHERE id = ?")
+            .bind(target)
+            .bind(id)
+            .fetch_optional(self.database_connection.as_ref().unwrap())
+            .await;
+
+        if let Err(err) = res {
+            return Err(error::Error::UpdateClipsInDatabaseErr(
+                format!(
+                    "toggle clip favourite state of id: {} to favourite state:{}",
+                    id, target
+                ),
+                err.to_string(),
+            ));
+        }
+
+        Ok(())
     }
 
-    pub fn get_current_clip_pos(&self) -> i64 {
-        self.get_clip_pos(self.clips.current_clip)
-    }
+    pub async fn delete_clip(&mut self, id: i64) -> Result<(), error::Error> {
+        // delete a clip from the database and the cache
 
-    /// switch the tray + number of page, if the page is not in the range, then do nothing
-    pub fn switch_page(&mut self, page: i64, max_page: i64) {
-        // switch to the page by the page number
-        // if max_page is -1, it means there is no limit
+        // first delete in cache
+        self.clips.cached_clips.pop(&id);
 
-        let target_page = self.clips.current_page + page;
-        if target_page < 0 {
-            self.clips.current_page = 0;
-            return;
-        }
-        if target_page > max_page && max_page >= 0 {
-            self.clips.current_page = max_page;
-            return;
+        // delete in database
+        let res = sqlx::query("DELETE FROM clips WHERE id = ?")
+            .bind(id)
+            .fetch_optional(self.database_connection.as_ref().unwrap())
+            .await;
+        if let Err(err) = res {
+            return Err(error::Error::DeleteClipFromDatabaseErr(id, err.to_string()));
         }
 
-        self.clips.current_page = target_page;
+        // delete from the whole list of ids
+        // get the position of the id in the whole list of ids
+        let pos = self.get_id_pos_in_whole_list_of_ids(id);
+        let current_clip_pos = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
+        if let Some(pos) = pos {
+            // if pos is before the current clip, decrease the current clip by 1
+            // if pos is the current clip, set the current clip to -1
+            if let Some(current_clip_pos) = current_clip_pos {
+                match pos.cmp(&current_clip_pos) {
+                    Ordering::Less => {
+                        self.clips.current_clip = *self
+                            .clips
+                            .whole_list_of_ids
+                            .get(current_clip_pos as usize - 1)
+                            .unwrap();
+                    }
+                    Ordering::Equal => {
+                        self.clips.current_clip = -1;
+                    }
+                    Ordering::Greater => {}
+                }
+            } else {
+                self.clips.current_clip = -1;
+            }
+            self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
+        }
+        Ok(())
     }
 
     pub fn first_page(&mut self) {
         // switch to the first page
 
         self.clips.current_page = 0;
-    }
-
-    pub async fn next_page(&mut self, app: &AppHandle) {
-        // switch to the next page
-        // if max_page is -1, it means there is no limit
-
-        let max_page = self.get_max_page(app).await;
-        self.switch_page(1, max_page);
-    }
-
-    pub async fn prev_page(&mut self, app: &AppHandle) {
-        // switch to the previous page
-        // if max_page is -1, it means there is no limit
-
-        let max_page = self.get_max_page(app).await;
-        self.switch_page(-1, max_page);
-    }
-
-    /// get the maximum page number depend on the number of clips and the number of clips per page
-    pub async fn get_max_page(&self, app: &AppHandle) -> i64 {
-        // get the max page number
-        // if there is no limit, return -1
-
-        let config = app.state::<ConfigMutex>();
-        let config = config.config.lock().await;
-        let max_page = self.clips.whole_list_of_ids.len() as i64 / config.clip_per_page;
-        if max_page * config.clip_per_page == self.clips.whole_list_of_ids.len() as i64 {
-            return max_page - 1;
-        }
-        max_page
-    }
-
-    /// get the position of the id in the whole list of ids
-    /// if the id is not in the list, return None
-    /// use binary search
-    pub fn get_id_pos_in_whole_list_of_ids(&self, id: i64) -> Option<i64> {
-        let pos = self.clips.whole_list_of_ids.binary_search(&id);
-        if pos.is_err() {
-            return None;
-        }
-
-        Some(pos.unwrap() as i64)
     }
 
     /// get the clip with id
@@ -219,7 +222,7 @@ impl ClipData {
 
         // if the clip is not in the cache, get it from the database
         let res = sqlx::query("SELECT * FROM clips WHERE id = ?")
-            .bind(&id)
+            .bind(id)
             .fetch_optional(self.database_connection.as_ref().unwrap())
             .await;
         if let Err(err) = res {
@@ -260,20 +263,20 @@ impl ClipData {
         }
         let id = id_new.unwrap();
 
-        let favorite = res.try_get::<i64, _>("favorite");
-        if let Err(err) = favorite {
+        let favourite = res.try_get::<i64, _>("favourite");
+        if let Err(err) = favourite {
             return Err(error::Error::GetClipDataFromDatabaseErr(
                 id,
                 err.to_string(),
             ));
         }
-        let favorite = favorite.unwrap() == 1;
+        let favourite = favourite.unwrap() == 1;
 
         let clip = Clip {
             text: text.unwrap(),
             timestamp: timestamp.unwrap(),
             id,
-            favorite,
+            favourite,
         };
 
         // add the clip to the cache
@@ -282,52 +285,51 @@ impl ClipData {
         Ok(clip)
     }
 
+    /// get the position of the clip in the whole list of ids
+    /// return the position of the clip in the whole list of ids
+    pub fn get_clip_pos(&self, id: i64) -> i64 {
+        // get the position of the clip in the whole_list_of_ids
+        // if the id is not in the list, return the highest pos
+        let clip_pos = self.get_id_pos_in_whole_list_of_ids(id);
+        if clip_pos.is_none() {
+            return self.clips.whole_list_of_ids.len() as i64 - 1;
+        }
+
+        clip_pos.unwrap()
+    }
+
     pub async fn get_current_clip(&mut self) -> Result<Clip, error::Error> {
         self.get_clip(self.clips.current_clip).await
     }
 
-    pub async fn delete_clip(&mut self, id: i64) -> Result<(), error::Error> {
-        // delete a clip from the database and the cache
+    pub fn get_current_clip_pos(&self) -> i64 {
+        self.get_clip_pos(self.clips.current_clip)
+    }
 
-        // first delete in cache
-        self.clips.cached_clips.pop(&id);
-
-        // delete in database
-        let res = sqlx::query("DELETE FROM clips WHERE id = ?")
-            .bind(&id)
-            .fetch_optional(self.database_connection.as_ref().unwrap())
-            .await;
-        if let Err(err) = res {
-            return Err(error::Error::DeleteClipFromDatabaseErr(id, err.to_string()));
+    /// get the position of the id in the whole list of ids
+    /// if the id is not in the list, return None
+    /// use binary search
+    pub fn get_id_pos_in_whole_list_of_ids(&self, id: i64) -> Option<i64> {
+        let pos = self.clips.whole_list_of_ids.binary_search(&id);
+        if pos.is_err() {
+            return None;
         }
 
-        // delete from the whole list of ids
-        // get the position of the id in the whole list of ids
-        let pos = self.get_id_pos_in_whole_list_of_ids(id);
-        let current_clip_pos = self.get_id_pos_in_whole_list_of_ids(self.clips.current_clip);
-        if let Some(pos) = pos {
-            // if pos is before the current clip, decrease the current clip by 1
-            // if pos is the current clip, set the current clip to -1
-            if let Some(current_clip_pos) = current_clip_pos {
-                match pos.cmp(&current_clip_pos) {
-                    Ordering::Less => {
-                        self.clips.current_clip = *self
-                            .clips
-                            .whole_list_of_ids
-                            .get(current_clip_pos as usize - 1)
-                            .unwrap();
-                    }
-                    Ordering::Equal => {
-                        self.clips.current_clip = -1;
-                    }
-                    Ordering::Greater => {}
-                }
-            } else {
-                self.clips.current_clip = -1;
-            }
-            self.clips.whole_list_of_ids.remove(pos.try_into().unwrap());
+        Some(pos.unwrap() as i64)
+    }
+
+    /// get the maximum page number depend on the number of clips and the number of clips per page
+    pub async fn get_max_page(&self, app: &AppHandle) -> i64 {
+        // get the max page number
+        // if there is no limit, return -1
+
+        let config = app.state::<ConfigMutex>();
+        let config = config.config.lock().await;
+        let max_page = self.clips.whole_list_of_ids.len() as i64 / config.clip_per_page;
+        if max_page * config.clip_per_page == self.clips.whole_list_of_ids.len() as i64 {
+            return max_page - 1;
         }
-        Ok(())
+        max_page
     }
 
     /// create a new clip in the database and return the id of the new clip
@@ -344,10 +346,10 @@ impl ClipData {
             .as_secs() as i64;
 
         let res =
-            sqlx::query("INSERT INTO clips (id, text, timestamp, favorite) VALUES (?, ?, ?, ?)")
-                .bind(&id)
+            sqlx::query("INSERT INTO clips (id, text, timestamp, favourite) VALUES (?, ?, ?, ?)")
+                .bind(id)
                 .bind(&text)
-                .bind(&timestamp)
+                .bind(timestamp)
                 .bind(0)
                 .fetch_optional(self.database_connection.as_ref().unwrap())
                 .await;
@@ -362,7 +364,7 @@ impl ClipData {
             text,
             timestamp,
             id,
-            favorite: false,
+            favourite: false,
         };
 
         // add the clip to the cache
@@ -376,40 +378,20 @@ impl ClipData {
         Ok(id)
     }
 
-    /// change the clip favorite state to the target state
-    pub async fn change_favorite_clip(
-        &mut self,
-        id: i64,
-        target: bool,
-    ) -> Result<(), error::Error> {
-        // change the clip favorite state to the target state
-        // change the clip in the cache
-        // change the clip in the database
+    pub async fn next_page(&mut self, app: &AppHandle) {
+        // switch to the next page
+        // if max_page is -1, it means there is no limit
 
-        // change the clip in the cache
-        let clip = self.clips.cached_clips.get_mut(&id);
-        if let Some(clip) = clip {
-            clip.favorite = target;
-        }
+        let max_page = self.get_max_page(app).await;
+        self.switch_page(1, max_page);
+    }
 
-        // change the clip in the database
-        let res = sqlx::query("UPDATE clips SET favorite = ? WHERE id = ?")
-            .bind(&target)
-            .bind(&id)
-            .fetch_optional(self.database_connection.as_ref().unwrap())
-            .await;
+    pub async fn prev_page(&mut self, app: &AppHandle) {
+        // switch to the previous page
+        // if max_page is -1, it means there is no limit
 
-        if let Err(err) = res {
-            return Err(error::Error::UpdateClipsInDatabaseErr(
-                format!(
-                    "toggle clip favorite state of id: {} to favorite state:{}",
-                    id, target
-                ),
-                err.to_string(),
-            ));
-        }
-
-        Ok(())
+        let max_page = self.get_max_page(app).await;
+        self.switch_page(-1, max_page);
     }
 
     /// change the clipboard to the selected clip
@@ -429,6 +411,68 @@ impl ClipData {
         self.clips.current_clip = id;
 
         c.copy_clip_to_clipboard(app)?;
+
+        Ok(())
+    }
+
+    /// switch the tray + number of page, if the page is not in the range, then do nothing
+    pub fn switch_page(&mut self, page: i64, max_page: i64) {
+        // switch to the page by the page number
+        // if max_page is -1, it means there is no limit
+
+        let target_page = self.clips.current_page + page;
+        if target_page < 0 {
+            self.clips.current_page = 0;
+            return;
+        }
+        if target_page > max_page && max_page >= 0 {
+            self.clips.current_page = max_page;
+            return;
+        }
+
+        self.clips.current_page = target_page;
+    }
+
+    /// handle the clip board change event
+    #[warn(unused_must_use)]
+    pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), error::Error> {
+        // get the current clip
+        let current_clip = self.get_current_clip().await;
+        // TODO change this to more clear method
+        let current_clip = match current_clip {
+            Err(error::Error::ClipNotFoundErr(_)) => Clip::default(),
+            Err(error::Error::WholeListIDSEmptyErr) => Clip::default(),
+            Err(err) => {
+                return Err(err);
+            }
+            Ok(clip) => clip,
+        };
+
+        // get the current clip text
+        let current_clip_text = clip_data_from_system_clipbaord(app)?;
+
+        // if the current clip text is empty, then return
+        if current_clip_text.is_empty() {
+            return Ok(());
+        }
+
+        // if the current clip text is the same as the current clip text, then return
+        if current_clip_text == current_clip.text {
+            return Ok(());
+        }
+
+        // if the current clip text is the same as the last clip text, then return
+        if current_clip_text == self.clipboard_monitor.last_clip {
+            return Ok(());
+        }
+
+        let id = self.new_clip(current_clip_text.clone()).await?;
+        self.clipboard_monitor.last_clip = current_clip_text;
+        self.clips.current_clip = id;
+
+        // update the tray
+        let event_sender = app.state::<EventSender>();
+        event_sender.send(CopyClipEvent::TrayUpdateEvent);
 
         Ok(())
     }
@@ -524,45 +568,6 @@ impl ClipData {
 
         Ok(())
     }
-
-    /// handle the clip board change event
-    #[warn(unused_must_use)]
-    pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), error::Error> {
-        // get the current clip
-        let current_clip = self.get_current_clip().await;
-        if current_clip.is_err() {
-            return Err(current_clip.err().unwrap());
-        }
-        let current_clip = current_clip.unwrap();
-
-        // get the current clip text
-        let current_clip_text = clip_data_from_system_clipbaord(app)?;
-
-        // if the current clip text is empty, then return
-        if current_clip_text.is_empty() {
-            return Ok(());
-        }
-
-        // if the current clip text is the same as the current clip text, then return
-        if current_clip_text == current_clip.text {
-            return Ok(());
-        }
-
-        // if the current clip text is the same as the last clip text, then return
-        if current_clip_text == self.clipboard_monitor.last_clip {
-            return Ok(());
-        }
-
-        let id = self.new_clip(current_clip_text.clone()).await?;
-        self.clipboard_monitor.last_clip = current_clip_text;
-        self.clips.current_clip = id;
-
-        // update the tray
-        let event_sender = app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::TrayUpdateEvent);
-
-        Ok(())
-    }
 }
 
 pub fn trim_clip_text(text: String, l: i64) -> String {
@@ -652,21 +657,21 @@ pub async fn delete_clip_from_database(
 }
 
 #[tauri::command]
-pub async fn change_favorite_clip(
+pub async fn change_favourite_clip(
     app: tauri::AppHandle,
     clip_data: tauri::State<'_, ClipDataMutex>,
     id: i64,
     target: bool,
 ) -> Result<(), String> {
     let mut clip_data = clip_data.clip_data.lock().await;
-    let res = clip_data.change_favorite_clip(id, target).await;
+    let res = clip_data.change_favourite_clip(id, target).await;
 
     if let Err(err) = res {
         return Err(err.to_string());
     }
 
     let res = Notification::new(&app.config().tauri.bundle.identifier)
-        .title("Clip favorite status changed.")
+        .title("Clip favourite status changed.")
         .icon("icons/clip.png")
         .show();
     if let Err(err) = res {

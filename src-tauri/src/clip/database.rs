@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use tauri::{AppHandle, Manager};
 
@@ -13,7 +15,7 @@ pub async fn init_database_connection(app: &AppHandle) -> Result<(), error::Erro
     let app_data_dir = app_data_dir?;
 
     // create the database dir if it does not exist
-    let connection = get_and_create_database(app_data_dir).await?;
+    let connection = get_and_create_database(app_data_dir.clone(), 1).await?;
 
     // init the version of the database
     init_version_table(&connection, app).await?;
@@ -21,6 +23,8 @@ pub async fn init_database_connection(app: &AppHandle) -> Result<(), error::Erro
     // init the clips table
     init_clips_table(&connection).await?;
 
+    // after init the database, recreate a connection with higher connection number
+    let connection = get_and_create_database(app_data_dir, 10).await?;
     // init the clips mutex
     init_clips_mutex(connection, app).await
 }
@@ -47,14 +51,23 @@ fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, er
 /// get the database connection and create it if it does not exist
 async fn get_and_create_database(
     app_data_dir: std::path::PathBuf,
+    connection_num: u32,
 ) -> Result<SqlitePool, error::Error> {
     // create the database dir if it does not exist
     let database_path = app_data_dir.join("database");
 
+    // test if database_path exist
+    if !database_path.exists() {
+        // create database file
+        if let Err(err) = std::fs::File::create(database_path.as_path()) {
+            return Err(error::Error::OpenDatabaseErr(err.to_string()));
+        }
+    }
+
     let connection = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect(database_path.to_str().unwrap())
-        .await;
+        .max_connections(connection_num)
+        .idle_timeout(Duration::from_secs(1))
+        .connect_lazy(database_path.to_str().unwrap());
     if let Err(err) = connection {
         return Err(error::Error::OpenDatabaseErr(err.to_string()));
     }
@@ -205,6 +218,13 @@ async fn backward_comparability(
         patch = 3;
     }
 
+    // when moving from 0.3.3, 0.3.4, to 0.3.5,
+    // I rename the column favorite to favourite in clips table, so need to do a sql ALTER command
+    if major == 0 && minor == 3 && patch < 5 {
+        backward::v0_3_x_to_0_3_5_database::upgrade(connection).await?;
+        patch = 5;
+    }
+
     Ok(format!("{}.{}.{}", major, minor, patch))
 }
 
@@ -253,7 +273,7 @@ async fn init_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
             id INTEGER PRIMARY KEY,
             text TEXT,
             timestamp INTEGER, 
-            favorite INTEGER,
+            favourite INTEGER,
         )",
     )
     .fetch_optional(connection)
@@ -310,4 +330,38 @@ async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
     clip_data.clips.whole_list_of_ids = ids;
 
     Ok(())
+}
+
+/// get all the versions from the database
+/// in the format of Vec<id,String>
+pub async fn get_all_versions(app: &AppHandle) -> Result<Vec<(i64, String)>, error::Error> {
+    let clip_data = app.state::<ClipDataMutex>();
+    let clip_data = clip_data.clip_data.lock().await;
+    let res = sqlx::query("SELECT * FROM version")
+        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+        .await;
+    if let Err(err) = res {
+        return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
+    }
+    let res = res.unwrap();
+    if res.is_empty() {
+        return Err(error::Error::GetVersionFromDatabaseErr(
+            "the version table is empty".to_string(),
+        ));
+    }
+
+    let mut versions = Vec::new();
+    for row in res {
+        let id = row.try_get::<i64, _>("id");
+        if let Err(err) = id {
+            return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
+        }
+        let version = row.try_get::<String, _>("version");
+        if let Err(err) = version {
+            return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
+        }
+        versions.push((id.unwrap(), version.unwrap()));
+    }
+
+    Ok(versions)
 }

@@ -21,14 +21,14 @@ struct SearchArgs {
     pub maxid: i64,
     /// fuzzy, fast, normal
     pub searchmethod: String,
-    /// favorite filter
-    pub favorite: i64,
+    /// favourite filter
+    pub favourite: i64,
 }
 
 pub struct SearchPros {
     pub data: String,
     pub search_method: String,
-    pub favorite_filter: i64,
+    pub favourite_filter: i64,
     pub user_id_limit: UserIdLimit,
     pub total_search_res_limit: usize,
 }
@@ -69,7 +69,7 @@ pub async fn search_clips(
             minid: -1,
             maxid: max_id,
             searchmethod: search_props.search_method.clone().to_string(),
-            favorite: search_props.favorite_filter,
+            favourite: search_props.favourite_filter,
         })
         .unwrap();
 

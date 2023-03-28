@@ -65,7 +65,7 @@ pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
     match event {
             SystemTrayEvent::MenuItemClick {id, .. } => {
                 let event_sender = app.state::<EventSender>();
-                event_sender.send(CopyClipEvent::TrayMenuItemClickEvent(id.clone()));
+                event_sender.send(CopyClipEvent::TrayMenuItemClickEvent(id));
             }
             SystemTrayEvent::LeftClick {
                   // tray_id, 

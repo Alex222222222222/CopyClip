@@ -1,0 +1,64 @@
+use crate::error;
+
+/// when moving from 0.3.3, 0.3.4, to 0.3.5,
+/// I rename the column favorite to favourite in clips table, so need to do a sql ALTER command
+#[warn(unused_must_use)]
+pub async fn upgrade(connection: &sqlx::SqlitePool) -> Result<(), error::Error> {
+    // virtual table does not support ALTER column command, so need to recreate the table;
+
+    // create the new table;
+    let res = sqlx::query(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS clips_new USING fts4(
+            id INTEGER PRIMARY KEY,
+            text TEXT,
+            timestamp INTEGER, 
+            favourite INTEGER,
+        )",
+    )
+    .fetch_optional(connection)
+    .await;
+    if let Err(err) = res {
+        return Err(error::Error::UpdateClipsInDatabaseErr(
+            "failed to create new clips table when update from 0.3.x to 0.3.5".to_string(),
+            err.to_string(),
+        ));
+    };
+
+    // insert the data into new table
+    let res = sqlx::query(
+        "INSERT INTO clips_new(id, text, timestamp, favourite)
+        SELECT id, text, timestamp, favorite FROM clips",
+    )
+    .fetch_optional(connection)
+    .await;
+    if let Err(err) = res {
+        return Err(error::Error::UpdateClipsInDatabaseErr(
+            "failed to insert old data into new table when update from 0.3.x to 0.3.5".to_string(),
+            err.to_string(),
+        ));
+    };
+
+    // drop the old table
+    let res = sqlx::query("DROP TABLE clips")
+        .fetch_optional(connection)
+        .await;
+    if let Err(err) = res {
+        return Err(error::Error::UpdateClipsInDatabaseErr(
+            "failed to drop the old table when update from 0.3.x to 0.3.5".to_string(),
+            err.to_string(),
+        ));
+    }
+
+    // rename the new table
+    let res = sqlx::query("ALTER TABLE clips_new RENAME TO clips")
+        .fetch_optional(connection)
+        .await;
+    if let Err(err) = res {
+        return Err(error::Error::UpdateClipsInDatabaseErr(
+            "failed to rename to new table to clips when update from 0.3.x to 0.3.5".to_string(),
+            err.to_string(),
+        ));
+    };
+
+    Ok(())
+}

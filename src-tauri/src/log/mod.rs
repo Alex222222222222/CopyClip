@@ -119,16 +119,13 @@ pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
         ))
     });
 
+    let level = get_user_log_level(app).await;
+    log = log.level(level);
+
     #[cfg(debug_assertions)]
     {
         println!("debug mode, log level is trace");
         log = log.level(log::LevelFilter::Trace).chain(std::io::stdout());
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        let level = get_user_log_level(app).await;
-        log = log.level(level);
     }
 
     log = log.chain(fern::log_file(path)?);

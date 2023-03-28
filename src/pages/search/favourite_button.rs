@@ -6,47 +6,47 @@ use yew_icons::{Icon, IconId};
 use crate::invoke::invoke;
 
 #[derive(Debug, PartialEq)]
-pub enum FavoriteFilter {
+pub enum FavouriteFilter {
     All,
-    Favorite,
-    NotFavorite,
+    Favourite,
+    NotFavourite,
 }
 
-impl Default for FavoriteFilter {
+impl Default for FavouriteFilter {
     fn default() -> Self {
         Self::All
     }
 }
 
-impl FavoriteFilter {
+impl FavouriteFilter {
     pub fn to_int(&self) -> i64 {
         match self {
             Self::All => -1,
-            Self::Favorite => 1,
-            Self::NotFavorite => 0,
+            Self::Favourite => 1,
+            Self::NotFavourite => 0,
         }
     }
 }
 
 #[derive(Debug, PartialEq, Properties)]
-pub struct FavoriteClipButtonProps {
+pub struct FavouriteClipButtonProps {
     pub id: i64,
-    pub is_favorite: bool,
+    pub is_favourite: bool,
 }
 
 #[derive(Debug, Serialize)]
-struct ChangeFavoriteClipArgs {
+struct ChangeFavouriteClipArgs {
     pub id: i64,
     pub target: bool,
 }
 
 #[derive(PartialEq, Debug)]
-enum IsFavorite {
+enum IsFavourite {
     True,
     False,
 }
 
-impl IsFavorite {
+impl IsFavourite {
     pub fn to_bool(&self) -> bool {
         match self {
             Self::True => true,
@@ -63,26 +63,26 @@ impl IsFavorite {
     }
 }
 
-#[function_component(FavoriteClipButton)]
-pub fn favorite_clip_button(props: &FavoriteClipButtonProps) -> Html {
-    let favorite = use_state_eq(|| IsFavorite::from_bool(props.is_favorite));
+#[function_component(FavouriteClipButton)]
+pub fn favourite_clip_button(props: &FavouriteClipButtonProps) -> Html {
+    let favourite = use_state_eq(|| IsFavourite::from_bool(props.is_favourite));
     let id = props.id;
 
-    let favorite_1 = favorite.clone();
+    let favourite_1 = favourite.clone();
     let copy_clip_button_on_click = Callback::from(move |_| {
-        let favorite_2 = favorite_1.clone();
+        let favourite_2 = favourite_1.clone();
         spawn_local(async move {
-            let args = ChangeFavoriteClipArgs {
+            let args = ChangeFavouriteClipArgs {
                 id,
-                target: !favorite_2.to_bool(),
+                target: !favourite_2.to_bool(),
             };
             let args = serde_wasm_bindgen::to_value(&args).unwrap();
-            invoke("change_favorite_clip", args).await;
-            favorite_2.set(IsFavorite::from_bool(!favorite_2.to_bool()));
+            invoke("change_favourite_clip", args).await;
+            favourite_2.set(IsFavourite::from_bool(!favourite_2.to_bool()));
         });
     });
 
-    let icon = if favorite.to_bool() {
+    let icon = if favourite.to_bool() {
         IconId::BootstrapHeartFill
     } else {
         IconId::BootstrapHeart

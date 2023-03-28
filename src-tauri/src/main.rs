@@ -1,18 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-/*
-#[tauri::command]
-fn on_button_clicked() -> String {
-    let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis();
-    format!("on_button_clicked called from Rust! (timestamp: {since_the_epoch}ms)")
-}
-*/
-
 // TODO add way to change the theme and the icon
 
 use copy_clip::{
@@ -20,6 +8,7 @@ use copy_clip::{
     config,
     config::{Config, ConfigMutex},
     event::{event_daemon, CopyClipEvent, EventSender},
+    export,
     log::{panic_app, setup_logger},
     systray::handle_tray_event,
 };
@@ -114,9 +103,10 @@ fn main() {
             config::command::set_log_level_filter,
             config::command::get_dark_mode,
             config::command::set_dark_mode,
+            export::export_data_invoke,
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,
-            clip::change_favorite_clip,
+            clip::change_favourite_clip,
             clip::search::search_clips,
             clip::search::get_max_id,
         ])

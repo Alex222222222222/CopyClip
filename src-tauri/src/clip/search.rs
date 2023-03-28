@@ -35,15 +35,15 @@ fn clip_from_row(row: SqliteRow) -> Result<Clip, error::Error> {
     }
     let text = text.unwrap();
 
-    let favorite = row.try_get::<i64, _>("favorite");
-    if let Err(err) = favorite {
+    let favourite = row.try_get::<i64, _>("favourite");
+    if let Err(err) = favourite {
         return Err(error::Error::GetClipDataFromDatabaseErr(
             id,
             err.to_string(),
         ));
     }
-    let favorite = favorite.unwrap();
-    let favorite = favorite == 1;
+    let favourite = favourite.unwrap();
+    let favourite = favourite == 1;
 
     let timestamp = row.try_get::<i64, _>("timestamp");
     if let Err(err) = timestamp {
@@ -57,7 +57,7 @@ fn clip_from_row(row: SqliteRow) -> Result<Clip, error::Error> {
     let clip = Clip {
         id,
         text,
-        favorite,
+        favourite,
         timestamp,
     };
 
@@ -77,21 +77,21 @@ pub async fn fast_search(
     max_id: i64,
     limit: i64,
     data: String,
-    favorite: i64,
+    favourite: i64,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().await;
-    let res = if favorite == -1 {
+    let res = if favourite == -1 {
         sqlx::query(
             "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?",
             )
-            .bind(&min_id)
-            .bind(&max_id)
+            .bind(min_id)
+            .bind(max_id)
             .bind(&data)
-            .bind(&limit)
+            .bind(limit)
             .fetch_all(clip_data.database_connection.as_ref().unwrap()).await
     } else {
-        sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text MATCH ? ORDER BY id DESC LIMIT ?").bind(&min_id).bind(&max_id).bind(&favorite).bind(&data).bind(&limit)
+        sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND text MATCH ? ORDER BY id DESC LIMIT ?").bind(min_id).bind(max_id).bind(favourite).bind(&data).bind(limit)
             .fetch_all(clip_data.database_connection.as_ref().unwrap()).await
     };
 
@@ -122,23 +122,23 @@ pub async fn normal_search(
     max_id: i64,
     limit: i64,
     data: String,
-    favorite: i64,
+    favourite: i64,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().await;
-    let res = if favorite == -1 {
+    let res = if favourite == -1 {
         sqlx::query(
             "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
         )
-        .bind(&min_id)
-        .bind(&max_id)
+        .bind(min_id)
+        .bind(max_id)
         .bind("%".to_string() + data.as_str() + "%")
-        .bind(&limit)
+        .bind(limit)
         .fetch_all(clip_data.database_connection.as_ref().unwrap())
         .await
     } else {
-        sqlx::query(            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? AND text Like ? ORDER BY id DESC LIMIT ?",
-).bind(&min_id).bind(&max_id).bind(&favorite).bind("%".to_string() + data.as_str() + "%").bind(&limit)
+        sqlx::query(            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND text Like ? ORDER BY id DESC LIMIT ?",
+).bind(min_id).bind(max_id).bind(favourite).bind("%".to_string() + data.as_str() + "%").bind(limit)
             .fetch_all(clip_data.database_connection.as_ref().unwrap()).await
     };
 
@@ -168,7 +168,7 @@ pub async fn fuzzy_search(
     max_id: i64,
     limit: i64,
     data: String,
-    favorite: i64, // 0: not favorite, 1: favorite, -1: all
+    favourite: i64, // 0: not favourite, 1: favourite, -1: all
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let clip_data = app.state::<ClipDataMutex>();
     let clip_data = clip_data.clip_data.lock().await;
@@ -178,27 +178,21 @@ pub async fn fuzzy_search(
     let mut clips = HashMap::new();
 
     while max_id >= min_id && count < limit {
-        let res = if favorite == -1 {
-            let res = sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(&min_id)
-            .bind(&max_id)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap())
-            .await;
-
-            res
+        let res = if favourite == -1 {
+            sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
+                .bind(min_id)
+                .bind(max_id)
+                .fetch_all(clip_data.database_connection.as_ref().unwrap())
+                .await
         } else {
-            let res = sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? ORDER BY id DESC LIMIT 1",
+            sqlx::query(
+                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? ORDER BY id DESC LIMIT 1",
             )
-            .bind(&min_id)
-            .bind(&max_id)
-            .bind(&favorite)
+            .bind(min_id)
+            .bind(max_id)
+            .bind(favourite)
             .fetch_all(clip_data.database_connection.as_ref().unwrap())
-            .await;
-
-            res
+            .await
         };
 
         if let Err(err) = res {
@@ -208,7 +202,7 @@ pub async fn fuzzy_search(
             ));
         }
         let res = res.unwrap();
-        if res.len() == 0 {
+        if res.is_empty() {
             break;
         }
 
@@ -245,7 +239,7 @@ pub async fn regexp_search(
     max_id: i64,
     limit: i64,
     data: String,
-    favorite: i64, // 0: not favorite, 1: favorite, -1: all
+    favourite: i64, // 0: not favourite, 1: favourite, -1: all
 ) -> Result<HashMap<i64, Clip>, error::Error> {
     let re = Regex::new(&data);
     if let Err(err) = re {
@@ -261,27 +255,21 @@ pub async fn regexp_search(
     let mut clips = HashMap::new();
 
     while max_id >= min_id && count < limit {
-        let res = if favorite == -1 {
-            let res = sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(&min_id)
-            .bind(&max_id)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap())
-            .await;
-
-            res
+        let res = if favourite == -1 {
+            sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
+                .bind(min_id)
+                .bind(max_id)
+                .fetch_all(clip_data.database_connection.as_ref().unwrap())
+                .await
         } else {
-            let res = sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favorite = ? ORDER BY id DESC LIMIT 1",
+            sqlx::query(
+                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? ORDER BY id DESC LIMIT 1",
             )
-            .bind(&max_id)
-            .bind(&min_id)
-            .bind(&favorite)
+            .bind(max_id)
+            .bind(min_id)
+            .bind(favourite)
             .fetch_all(clip_data.database_connection.as_ref().unwrap())
-            .await;
-
-            res
+            .await
         };
 
         if let Err(err) = res {
@@ -291,7 +279,7 @@ pub async fn regexp_search(
             ));
         }
         let res = res.unwrap();
-        if res.len() == 0 {
+        if res.is_empty() {
             break;
         }
 
@@ -347,7 +335,7 @@ pub async fn search_clips(
     data: String,
     minid: i64,
     maxid: i64,
-    favorite: i64, // 0: not favorite, 1: favorite, -1: all
+    favourite: i64, // 0: not favourite, 1: favourite, -1: all
     searchmethod: String,
 ) -> Result<HashMap<i64, Clip>, String> {
     let config = app.state::<ConfigMutex>();
@@ -357,28 +345,28 @@ pub async fn search_clips(
 
     match searchmethod.as_str() {
         "fuzzy" => {
-            let res = fuzzy_search(&app, minid, maxid, limit, data, favorite).await;
+            let res = fuzzy_search(&app, minid, maxid, limit, data, favourite).await;
             if let Err(err) = res {
                 return Err(err.message());
             }
             Ok(res.unwrap())
         }
         "fast" => {
-            let res = fast_search(&app, minid, maxid, limit, data, favorite).await;
+            let res = fast_search(&app, minid, maxid, limit, data, favourite).await;
             if let Err(err) = res {
                 return Err(err.message());
             }
             Ok(res.unwrap())
         }
         "normal" => {
-            let res = normal_search(&app, minid, maxid, limit, data, favorite).await;
+            let res = normal_search(&app, minid, maxid, limit, data, favourite).await;
             if let Err(err) = res {
                 return Err(err.message());
             }
             Ok(res.unwrap())
         }
         "regexp" => {
-            let res = regexp_search(&app, minid, maxid, limit, data, favorite).await;
+            let res = regexp_search(&app, minid, maxid, limit, data, favourite).await;
             if let Err(err) = res {
                 return Err(err.message());
             }
