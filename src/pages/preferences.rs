@@ -4,7 +4,8 @@ use crate::components::{
     head_bar::HeadBar,
     preferences::{
         clips_per_page_config::ClipsPerPageConfig, dark_mode_switch::DarkModeSwitch,
-        log_level_filter_config::LogLevelFilterConfig, max_clip_len_config::MaxClipLenConfig,
+        export_button::ExportButton, log_level_filter_config::LogLevelFilterConfig,
+        max_clip_len_config::MaxClipLenConfig,
     },
 };
 
@@ -23,6 +24,8 @@ pub fn preferences() -> Html {
                 <br />
                 // TODO add follow system theme
                 <DarkModeSwitch></DarkModeSwitch>
+                <br />
+                <ExportButton></ExportButton>
             </div>
         </div>
     }

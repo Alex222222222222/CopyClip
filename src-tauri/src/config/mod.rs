@@ -129,6 +129,16 @@ fn load_config(app: &AppHandle) -> Config {
 }
 
 impl Config {
+    /// convert the config to json string
+    pub fn to_json(&self) -> Result<String, error::Error> {
+        let c_json = serde_json::to_string(&self);
+        if let Err(e) = c_json {
+            return Err(error::Error::SerializeConfigToJsonErr(e.to_string()));
+        }
+
+        Ok(c_json.unwrap())
+    }
+
     /// save the config to the config file
     /// if the data dir does not exist, create it
     /// if the config file does not exist, create it
@@ -152,12 +162,7 @@ impl Config {
             }
         }
 
-        let c_json = serde_json::to_string(&self);
-        if let Err(e) = c_json {
-            return Err(error::Error::SerializeConfigToJsonErr(e.to_string()));
-        }
-
-        let c_json = c_json.unwrap();
+        let c_json = self.to_json()?;
 
         // write the config file
         let write_config_file = fs::write(config_file.as_path(), c_json);
