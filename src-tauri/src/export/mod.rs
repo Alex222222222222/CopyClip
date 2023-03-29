@@ -182,5 +182,7 @@ pub async fn export_data_invoke(app: tauri::AppHandle) -> Result<(), error::Erro
         return Err(err);
     }
 
+    // TODO send a notification for export success
+
     Ok(())
 }

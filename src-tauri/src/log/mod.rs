@@ -1,10 +1,17 @@
-use std::{fmt::Display, path::PathBuf};
+use std::{fmt::Display, fs, path::PathBuf};
 
 use log::error;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
-use crate::config::ConfigMutex;
+use log::warn;
+
+/// the config struct that only load log_level
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LogLevelConfig {
+    /// log level
+    pub log_level: LogLevelFilter,
+}
 
 #[derive(Clone, PartialEq, Debug, Hash, Serialize, Deserialize)]
 pub enum LogLevel {
@@ -119,14 +126,20 @@ pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
         ))
     });
 
+    // at this stage the user config is still not loaded, so we needed to manually get the config.
+    // user config is loaded after the database config to prevent issue with backward compatibility
+    // however, we only need the log level, so there should be no issue with the backward compatibility
     let level = get_user_log_level(app).await;
     log = log.level(level);
 
     #[cfg(debug_assertions)]
-    {
-        println!("debug mode, log level is trace");
-        log = log.level(log::LevelFilter::Trace).chain(std::io::stdout());
-    }
+    println!("log level is {}", level);
+
+    // #[cfg(debug_assertions)]
+    // {
+    // println!("debug mode, log level is trace");
+    // log = log.level(log::LevelFilter::Trace).chain(std::io::stdout());
+    // }
 
     log = log.chain(fern::log_file(path)?);
 
@@ -156,11 +169,69 @@ fn get_user_log_path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 /// get the user log level
-pub async fn get_user_log_level(app: &AppHandle) -> log::LevelFilter {
-    let config = app.state::<ConfigMutex>();
-    let config = config.config.lock().await;
-    let log_level = config.log_level.clone();
-    log::LevelFilter::from(log_level)
+async fn get_user_log_level(app: &AppHandle) -> log::LevelFilter {
+    // TODO warn in this functions will not go to the correct place as the logger is not yet setup
+
+    let data_dir = app.path_resolver().app_data_dir();
+    if data_dir.is_none() {
+        warn!("can not find app data dir");
+        return log::LevelFilter::Info;
+    }
+
+    let data_dir = data_dir.unwrap();
+    let mut config_file = data_dir.clone();
+    config_file.push("config.json");
+
+    // test if data_dir exist
+    let data_dir_exist = data_dir.try_exists();
+    if data_dir_exist.is_err() {
+        warn!("can not verify existence of app data dir");
+        return log::LevelFilter::Info;
+    }
+
+    let data_dir_exist = data_dir_exist.unwrap();
+    if !data_dir_exist {
+        // create the data_dir
+        let create_data_dir = fs::create_dir(data_dir.as_path());
+        if create_data_dir.is_err() {
+            warn!("can not create app data dir");
+            return log::LevelFilter::Info;
+        }
+    }
+
+    // test if config_file exist
+    let config_file_exist = config_file.try_exists();
+    if config_file_exist.is_err() {
+        warn!("can not verify existence of config file");
+        return log::LevelFilter::Info;
+    }
+
+    let config_file_exist = config_file_exist.unwrap();
+
+    if !config_file_exist {
+        return log::LevelFilter::Info;
+    }
+
+    // config file exist, load it
+    let read_config_file = fs::read_to_string(config_file.as_path());
+    if read_config_file.is_err() {
+        warn!("can not read config file");
+        return log::LevelFilter::Info;
+    }
+
+    let read_config_file = read_config_file.unwrap();
+
+    let c_json: Result<LogLevelConfig, serde_json::Error> = serde_json::from_str(&read_config_file);
+    if c_json.is_err() {
+        warn!("can not serialize config to json");
+        return log::LevelFilter::Info;
+    }
+
+    if let Ok(c_json) = c_json {
+        return c_json.log_level.into();
+    }
+
+    log::LevelFilter::Info
 }
 
 /// get human readable time with millisecond with timezone
