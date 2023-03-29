@@ -11,7 +11,7 @@ use crate::{
     pages::search::{
         clip::{Clip, SearchRes},
         copy_clip_button::CopyClipButton,
-        favorite_button::{FavoriteClipButton, FavoriteFilter},
+        favourite_button::{FavouriteClipButton, FavouriteFilter},
         fuzzy_search_text::SearchText,
         order::{sort_search_res, OrderOrder},
         search_clip::{search_clips, SearchPros},
@@ -23,7 +23,7 @@ use crate::{
 
 mod clip;
 mod copy_clip_button;
-mod favorite_button;
+mod favourite_button;
 mod fuzzy_search_text;
 mod order;
 mod search_clip;
@@ -70,7 +70,7 @@ pub fn search() -> Html {
     let search_res_num: UseStateHandle<usize> = use_state_eq(|| 0);
     let order_by: UseStateHandle<String> = use_state_eq(|| "time".to_string());
     let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Desc); // true is desc false is asc
-    let favorite_filter: UseStateHandle<FavoriteFilter> = use_state_eq(FavoriteFilter::default);
+    let favourite_filter: UseStateHandle<FavouriteFilter> = use_state_eq(FavouriteFilter::default);
     let total_search_res_limit: UseStateHandle<usize> = use_state_eq(|| 100);
     let user_id_limit: UseStateHandle<UserIdLimit> = use_state_eq(UserIdLimit::default);
 
@@ -111,18 +111,18 @@ pub fn search() -> Html {
         }
     });
 
-    let favorite_filter_1 = favorite_filter.clone();
-    let favorite_filter_on_change = Callback::from(move |event: Event| {
+    let favourite_filter_1 = favourite_filter.clone();
+    let favourite_filter_on_change = Callback::from(move |event: Event| {
         let value = event
             .target_unchecked_into::<HtmlInputElement>()
             .value()
             .to_lowercase();
         if value == "all" {
-            favorite_filter_1.set(FavoriteFilter::All);
-        } else if value == "favorite" {
-            favorite_filter_1.set(FavoriteFilter::Favorite);
+            favourite_filter_1.set(FavouriteFilter::All);
+        } else if value == "favourite" {
+            favourite_filter_1.set(FavouriteFilter::Favourite);
         } else {
-            favorite_filter_1.set(FavoriteFilter::NotFavorite);
+            favourite_filter_1.set(FavouriteFilter::NotFavourite);
         }
     });
 
@@ -140,7 +140,7 @@ pub fn search() -> Html {
         let search_state_clone_clone = search_state_1.clone();
         let text_data_clone = text_data_1.clone();
         let search_res_num_clone = search_res_num_1.clone();
-        let favorite_filter_1 = favorite_filter.clone();
+        let favourite_filter_1 = favourite_filter.clone();
         let total_search_res_limit = total_search_res_limit_1.clone();
         let user_id_limit = user_id_limit_1.clone();
         spawn_local(async move {
@@ -154,7 +154,7 @@ pub fn search() -> Html {
                 SearchPros {
                     data: text_data_clone.to_string(),
                     search_method: search_method_clone.to_string(),
-                    favorite_filter: favorite_filter_1.to_int(),
+                    favourite_filter: favourite_filter_1.to_int(),
                     total_search_res_limit: total_search_res_limit
                         .to_string()
                         .parse::<usize>()
@@ -253,18 +253,18 @@ pub fn search() -> Html {
                     </div>
 
                     <div class="flex flex-row my-2 justify-between">
-                        // favorite filter
+                        // favourite filter
                         // TODO change htmlFor
                         <label htmlFor="int-input-box" class=" text-xl">
-                            {"Favorite filter"}
+                            {"Favourite filter"}
                         </label>
                         <select
                             class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
-                            onchange={favorite_filter_on_change}
+                            onchange={favourite_filter_on_change}
                         >
                             <option value="all">{"All"}</option>
-                            <option value="favorite">{"Favorite"}</option>
-                            <option value="not_favorite">{"NotFavorite"}</option>
+                            <option value="favourite">{"Favourite"}</option>
+                            <option value="not_favourite">{"NotFavourite"}</option>
                         </select>
                     </div>
 
@@ -363,7 +363,7 @@ fn search_res_table_html(
                         <th class="border border-gray-200">
                             <Icon icon_id={IconId::LucideTimer} class="mx-auto mt-0.5"/>
                         </th>
-                        // favorite or not, use heart icon
+                        // favourite or not, use heart icon
                         <th class="border border-gray-200">
                             <Icon icon_id={IconId::BootstrapHeartHalf} class="mx-auto mt-0.5"/>
                         </th>
@@ -389,7 +389,7 @@ fn search_res_table_html(
                                 <tr>
                                     <td class="border border-gray-200 text-center">{clip.id}</td>
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
-                                    <FavoriteClipButton id={id} is_favorite={clip.favorite}></FavoriteClipButton>
+                                    <FavouriteClipButton id={id} is_favourite={clip.favourite}></FavouriteClipButton>
                                     <td class="border border-gray-200 text-center">{clip.score}</td>
                                     <CopyClipButton id = {id}></CopyClipButton>
                                     <TrashClipButton id = {id}></TrashClipButton>

@@ -1,32 +1,19 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-/*
-#[tauri::command]
-fn on_button_clicked() -> String {
-    let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis();
-    format!("on_button_clicked called from Rust! (timestamp: {since_the_epoch}ms)")
-}
-*/
-
 // TODO add way to change the theme and the icon
-
-use std::sync::Mutex;
 
 use copy_clip::{
     clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
     config,
     config::{Config, ConfigMutex},
     event::{event_daemon, CopyClipEvent, EventSender},
+    export,
     log::{panic_app, setup_logger},
     systray::handle_tray_event,
 };
 use log::info;
-use tauri::{Manager, SystemTray};
+use tauri::{async_runtime::Mutex, Manager, SystemTray};
 
 fn main() {
     tauri::Builder::default()
@@ -38,31 +25,48 @@ fn main() {
             clip_data: Mutex::<ClipData>::default(),
         })
         .setup(|app| {
+            // tx and rx is used to wait until the prepare finished
+
             // set up the logger
             let app_handle = app.handle();
-            let res = setup_logger(&app_handle);
-            if res.is_err() {
-                println!("failed to init logger");
-                panic!("{}", res.err().unwrap().to_string());
-            }
+            let (tx, rx) = std::sync::mpsc::channel::<()>();
+            tauri::async_runtime::spawn(async move {
+                let res = setup_logger(&app_handle).await;
+                if let Err(err) = res {
+                    #[cfg(debug_assertions)]
+                    println!("failed to init logger");
+                    panic!("{}", err.to_string());
+                }
+                tx.send(()).unwrap();
+            });
+            rx.recv().unwrap();
 
             // set up the database connection and create the table
-            let res = init_database_connection(&app_handle);
-            if res.is_err() {
-                panic_app(&format!(
-                    "Failed to init database connection, error: {}",
-                    res.err().unwrap().message()
-                ));
-            }
+            let app_handle = app.handle();
+            let (tx, rx) = std::sync::mpsc::channel::<()>();
+            tauri::async_runtime::spawn(async move {
+                let res = init_database_connection(&app_handle).await;
+                if let Err(err) = res {
+                    #[cfg(debug_assertions)]
+                    println!("failed to init database connection");
+                    panic_app(&format!("failed to init database connection {err}",));
+                }
+                tx.send(()).unwrap();
+            });
+            rx.recv().unwrap();
 
             // load the config info from the config file
             let app_handle = app.handle();
-            let config = config::load_config(&app_handle);
-            let app_handle = app.handle();
-            let config_mutex = app_handle.state::<ConfigMutex>();
-            let mut config_mutex = config_mutex.config.lock().unwrap();
-            *config_mutex = config;
-            drop(config_mutex);
+            let (tx, rx) = std::sync::mpsc::channel::<()>();
+            tauri::async_runtime::spawn(async move {
+                let config_mutex = app_handle.state::<ConfigMutex>();
+                let mut config_mutex = config_mutex.config.lock().await;
+                config_mutex.load_config(&app_handle);
+                drop(config_mutex);
+
+                tx.send(()).unwrap();
+            });
+            rx.recv().unwrap();
 
             // set up event sender and receiver
             let app_handle = app.handle();
@@ -70,13 +74,13 @@ fn main() {
             app.manage(EventSender::new(event_tx));
             // set up the event receiver daemon
             tauri::async_runtime::spawn(async move {
-                event_daemon(event_rx, &app_handle);
+                event_daemon(event_rx, &app_handle).await;
             });
 
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
                 // the daemon to monitor the system clip board change and trigger the tray update
-                clip::monitor::monitor_clip_board(&app_handle);
+                clip::monitor::monitor_clip_board(&app_handle).await;
             });
 
             // initial the tray
@@ -99,9 +103,10 @@ fn main() {
             config::command::set_log_level_filter,
             config::command::get_dark_mode,
             config::command::set_dark_mode,
+            export::export_data_invoke,
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,
-            clip::change_favorite_clip,
+            clip::change_favourite_clip,
             clip::search::search_clips,
             clip::search::get_max_id,
         ])

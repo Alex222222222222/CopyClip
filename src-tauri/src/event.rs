@@ -6,7 +6,7 @@ use crate::{
     clip::ClipDataMutex,
     config::ConfigMutex,
     log::{panic_app, LogLevel},
-    systray::{create_tray_menu, send_tray_update_event},
+    systray::{create_tray_menu, handle_menu_item_click, send_tray_update_event},
 };
 
 /// all the events that can be sent to the event daemon
@@ -17,6 +17,11 @@ pub enum CopyClipEvent {
     RebuildTrayMenuEvent,
     /// save config event
     SaveConfigEvent,
+    /// clipboard change event
+    ClipboardChangeEvent,
+    /// tray menu item click event,
+    /// the data is the id the tray item
+    TrayMenuItemClickEvent(String),
     /// log
     LogEvent(LogLevel, String),
 }
@@ -43,20 +48,20 @@ impl EventSender {
 
 /// the event daemon
 /// the daemon is a loop that waits for events to be sent to it
-pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandle) {
+pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandle) {
     loop {
         let event = rx.recv().unwrap();
         match event {
             // update the clips in the tray menu
             CopyClipEvent::TrayUpdateEvent => {
                 let clip_data = app.state::<ClipDataMutex>();
-                let mut clip_data = clip_data.clip_data.lock().unwrap();
-                let res = clip_data.update_tray(app);
+                let mut clip_data = clip_data.clip_data.lock().await;
+                let res = clip_data.update_tray(app).await;
                 drop(clip_data);
-                if res.is_err() {
+                if let Err(err) = res {
                     panic_app(&format!(
                         "Failed to update tray menu, error: {}",
-                        res.err().unwrap().message()
+                        err.message()
                     ));
                 }
             }
@@ -64,7 +69,7 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
             CopyClipEvent::RebuildTrayMenuEvent => {
                 // get number of clips to show from config
                 let num = app.state::<ConfigMutex>();
-                let num = num.config.lock().unwrap().clip_per_page;
+                let num = num.config.lock().await.clip_per_page;
                 let res = app.tray_handle().set_menu(create_tray_menu(num));
                 if res.is_err() {
                     panic_app(&format!(
@@ -78,7 +83,7 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
             // save config event
             CopyClipEvent::SaveConfigEvent => {
                 let config = app.state::<ConfigMutex>();
-                let config = config.config.lock().unwrap();
+                let config = config.config.lock().await;
                 let res = config.save_config(app);
                 drop(config);
                 if res.is_err() {
@@ -88,6 +93,23 @@ pub fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandl
             // log
             CopyClipEvent::LogEvent(level, msg) => {
                 log::log!(log::Level::from(level), "{msg}");
+            }
+            // clipboard change event
+            CopyClipEvent::ClipboardChangeEvent => {
+                let clip_data = app.state::<ClipDataMutex>();
+                let mut clip_data = clip_data.clip_data.lock().await;
+                let res = clip_data.update_clipboard(app).await;
+                drop(clip_data);
+                if let Err(err) = res {
+                    panic_app(&format!(
+                        "Failed to update clipboard, error: {}",
+                        err.message()
+                    ));
+                }
+            }
+            // tray menu item click event
+            CopyClipEvent::TrayMenuItemClickEvent(id) => {
+                handle_menu_item_click(app, id).await;
             }
         }
     }

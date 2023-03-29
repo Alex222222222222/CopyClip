@@ -12,7 +12,7 @@ pub struct Clip {
     pub id: i64,
     pub text: String,
     pub timestamp: i64,
-    pub favorite: bool,
+    pub favourite: bool,
     pub score: i64,
 }
 
@@ -30,7 +30,7 @@ impl Clip {
             id: clip_res.id,
             text: clip_res.text,
             timestamp: clip_res.timestamp,
-            favorite: clip_res.favorite,
+            favourite: clip_res.favourite,
             score,
         }
     }
@@ -42,7 +42,7 @@ pub struct ClipRes {
     pub id: i64,
     pub text: String,
     pub timestamp: i64,
-    pub favorite: bool,
+    pub favourite: bool,
 }
 
 /// search result

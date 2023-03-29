@@ -7,17 +7,19 @@
 ///
 /// function "monitor_clip_board" monitor the system keyboard change
 use clipboard_master::{CallbackResult, ClipboardHandler, Master};
-use tauri::{AppHandle, ClipboardManager, Manager};
+use tauri::{AppHandle, Manager};
 
 use std::io;
 
-use crate::{error, log::panic_app, systray::send_tray_update_event};
+use crate::{
+    event::{CopyClipEvent, EventSender},
+    log::panic_app,
+};
 
-use super::ClipDataMutex;
+use log::debug;
 
 /// the handler for the system clipboard change
 struct Handler<'a> {
-    last_clip: String,
     app: &'a AppHandle,
 }
 
@@ -27,61 +29,9 @@ impl ClipboardHandler for &mut Handler<'_> {
     /// this function is called when the system clipboard is changed
     /// try to read the clipboard, and if the clipboard is different from the last one, and current one update the app clips data
     fn on_clipboard_change(&mut self) -> CallbackResult {
-        let clipboard_manager = self.app.clipboard_manager();
-        let clip = clipboard_manager.read_text();
-        if clip.is_err() {
-            return CallbackResult::StopWithError(io::Error::new(
-                io::ErrorKind::Other,
-                "error reading clipboard",
-            ));
-        }
-        let clip = clip.unwrap();
-        if clip.is_none() {
-            return CallbackResult::StopWithError(io::Error::new(
-                io::ErrorKind::Other,
-                "error reading clipboard",
-            ));
-        }
-        let clip = clip.unwrap();
-
-        // if the clip is the same as the last one, do nothing
-        if clip == self.last_clip {
-            return CallbackResult::Next;
-        }
-        // if the clip is the same as the current one, do nothing
-        // get the current_clip text
-        let clips = self.app.state::<ClipDataMutex>();
-        let mut clip_data = clips.clip_data.lock().unwrap();
-        let current_clip = clip_data.get_current_clip();
-        let mut current_clip_text = String::new();
-        if let Err(err) = current_clip {
-            if err == error::Error::WholeListIDSEmptyErr {
-            } else {
-                return CallbackResult::StopWithError(io::Error::new(
-                    io::ErrorKind::Other,
-                    "error: ".to_string() + &err.message(),
-                ));
-            }
-        } else {
-            current_clip_text = current_clip.unwrap().text;
-        }
-
-        if clip == current_clip_text {
-            return CallbackResult::Next;
-        }
-
-        self.last_clip = clip.clone();
-        let res = clip_data.new_clip(clip);
-        if res.is_err() {
-            return CallbackResult::StopWithError(io::Error::new(
-                io::ErrorKind::Other,
-                "error: ".to_string() + &res.err().unwrap().message(),
-            ));
-        }
-
-        // update the tray
-        clip_data.clips.current_clip = res.unwrap();
-        send_tray_update_event(self.app);
+        debug!("clipboard change");
+        let event_sender = self.app.state::<EventSender>();
+        event_sender.send(CopyClipEvent::ClipboardChangeEvent);
 
         CallbackResult::Next
     }
@@ -95,26 +45,8 @@ impl ClipboardHandler for &mut Handler<'_> {
 }
 
 /// monitor the app clips data change, and trigger update of the tray
-pub fn monitor_clip_board(app: &AppHandle) {
-    let mut handler = Handler {
-        last_clip: String::new(),
-        app,
-    };
-
-    // get last clip from database
-    let clips = app.state::<ClipDataMutex>();
-    let mut clip_data = clips.clip_data.lock().unwrap();
-    let last = clip_data.clips.whole_list_of_ids.last();
-    if let Some(last) = last {
-        let last_t = last;
-        let last_t = *last_t;
-        let t = clip_data.get_clip(last_t);
-        if let Ok(t) = t {
-            // initially the last_clip is the last clip in the database
-            handler.last_clip = t.text;
-        }
-    }
-    drop(clip_data);
+pub async fn monitor_clip_board(app: &AppHandle) {
+    let mut handler = Handler { app };
 
     let mut master = Master::new(&mut handler);
     master.run().unwrap();

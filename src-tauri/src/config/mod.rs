@@ -1,8 +1,8 @@
-use std::{fs, sync::Mutex};
+use std::fs;
 
 use log::warn;
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{async_runtime::Mutex, AppHandle};
 
 use crate::{error, log::LogLevelFilter};
 
@@ -129,6 +129,16 @@ pub fn load_config(app: &AppHandle) -> Config {
 }
 
 impl Config {
+    /// convert the config to json string
+    pub fn to_json(&self) -> Result<String, error::Error> {
+        let c_json = serde_json::to_string(&self);
+        if let Err(e) = c_json {
+            return Err(error::Error::SerializeConfigToJsonErr(e.to_string()));
+        }
+
+        Ok(c_json.unwrap())
+    }
+
     /// save the config to the config file
     /// if the data dir does not exist, create it
     /// if the config file does not exist, create it
@@ -152,12 +162,7 @@ impl Config {
             }
         }
 
-        let c_json = serde_json::to_string(&self);
-        if let Err(e) = c_json {
-            return Err(error::Error::SerializeConfigToJsonErr(e.to_string()));
-        }
-
-        let c_json = c_json.unwrap();
+        let c_json = self.to_json()?;
 
         // write the config file
         let write_config_file = fs::write(config_file.as_path(), c_json);
@@ -166,6 +171,15 @@ impl Config {
         }
 
         Ok(())
+    }
+
+    pub fn load_config(&mut self, app: &AppHandle) {
+        let config = load_config(app);
+        self.clip_per_page = config.clip_per_page;
+        self.clip_max_show_length = config.clip_max_show_length;
+        self.search_clip_per_batch = config.search_clip_per_batch;
+        self.log_level = config.log_level;
+        self.dark_mode = config.dark_mode;
     }
 }
 

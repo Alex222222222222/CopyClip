@@ -15,8 +15,8 @@ use super::ConfigMutex;
 ///    data: i64
 /// }
 #[tauri::command]
-pub fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<String, String> {
-    let config = config.config.lock().unwrap();
+pub async fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<String, String> {
+    let config = config.config.lock().await;
     let res = config.clip_per_page.to_string();
     drop(config);
     Ok(res)
@@ -38,7 +38,7 @@ pub async fn set_per_page_data<R: Runtime>(
     config: State<'_, ConfigMutex>,
     data: i64,
 ) -> Result<(), String> {
-    let mut config = config.config.lock().unwrap();
+    let mut config = config.config.lock().await;
     config.clip_per_page = data;
 
     let event_sender = app.state::<EventSender>();
@@ -59,8 +59,8 @@ pub async fn set_per_page_data<R: Runtime>(
 ///    i64.to_string()
 /// }
 #[tauri::command]
-pub fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<String, String> {
-    let config = config.config.lock().unwrap();
+pub async fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<String, String> {
+    let config = config.config.lock().await;
     let res = config.clip_max_show_length.to_string();
     drop(config);
     Ok(res)
@@ -82,7 +82,7 @@ pub async fn set_max_clip_len<R: Runtime>(
     config: State<'_, ConfigMutex>,
     data: i64,
 ) -> Result<(), String> {
-    let mut config = config.config.lock().unwrap();
+    let mut config = config.config.lock().await;
     config.clip_max_show_length = data;
 
     let event_sender = app.state::<EventSender>();
@@ -96,8 +96,8 @@ pub async fn set_max_clip_len<R: Runtime>(
 ///
 /// input: {}
 #[tauri::command]
-pub fn get_log_level_filter(config: State<'_, ConfigMutex>) -> Result<String, String> {
-    let config = config.config.lock().unwrap();
+pub async fn get_log_level_filter(config: State<'_, ConfigMutex>) -> Result<String, String> {
+    let config = config.config.lock().await;
     let res = config.log_level.to_string();
     drop(config);
     Ok(res)
@@ -109,12 +109,12 @@ pub fn get_log_level_filter(config: State<'_, ConfigMutex>) -> Result<String, St
 ///    data: i64
 /// }
 #[tauri::command]
-pub fn set_log_level_filter(
+pub async fn set_log_level_filter(
     app: tauri::AppHandle,
     config: State<'_, ConfigMutex>,
     data: String,
 ) -> Result<(), String> {
-    let mut config = config.config.lock().unwrap();
+    let mut config = config.config.lock().await;
     let log_level = LogLevelFilter::from(data);
     if log_level != config.log_level {
         config.log_level = log_level;
@@ -130,8 +130,8 @@ pub fn set_log_level_filter(
 ///
 /// input: {}
 #[tauri::command]
-pub fn get_dark_mode(config: State<'_, ConfigMutex>) -> Result<bool, String> {
-    let config = config.config.lock().unwrap();
+pub async fn get_dark_mode(config: State<'_, ConfigMutex>) -> Result<bool, String> {
+    let config = config.config.lock().await;
     let res = config.dark_mode;
     drop(config);
     Ok(res)
@@ -143,12 +143,12 @@ pub fn get_dark_mode(config: State<'_, ConfigMutex>) -> Result<bool, String> {
 ///   data: bool
 /// }
 #[tauri::command]
-pub fn set_dark_mode(
+pub async fn set_dark_mode(
     app: tauri::AppHandle,
     config: State<'_, ConfigMutex>,
     data: bool,
 ) -> Result<(), String> {
-    let mut config = config.config.lock().unwrap();
+    let mut config = config.config.lock().await;
     if config.dark_mode != data {
         config.dark_mode = data;
         let event_sender = app.state::<EventSender>();
