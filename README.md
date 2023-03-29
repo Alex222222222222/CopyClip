@@ -4,21 +4,21 @@ A MacOS app used to manage your clipboard history.
 
 <!-- vscode-markdown-toc -->
 
-- 1. [Install](#Install)
-     - 1.1. [MacOS](#MacOS)
-     - 1.2. [Linux](#Linux)
-     - 1.3. [TODO](#TODO)
-- 2. [Known Issues](#KnownIssues)
-     - 2.1. [MacOS Security Policy](#MacOSSecurityPolicy)
-     - 2.2. [Other Issues](#OtherIssues)
-- 3. [Build](#Build)
-     - 3.1. [Prerequisites](#Prerequisites)
-     - 3.2. [Build](#Build-1)
-     - 3.3. [Run](#Run)
-- 4. [Bonnie](#Bonnie)
-     - 4.1. [Install](#Install-1)
-     - 4.2. [Use](#Use)
-     - 4.3. [Config](#Config)
+1. [Install](#install)
+    1.1. [MacOS](#macos)
+    1.2. [Linux](#linux)
+    1.3. [TODO](#todo)
+2. [Known Issues](#known-issues)
+    2.1. [MacOS Security Policy](#macos-security-policy)
+    2.2. [Other Issues](#other-issues)
+3. [Build](#build)
+    3.1. [Prerequisites](#prerequisites)
+    3.2. [Build](#build-the-app)
+    3.3. [Run](#run)
+4. [Bonnie](#bonnie)
+    4.1. [Install](#install-bonnie)
+    4.2. [Use](#use-bonnie)
+    4.3. [Config](#config-bonnie)
 
 <!-- vscode-markdown-toc-config
     numbering=true
@@ -31,7 +31,8 @@ A MacOS app used to manage your clipboard history.
 
 ### MacOS
 
-As `sqlite3` is already installed by the system, there is no need to install any dependency.
+As `sqlite3` is already installed by the system,
+there is no need to install any dependency.
 
 Just copy the app to the application folder.
 
@@ -65,7 +66,9 @@ Use `dpkg` to install the `deb` bundle.
 
 ### MacOS Security Policy
 
-The Mac aarch64 build may have a problem with the macOS security policy, apple need developer to buy a 99$ per year development program to let developer to be treated as trusted developer.
+The Mac aarch64 build may have a problem with the macOS security policy,
+apple need developer to buy a 99$ per year development program to
+let developer to be treated as trusted developer.
 
 You may need to manually run the following command
 
@@ -78,7 +81,8 @@ If the problem has not been solved, use the x64 build.
 
 ### Other Issues
 
-If you have any other issues, please open an issue with the log file attached, and information about your system.
+If you have any other issues, please open an issue with the log file attached,
+and information about your system.
 
 The log file is located at `~/Library/Logs/org.eu.huazifan.copyclip/log`on MacOS.
 
@@ -86,7 +90,18 @@ The log file is located at `~/Library/Logs/org.eu.huazifan.copyclip/log`on MacOS
 
 ### Prerequisites
 
-You need to have the following installed: - Rust - pnpm - wasm32-unknown-unknown - tauri-cli - trunk - bonnie - wasm-opt - twiggy - wasm-snip - tailwindcss
+You need to have the following installed:
+
+- Rust
+- pnpm
+- wasm32-unknown-unknown
+- tauri-cli
+- trunk
+- bonnie
+- wasm-opt
+- twiggy
+- wasm-snip
+- tailwindcss
 
 ```bash
 # wasm32-unknown-unknown
@@ -118,10 +133,12 @@ For linux, you need to install extra dependency: - `libxcb*`
 
 ```bash
 sudo apt-get update
-sudo apt install libdbus-1-dev libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev libxcb-shape0-dev libxcb-xkb-dev libxcb-xfixes0-dev
+sudo apt install libdbus-1-dev libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev \
+    libayatana-appindicator3-dev librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev \
+    libxcb-shape0-dev libxcb-xkb-dev libxcb-xfixes0-dev
 ```
 
-### Build
+### Build The App
 
 ```bash
 bonnie build frontend
@@ -135,17 +152,15 @@ bonnie run frontend
 
 ## Bonnie
 
-Use Bonnie to manage the repo.
+Use ![Bonnie](https://github.com/arctic-hen7/bonnie) to manage the repo.
 
-https://github.com/arctic-hen7/bonnie
-
-### Install
+### Install Bonnie
 
 ```bash
 cargo install bonnie
 ```
 
-### Use
+### Use Bonnie
 
 ```bash
 # Build
@@ -155,7 +170,7 @@ bonnie build frontend
 bonnie run frontend
 ```
 
-### Config
+### Config Bonnie
 
 ```toml
 version="0.3.2"
@@ -171,7 +186,8 @@ build-tailwind-prod = [
 ]
 ## Builds Tailwind CSS for development usage
 setup.subcommands.tailwind = "bonnie build-tailwind-dev"
-setup.subcommands.prompt-tailwind = "echo \"Have you installed the Tailwind CLI globally with 'npm i -g tailwindcss' or 'yarn global add tailwindcss'?\""
+setup.subcommands.prompt-tailwind 
+    = "echo \"Have you installed the Tailwind CLI globally with 'npm i -g tailwindcss' or 'yarn global add tailwindcss'?\""
 setup.order = """
 tailwind {
     Failure => prompt-tailwind

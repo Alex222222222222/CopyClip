@@ -33,7 +33,7 @@ pub struct Config {
 /// if the config file exist, load it
 ///
 /// if there is an error, return the default config
-fn load_config(app: &AppHandle) -> Config {
+pub fn load_config(app: &AppHandle) -> Config {
     // find app data folder
     // find config file
     // if config file does not exist, create it
