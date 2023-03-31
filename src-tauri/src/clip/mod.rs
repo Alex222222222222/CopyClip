@@ -634,6 +634,7 @@ pub async fn copy_clip_to_clipboard(
 pub async fn delete_clip_from_database(
     app: tauri::AppHandle,
     clip_data: tauri::State<'_, ClipDataMutex>,
+    event_sender: tauri::State<'_, EventSender>,
     id: i64,
 ) -> Result<(), String> {
     let mut clip_data = clip_data.clip_data.lock().await;
@@ -653,6 +654,9 @@ pub async fn delete_clip_from_database(
 
         return Err(err.to_string());
     }
+
+    event_sender.send(CopyClipEvent::TrayUpdateEvent);
+
     Ok(())
 }
 

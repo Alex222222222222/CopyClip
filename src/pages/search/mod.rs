@@ -23,6 +23,7 @@ use crate::{
     },
 };
 
+
 mod clip;
 mod copy_clip_button;
 mod favourite_button;
@@ -156,7 +157,7 @@ pub fn search() -> Html {
             // TODO if the favourite filter change then try to clear rhe search res data
         });
 
-    let search_res_dispatch_1 = search_res_dispatch;
+    let search_res_dispatch_1 = search_res_dispatch.clone();
     let search_args_dispatch_1 = search_args_dispatch.clone();
     let search_args_1 = search_args.clone();
     let search_button_on_click = Callback::from(move |_| {
@@ -347,6 +348,7 @@ pub fn search() -> Html {
                             search_args.order_order.clone(),
                             search_args.search_method.to_string(),
                             search_res.res.clone(),
+                            search_res_dispatch,
                         )
                     }
                 </div>
@@ -361,6 +363,7 @@ fn search_res_table_html(
     order_order: OrderOrder, // asc or desc
     search_method: String,
     res: std::sync::Arc<std::sync::Mutex<HashMap<i64, Clip>>>,
+    search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
 ) -> Html {
     let res = res.lock().unwrap();
     let mut res = res.clone();
@@ -410,8 +413,8 @@ fn search_res_table_html(
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
                                     <FavouriteClipButton id={id} is_favourite={clip.favourite}></FavouriteClipButton>
                                     <td class="border border-gray-200 text-center">{clip.score}</td>
-                                    <CopyClipButton id = {id}></CopyClipButton>
-                                    <TrashClipButton id = {id}></TrashClipButton>
+                                    <CopyClipButton id={id}></CopyClipButton>
+                                    <TrashClipButton id={id} search_res_dispatch={search_res_dispatch.clone()}></TrashClipButton>
                                     <SearchText text={clip.text} data={data.clone()} search_method={search_method_1}></SearchText>
                                 </tr>
                             }
