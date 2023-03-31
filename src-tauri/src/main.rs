@@ -103,6 +103,8 @@ fn main() {
             config::command::set_log_level_filter,
             config::command::get_dark_mode,
             config::command::set_dark_mode,
+            config::command::get_search_clip_per_batch,
+            config::command::set_search_clip_per_batch,
             export::export_data_invoke,
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,
