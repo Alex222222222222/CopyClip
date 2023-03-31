@@ -5,7 +5,7 @@ use yew_icons::{Icon, IconId};
 
 use crate::invoke::invoke;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, serde::Deserialize, serde::Serialize)]
 pub enum FavouriteFilter {
     All,
     Favourite,

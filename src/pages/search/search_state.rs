@@ -3,7 +3,7 @@ use yew::{function_component, html, Html, Properties};
 use crate::components::loading::LoadingComponent;
 
 /// search state of the search page
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum SearchState {
     NotStarted,
     Searching,
@@ -14,10 +14,6 @@ pub enum SearchState {
 impl SearchState {
     pub fn state(&self) -> SearchState {
         self.clone()
-    }
-
-    pub fn is_err(&self) -> bool {
-        matches!(self, SearchState::Error(_))
     }
 }
 

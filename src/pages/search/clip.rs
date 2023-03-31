@@ -4,10 +4,11 @@ use std::{
 };
 
 use serde::Deserialize;
+use serde::Serialize;
 use yew::Properties;
 
 /// clip data
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Clip {
     pub id: i64,
     pub text: String,
@@ -19,6 +20,17 @@ pub struct Clip {
 impl Clip {
     /// create a new clip from the search data and the clip data
     pub fn from_clip_res(search_data: String, clip_res: ClipRes) -> Self {
+        // if the text is too long, we skip the fuzzy check.
+        if clip_res.text.len() > 2000 {
+            return Self {
+                id: clip_res.id,
+                text: clip_res.text,
+                timestamp: clip_res.timestamp,
+                favourite: clip_res.favourite,
+                score: 0,
+            };
+        }
+
         let res = sublime_fuzzy::best_match(&search_data, &clip_res.text);
         let score = if let Some(score) = res {
             score.score() as i64
@@ -45,20 +57,19 @@ pub struct ClipRes {
     pub favourite: bool,
 }
 
-/// search result
-#[derive(Clone)]
+/// search Result
+#[derive(Default, Deserialize, Serialize, Clone)]
 pub struct SearchRes {
+    pub rebuild_num: u64,
     pub res: Arc<Mutex<HashMap<i64, Clip>>>,
 }
 
-impl SearchRes {
-    pub fn new() -> Self {
-        Self {
-            res: Arc::new(Mutex::new(HashMap::new())),
-        }
+impl yewdux::store::Store for SearchRes {
+    fn new() -> Self {
+        Self::default()
     }
 
-    pub fn get(&self) -> Arc<Mutex<HashMap<i64, Clip>>> {
-        self.res.clone()
+    fn should_notify(&self, old: &Self) -> bool {
+        self.rebuild_num != old.rebuild_num
     }
 }
