@@ -20,6 +20,9 @@ pub struct Config {
     pub clip_per_page: i64,
     /// the max length of a clip to show in the tray menu
     pub clip_max_show_length: i64,
+    /// clip max show length in search page
+    /// default 500
+    pub search_page_clip_max_show_length: i64,
     /// the number of clips to search in one batch
     pub search_clip_per_batch: i64,
     /// log level
@@ -192,6 +195,7 @@ impl Default for Config {
             search_clip_per_batch: 2,
             log_level: LogLevelFilter::Info,
             dark_mode: false,
+            search_page_clip_max_show_length: 500,
         }
     }
 }

@@ -158,3 +158,25 @@ pub async fn set_dark_mode(
 
     Ok(())
 }
+
+/// get search_clip_per_batch
+///
+/// input: {}
+#[tauri::command]
+pub async fn get_search_clip_per_batch(config: State<'_, ConfigMutex>) -> Result<i64, String> {
+    let config = config.config.lock().await;
+    Ok(config.search_clip_per_batch)
+}
+
+/// set search_clip_per_page
+///
+/// input: {
+///   data: i64
+/// }
+#[tauri::command]
+pub async fn set_search_clip_per_batch(config: State<'_, ConfigMutex>,data: i64) -> Result<(),String> {
+    let mut config = config.config.lock().await;
+    config.search_clip_per_batch = data;
+
+    Ok(())
+}
