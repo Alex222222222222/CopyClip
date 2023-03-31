@@ -74,6 +74,16 @@ pub fn sort_search_res(
                 }
             });
         }
+        "len" => {
+            res.sort_by(|a, b| {
+                let res = a.1.len.cmp(&b.1.len);
+                if order {
+                    res
+                } else {
+                    res.reverse()
+                }
+            });
+        }
         _ => {}
     }
 

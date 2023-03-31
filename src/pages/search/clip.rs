@@ -15,6 +15,7 @@ pub struct Clip {
     pub timestamp: i64,
     pub favourite: bool,
     pub score: i64,
+    pub len: u64,
 }
 
 impl Clip {
@@ -23,6 +24,7 @@ impl Clip {
         // if the text is too long, we skip the fuzzy check.
         if clip_res.text.len() > 2000 {
             return Self {
+                len: clip_res.text.len() as u64,
                 id: clip_res.id,
                 text: clip_res.text,
                 timestamp: clip_res.timestamp,
@@ -40,6 +42,7 @@ impl Clip {
 
         Self {
             id: clip_res.id,
+            len: clip_res.text.len() as u64,
             text: clip_res.text,
             timestamp: clip_res.timestamp,
             favourite: clip_res.favourite,
