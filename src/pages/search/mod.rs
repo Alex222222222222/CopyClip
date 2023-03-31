@@ -255,6 +255,7 @@ pub fn search() -> Html {
                                 <option value="score" selected={"score" == search_args.order_by.as_str()}>{"Score"}</option>
                                 <option value="id" selected={"id" == search_args.order_by.as_str()}>{"Id"}</option>
                                 <option value="text" selected={"text" == search_args.order_by.as_str()}>{"Text"}</option>
+                                <option value="len" selected={"len" == search_args.order_by.as_str()}>{"Length"}</option>
                             </select>
                             // order order drop list
                             <select
@@ -374,6 +375,8 @@ fn search_res_table_html(
                     <tr>
                         // the id of the clip
                         <th class="border border-gray-200">{ "ID" }</th>
+                        // the len of the clip
+                        <th class="border border-gray-200">{ "Len" }</th>
                         // the time of the clip
                         <th class="border border-gray-200">
                             <Icon icon_id={IconId::LucideTimer} class="mx-auto mt-0.5"/>
@@ -403,6 +406,7 @@ fn search_res_table_html(
                             html! {
                                 <tr>
                                     <td class="border border-gray-200 text-center">{clip.id}</td>
+                                    <td class="border border-gray-200 text-center">{clip.len}</td>
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
                                     <FavouriteClipButton id={id} is_favourite={clip.favourite}></FavouriteClipButton>
                                     <td class="border border-gray-200 text-center">{clip.score}</td>
