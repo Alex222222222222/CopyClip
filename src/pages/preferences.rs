@@ -20,12 +20,16 @@ pub fn preferences() -> Html {
                 <br />
                 <MaxClipLenConfig></MaxClipLenConfig>
                 <br />
-                <LogLevelFilterConfig></LogLevelFilterConfig>
-                <br />
                 // TODO add follow system theme
                 <DarkModeSwitch></DarkModeSwitch>
                 <br />
                 <ExportButton></ExportButton>
+            </div>
+
+            <h2 class="text-center text-4xl m-0">{ "Advanced Config" }</h2>
+            <div class="mx-5 my-2">
+                <LogLevelFilterConfig></LogLevelFilterConfig>
+                <br />
             </div>
         </div>
     }

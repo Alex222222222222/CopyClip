@@ -1,17 +1,22 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{Event, HtmlInputElement};
-use yew::{
-    function_component, html, use_effect_with_deps, use_state, Callback, Html, Properties,
-    TargetCast, UseStateHandle,
-};
+use yew::{function_component, html, use_effect_with_deps, Callback, Html, Properties, TargetCast};
 
 use crate::invoke::invoke;
 
 #[derive(Serialize, Deserialize)]
 struct SetPerPageDataArg {
     data: i64,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize, Eq, yewdux::prelude::Store)]
+#[store(storage = "local")]
+struct ConfigState {
+    config: HashMap<String, i64>,
 }
 
 #[derive(Clone, PartialEq, Properties)]
@@ -24,8 +29,7 @@ pub struct IntConfigTemplateProps {
 
 #[function_component(IntConfigTemplate)]
 pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
-    let value_handle: UseStateHandle<i64> = use_state(|| props.default_value);
-    let value = value_handle.clone();
+    let (config, config_dispatch) = yewdux::prelude::use_store::<ConfigState>();
 
     async fn handle_on_change(value: i64, set_value_invoke: String) {
         let args = to_value(&SetPerPageDataArg { data: value }).unwrap();
@@ -35,21 +39,39 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     let label = props.label.clone();
 
     let set_value_invoke = props.set_value_invoke.clone();
+    let config_1 = config.clone();
+    let config_dispatch_1 = config_dispatch.clone();
+    let label_1 = label.clone();
     let on_change = Callback::from(move |event: Event| {
         let value = event.target_unchecked_into::<HtmlInputElement>().value();
         let value = value.parse::<i64>().unwrap();
         let res = handle_on_change(value, set_value_invoke.clone());
+        let mut config = config_1.config.clone();
+        config.insert(label_1.clone(), value);
+        config_dispatch_1.set(ConfigState { config });
         spawn_local(res);
     });
 
+    let default_value = props.default_value;
+    let label_1 = label.clone();
+    if !config.config.contains_key(&label_1) {
+        let mut config = config.config.clone();
+        config.insert(label_1, default_value);
+        config_dispatch.set(ConfigState { config });
+    }
+
+    let label_1 = label.clone();
     let get_value_invoke = props.get_value_invoke.clone();
+    let config_1 = config.clone();
     use_effect_with_deps(
         move |_| {
             spawn_local(async move {
                 let args = to_value(&()).unwrap();
                 let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
                 let res = res.parse::<i64>().unwrap();
-                value_handle.set(res);
+                let mut config = config_1.config.clone();
+                config.insert(label_1, res);
+                config_dispatch.set(ConfigState { config });
             });
         },
         (),
@@ -65,7 +87,7 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
                 type="number"
                 class="border border-gray-200 rounded-md p-2 dark:text-black ml-5 flex-1"
                 onchange={on_change}
-                value={value.to_string()}
+                value={config.config.get(&label).unwrap().to_string()}
             />
         </div>
     }
