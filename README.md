@@ -27,6 +27,19 @@ A MacOS app used to manage your clipboard history.
 
 <!-- /vscode-markdown-toc -->
 
+## Configuration
+
+This is some explanation for configurations in the app.
+
+| name | default value | description |
+| ---- | ------------- | ----------- |
+| clips per page | 20 | this define how much clips to show in one page in the tray |
+| max clip length | 50 | when a clip is too long, we cut it to under max-clip-length to fit it into the tray |
+| log level filtr | info | the log level of the app. `trace`, `info`, `debug`, `warn`, `error`, `off` from most detailed to less |
+| dark mode | off | switch the dark mode on and off |
+
+More configurations is on the way.
+
 ## Install
 
 ### MacOS
@@ -83,6 +96,8 @@ If the problem has not been solved, use the x64 build.
 
 If you have any other issues, please open an issue with the log file attached,
 and information about your system.
+
+Also, please switch the log mod to `trace` to get the most detailed log.
 
 The log file is located at `~/Library/Logs/org.eu.huazifan.copyclip/log`on MacOS.
 
@@ -186,8 +201,7 @@ build-tailwind-prod = [
 ]
 ## Builds Tailwind CSS for development usage
 setup.subcommands.tailwind = "bonnie build-tailwind-dev"
-setup.subcommands.prompt-tailwind 
-    = "echo \"Have you installed the Tailwind CLI globally with 'npm i -g tailwindcss' or 'yarn global add tailwindcss'?\""
+setup.subcommands.prompt-tailwind = "echo \"Have you installed the Tailwind CLI globally with 'npm i -g tailwindcss' or 'yarn global add tailwindcss'?\""
 setup.order = """
 tailwind {
     Failure => prompt-tailwind
