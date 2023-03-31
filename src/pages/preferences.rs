@@ -6,6 +6,7 @@ use crate::components::{
         clips_per_page_config::ClipsPerPageConfig, dark_mode_switch::DarkModeSwitch,
         export_button::ExportButton, log_level_filter_config::LogLevelFilterConfig,
         max_clip_len_config::MaxClipLenConfig,
+        clips_search_per_batch::SearchClipPerBatchConfig,
     },
 };
 
@@ -30,6 +31,7 @@ pub fn preferences() -> Html {
             <div class="mx-5 my-2">
                 <LogLevelFilterConfig></LogLevelFilterConfig>
                 <br />
+                <SearchClipPerBatchConfig></SearchClipPerBatchConfig>
             </div>
         </div>
     }

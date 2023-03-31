@@ -34,7 +34,7 @@ pub fn head_bar() -> Html {
                     </a>
                 </div>
                 <div class="mx-2 text-center">
-                    <a class="head-bar-button" href="https://github.com/Alex222222222222/CopyClip" target="_blank">{"Github"}</a>
+                    <a class="head-bar-button" href="https://github.com/Alex222222222222/CopyClip" target="_blank">{"GitHub"}</a>
                 </div>
             </div>
         </div>
