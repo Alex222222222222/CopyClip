@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
+use serde::Deserialize;
+use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
-use yew::{
-    function_component, html, use_state, use_state_eq, Callback, Html, TargetCast, UseStateHandle,
-};
+use yew::{function_component, html, Callback, Html, TargetCast};
 
 use web_sys::{Event, HtmlInputElement};
 use yew_icons::{Icon, IconId};
@@ -14,7 +16,7 @@ use crate::{
         favourite_button::{FavouriteClipButton, FavouriteFilter},
         fuzzy_search_text::SearchText,
         order::{sort_search_res, OrderOrder},
-        search_clip::{search_clips, SearchPros},
+        search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
         time_display::TimeDisplay,
         trash_clip_button::TrashClipButton,
@@ -31,7 +33,7 @@ mod search_state;
 mod time_display;
 mod trash_clip_button;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct UserIdLimit {
     pub min: i64, // 0 is always the min for all
     pub max: i64, // -1 means no limit
@@ -55,136 +57,148 @@ impl UserIdLimit {
         new.max = max;
         new
     }
+}
 
-    pub fn self_copy(&self) -> UserIdLimit {
+#[derive(yewdux::prelude::Store, Deserialize, Serialize, Clone, Debug, PartialEq)]
+#[store(storage = "local")]
+pub struct SearchFullArgs {
+    pub search_method: String,
+    pub search_state: SearchState,
+    pub search_data: String,
+    pub order_by: String,
+    pub order_order: OrderOrder,
+    pub favourite_filter: FavouriteFilter,
+    pub total_search_res_limit: usize,
+    pub user_id_limit: UserIdLimit,
+}
+
+impl SearchFullArgs {
+    pub fn self_copy(&self) -> Self {
         self.clone()
+    }
+}
+
+impl Default for SearchFullArgs {
+    fn default() -> Self {
+        Self {
+            search_method: "fuzzy".to_string(),
+            search_state: SearchState::NotStarted,
+            search_data: "".to_string(),
+            order_by: "time".to_string(),
+            order_order: OrderOrder::Desc,
+            favourite_filter: FavouriteFilter::default(),
+            total_search_res_limit: 100,
+            user_id_limit: UserIdLimit::default(),
+        }
     }
 }
 
 #[function_component(Search)]
 pub fn search() -> Html {
-    let search_res: UseStateHandle<SearchRes> = use_state(SearchRes::new);
-    let search_method: UseStateHandle<String> = use_state_eq(|| "fuzzy".to_string());
-    let search_state: UseStateHandle<SearchState> = use_state(|| SearchState::NotStarted);
-    let text_data: UseStateHandle<String> = use_state_eq(|| "".to_string());
-    let search_res_num: UseStateHandle<usize> = use_state_eq(|| 0);
-    let order_by: UseStateHandle<String> = use_state_eq(|| "time".to_string());
-    let order_order: UseStateHandle<OrderOrder> = use_state_eq(|| OrderOrder::Desc); // true is desc false is asc
-    let favourite_filter: UseStateHandle<FavouriteFilter> = use_state_eq(FavouriteFilter::default);
-    let total_search_res_limit: UseStateHandle<usize> = use_state_eq(|| 100);
-    let user_id_limit: UseStateHandle<UserIdLimit> = use_state_eq(UserIdLimit::default);
+    let (search_res, search_res_dispatch) = yewdux::prelude::use_store::<SearchRes>();
 
-    let text_data_1 = text_data.clone();
-    let text_box_on_change = Callback::from(move |event: Event| {
-        let value = event.target_unchecked_into::<HtmlInputElement>().value();
-        text_data_1.set(value);
+    let (search_args, search_args_dispatch) = yewdux::prelude::use_store::<SearchFullArgs>();
+    search_args_dispatch.reduce_mut(|state| {
+        state.search_state = SearchState::NotStarted;
     });
 
-    let search_method_1 = search_method.clone();
-    let search_res_1 = search_res.clone();
-    let search_state_1 = search_state.clone();
-    let search_method_on_change = Callback::from(move |event: Event| {
-        let value = event.target_unchecked_into::<HtmlInputElement>().value();
-        if value != search_method_1.to_string() {
-            search_method_1.set(value);
-            search_state_1.set(SearchState::NotStarted);
-            search_res_1.set(SearchRes::new());
-        }
-    });
+    let text_box_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
 
-    let order_by_1 = order_by.clone();
-    let order_method_on_change = Callback::from(move |event: Event| {
-        let value = event.target_unchecked_into::<HtmlInputElement>().value();
-        order_by_1.set(value);
-    });
+            state.search_data = value;
 
-    let order_order_1 = order_order.clone();
-    let order_order_on_change = Callback::from(move |event: Event| {
-        let value = event
-            .target_unchecked_into::<HtmlInputElement>()
-            .value()
-            .to_lowercase();
-        if value == "desc" {
-            order_order_1.set(OrderOrder::Desc);
-        } else {
-            order_order_1.set(OrderOrder::Asc);
-        }
-    });
+            // TODO if the text box is different from previous state, then try to clear the search
+            // res data
+        });
 
-    let favourite_filter_1 = favourite_filter.clone();
-    let favourite_filter_on_change = Callback::from(move |event: Event| {
-        let value = event
-            .target_unchecked_into::<HtmlInputElement>()
-            .value()
-            .to_lowercase();
-        if value == "all" {
-            favourite_filter_1.set(FavouriteFilter::All);
-        } else if value == "favourite" {
-            favourite_filter_1.set(FavouriteFilter::Favourite);
-        } else {
-            favourite_filter_1.set(FavouriteFilter::NotFavourite);
-        }
-    });
+    let search_method_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
+            state.search_method = value;
 
-    let search_res_1 = search_res.clone();
-    let search_method_1 = search_method.clone();
-    let search_state_1 = search_state.clone();
-    let text_data_1 = text_data.clone();
-    let search_res_num_1 = search_res_num;
-    let total_search_res_limit_1 = total_search_res_limit.clone();
-    let user_id_limit_1 = user_id_limit.clone();
+            // TODO if the search method is different from previous state, then try to clear the
+            // search res data
+        });
+
+    let order_method_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
+            state.order_by = value;
+
+            // TODO if the order method is different from previous state, then try to rebuild the
+            // table
+        });
+
+    let order_order_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
+            if value == "desc" {
+                state.order_order = OrderOrder::Desc;
+            } else {
+                state.order_order = OrderOrder::Asc;
+            }
+
+            // TODO if the order order change then try to rebuild the table
+        });
+
+    let favourite_filter_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
+            if value == "all" {
+                state.favourite_filter = FavouriteFilter::All;
+            } else if value == "favourite" {
+                state.favourite_filter = FavouriteFilter::Favourite;
+            } else {
+                state.favourite_filter = FavouriteFilter::NotFavourite;
+            }
+
+            // TODO if the favourite filter change then try to clear rhe search res data
+        });
+
+    let search_res_dispatch_1 = search_res_dispatch;
+    let search_args_dispatch_1 = search_args_dispatch.clone();
+    let search_args_1 = search_args.clone();
     let search_button_on_click = Callback::from(move |_| {
-        let search_res_clone = search_res_1.clone();
-        let search_method_clone = search_method_1.clone();
-        let search_state_clone = search_state_1.clone();
-        let search_state_clone_clone = search_state_1.clone();
-        let text_data_clone = text_data_1.clone();
-        let search_res_num_clone = search_res_num_1.clone();
-        let favourite_filter_1 = favourite_filter.clone();
-        let total_search_res_limit = total_search_res_limit_1.clone();
-        let user_id_limit = user_id_limit_1.clone();
+        let search_args_dispatch = search_args_dispatch_1.clone();
+        let search_args = search_args_1.clone();
+        let search_res_dispatch = search_res_dispatch_1.clone();
         spawn_local(async move {
-            search_state_clone.set(SearchState::Searching);
-            search_res_num_clone.set(0);
-            search_res_clone.set(SearchRes::new());
-            let res = search_clips(
-                search_state_clone_clone,
-                search_res_clone,
-                search_res_num_clone,
-                SearchPros {
-                    data: text_data_clone.to_string(),
-                    search_method: search_method_clone.to_string(),
-                    favourite_filter: favourite_filter_1.to_int(),
-                    total_search_res_limit: total_search_res_limit
-                        .to_string()
-                        .parse::<usize>()
-                        .unwrap(),
-                    user_id_limit: user_id_limit.self_copy(),
-                },
-            )
-            .await;
+            search_args_dispatch.reduce_mut(|state| {
+                state.search_state = SearchState::Searching;
+            });
+            let res = search_clips(search_res_dispatch, search_args.self_copy()).await;
             if let Err(err) = res {
-                search_state_clone.set(SearchState::Error(err));
+                search_args_dispatch.reduce_mut(|state| {
+                    state.search_state = SearchState::Error(err);
+                });
+            } else {
+                search_args_dispatch.reduce_mut(|state| {
+                    state.search_state = SearchState::Finished;
+                });
             }
         });
     });
 
-    let total_search_res_limit_1 = total_search_res_limit.clone();
-    let total_search_res_limit_on_change = Callback::from(move |event: Event| {
-        let value = event.target_unchecked_into::<HtmlInputElement>().value();
-        total_search_res_limit_1.set(value.parse().unwrap());
-    });
+    let total_search_res_limit_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
+            // TODO raise an Error if parse failed
+            state.total_search_res_limit = value.parse().unwrap();
+        });
 
-    let user_id_limit_1 = user_id_limit.clone();
-    let user_id_limit_min_on_change = Callback::from(move |event: Event| {
-        let value = event.target_unchecked_into::<HtmlInputElement>().value();
-        user_id_limit_1.set(user_id_limit_1.new_min(value.parse().unwrap()));
-    });
-    let user_id_limit_1 = user_id_limit.clone();
-    let user_id_limit_max_on_change = Callback::from(move |event: Event| {
-        let value = event.target_unchecked_into::<HtmlInputElement>().value();
-        user_id_limit_1.set(user_id_limit_1.new_max(value.parse().unwrap()));
-    });
+    let user_id_limit_min_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
+            // TODO raise an Error if parse failed
+            state.user_id_limit = state.user_id_limit.new_min(value.parse().unwrap());
+        });
+    let user_id_limit_max_on_change =
+        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
+            let value = event.target_unchecked_into::<HtmlInputElement>().value();
+            // TODO raise an Error if parse failed
+            state.user_id_limit = state.user_id_limit.new_max(value.parse().unwrap());
+        });
 
     html! {
         <div class="flex min-h-screen flex-col">
@@ -203,6 +217,7 @@ pub fn search() -> Html {
                             class="border border-gray-200 rounded-md px-2 py-1 ml-5 flex-1 dark:text-black"
                             onchange={text_box_on_change}
                             placeholder={"Search"}
+                            value={search_args.search_data.to_string()}
                         />
                     </div>
 
@@ -216,10 +231,10 @@ pub fn search() -> Html {
                             class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
                             onchange={search_method_on_change}
                         >
-                            <option value="fuzzy">{"Fuzzy"}</option>
-                            <option value="fast">{"Fast"}</option>
-                            <option value="normal">{"Normal"}</option>
-                            <option value="regexp">{"Regexp"}</option>
+                            <option value="fuzzy" selected={"fuzzy" == search_args.search_method.as_str()}>{"Fuzzy"}</option>
+                            <option value="fast" selected={"fast" == search_args.search_method.as_str()}>{"Fast"}</option>
+                            <option value="normal" selected={"normal" == search_args.search_method.as_str()}>{"Normal"}</option>
+                            <option value="regexp" selected={"regexp" == search_args.search_method.as_str()}>{"Regexp"}</option>
                         </select>
                     </div>
 
@@ -236,18 +251,18 @@ pub fn search() -> Html {
                                 class="border border-gray-200 rounded-md p-2 mr-2 text-lg dark:text-black"
                                 onchange={order_method_on_change}
                             >
-                                <option value="time">{"Time"}</option>
-                                <option value="score">{"Score"}</option>
-                                <option value="id">{"Id"}</option>
-                                <option value="text">{"Text"}</option>
+                                <option value="time" selected={"time" == search_args.order_by.as_str()}>{"Time"}</option>
+                                <option value="score" selected={"score" == search_args.order_by.as_str()}>{"Score"}</option>
+                                <option value="id" selected={"id" == search_args.order_by.as_str()}>{"Id"}</option>
+                                <option value="text" selected={"text" == search_args.order_by.as_str()}>{"Text"}</option>
                             </select>
                             // order order drop list
                             <select
                                 class="border border-gray-200 rounded-md p-2 ml-2 text-lg dark:text-black"
                                 onchange={order_order_on_change}
                             >
-                                <option value="desc">{"Desc"}</option>
-                                <option value="asc">{"Asc"}</option>
+                                <option value="desc" selected={OrderOrder::Desc == search_args.order_order}>{"Desc"}</option>
+                                <option value="asc" selected={OrderOrder::Asc == search_args.order_order}>{"Asc"}</option>
                             </select>
                         </div>
                     </div>
@@ -262,9 +277,9 @@ pub fn search() -> Html {
                             class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
                             onchange={favourite_filter_on_change}
                         >
-                            <option value="all">{"All"}</option>
-                            <option value="favourite">{"Favourite"}</option>
-                            <option value="not_favourite">{"NotFavourite"}</option>
+                            <option value="all" selected={FavouriteFilter::All == search_args.favourite_filter}>{"All"}</option>
+                            <option value="favourite" selected={FavouriteFilter::Favourite == search_args.favourite_filter}>{"Favourite"}</option>
+                            <option value="not_favourite" selected={FavouriteFilter::NotFavourite == search_args.favourite_filter}>{"NotFavourite"}</option>
                         </select>
                     </div>
 
@@ -279,7 +294,7 @@ pub fn search() -> Html {
                             type="number"
                             class="border border-gray-200 rounded-md px-2 py-1 flex-1 ml-5 dark:text-black"
                             onchange={total_search_res_limit_on_change}
-                            value={total_search_res_limit.to_string()}
+                            value={search_args.total_search_res_limit.to_string()}
                         />
                     </div>
 
@@ -295,7 +310,7 @@ pub fn search() -> Html {
                             type="number"
                             class="border border-gray-200 rounded-md px-2 py-1 ml-5 flex-1 dark:text-black"
                             onchange={user_id_limit_min_on_change}
-                            value={user_id_limit.min.to_string()}
+                            value={search_args.user_id_limit.min.to_string()}
                         />
                         // TODO change htmlFor
                         <label htmlFor="int-input-box" class="text-xl py-1 ml-5">
@@ -306,7 +321,7 @@ pub fn search() -> Html {
                             type="number"
                             class="border border-gray-200 rounded-md px-2 py-1 ml-5 flex-1 dark:text-black"
                             onchange={user_id_limit_max_on_change}
-                            value={user_id_limit.max.to_string()}
+                            value={search_args.user_id_limit.max.to_string()}
                         />
                     </div>
 
@@ -321,16 +336,16 @@ pub fn search() -> Html {
                     </button>
 
                     // search state
-                    <SearchStateHtml state={search_state.state()}></SearchStateHtml>
+                    <SearchStateHtml state={search_args.search_state.state()}></SearchStateHtml>
 
                     // search res
                     {
                         search_res_table_html(
-                            text_data.to_string(),
-                            search_res,
-                            order_by,
-                            order_order,
-                            search_method.to_string(),
+                            search_args.search_data.to_string(),
+                            search_args.order_by.clone(),
+                            search_args.order_order.clone(),
+                            search_args.search_method.to_string(),
+                            search_res.res.clone(),
                         )
                     }
                 </div>
@@ -341,16 +356,16 @@ pub fn search() -> Html {
 
 fn search_res_table_html(
     data: String,
-    res: UseStateHandle<SearchRes>,
-    order_by: UseStateHandle<String>,
-    order_order: UseStateHandle<OrderOrder>, // asc or desc
+    order_by: String,
+    order_order: OrderOrder, // asc or desc
     search_method: String,
+    res: std::sync::Arc<std::sync::Mutex<HashMap<i64, Clip>>>,
 ) -> Html {
-    let res = res.get();
-    let mut res = res.lock().unwrap();
+    let res = res.lock().unwrap();
+    let mut res = res.clone();
 
     let res: Vec<(i64, Clip)> = res.drain().collect();
-    let res = sort_search_res(res, order_by.to_string(), order_order.to_bool());
+    let res = sort_search_res(res, order_by, order_order.to_bool());
 
     html! {
         <div class="flex flex-col">

@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use super::clip::Clip;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, serde::Deserialize, serde::Serialize)]
 pub enum OrderOrder {
     Desc,
     Asc,
@@ -11,6 +13,15 @@ impl OrderOrder {
         match self {
             OrderOrder::Desc => false,
             OrderOrder::Asc => true,
+        }
+    }
+}
+
+impl Display for OrderOrder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OrderOrder::Desc => f.write_str("desc"),
+            OrderOrder::Asc => f.write_str("asc"),
         }
     }
 }
