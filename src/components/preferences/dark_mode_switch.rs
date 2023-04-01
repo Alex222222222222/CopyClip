@@ -63,7 +63,7 @@ pub fn dark_mode_switch() -> Html {
     html! {
         <div class="flex flex-row justify-between">
             <label htmlFor="int-input-box" class="text-xl">
-                {label}
+                {t!{"preferences.dark_mode"}}
             </label>
             <label class="switch">
                 <input

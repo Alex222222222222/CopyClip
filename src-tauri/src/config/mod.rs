@@ -29,6 +29,8 @@ pub struct Config {
     pub log_level: LogLevelFilter,
     /// dark mode
     pub dark_mode: bool,
+    /// user defined language
+    pub language: String,
 }
 
 /// load the config from app data folder
@@ -196,6 +198,7 @@ impl Default for Config {
             log_level: LogLevelFilter::Info,
             dark_mode: false,
             search_page_clip_max_show_length: 500,
+            language: "en-GB".to_string(),
         }
     }
 }

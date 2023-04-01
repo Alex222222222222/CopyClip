@@ -14,7 +14,7 @@ pub fn home() -> Html {
                     class="mx-3 my-2 text-lg"
                 >
                     {"For more information please visit the repo on "}
-                    <a 
+                    <a
                         class="text-blue-500"
                         href="https://github.com/Alex222222222222/CopyClip"
                         target="_blank"
@@ -24,7 +24,7 @@ pub fn home() -> Html {
                     <br />
 
                     {"更多详情请查看: "}
-                    <a 
+                    <a
                         class="text-blue-500"
                         href="https://github.com/Alex222222222222/CopyClip"
                         target="_blank"

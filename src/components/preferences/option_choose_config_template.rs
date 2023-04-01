@@ -41,7 +41,6 @@ pub fn option_choose_config_template_html(props: &OptionChooseConfigTemplateProp
     }
 
     let set_value_invoke = props.set_value_invoke.clone();
-    let config_1 = config.clone();
     let config_dispatch_1 = config_dispatch.clone();
     let label = props.label.clone();
     let select_on_change = Callback::from(move |event: Event| {
@@ -51,16 +50,15 @@ pub fn option_choose_config_template_html(props: &OptionChooseConfigTemplateProp
             data: value.clone(),
         };
         let args = to_value(&args).unwrap();
-        let mut config = config_1.config.clone();
-        config.insert(label.clone(), value);
-        config_dispatch_1.set(ChooseOptionState { config });
+        config_dispatch_1.reduce_mut(|state| {
+            state.config.insert(label.clone(), value);
+        });
         spawn_local(async move {
             invoke(&set_value_invoke_1, args).await;
         })
     });
 
     let get_value_invoke = props.get_value_invoke.clone();
-    let config_1 = config.clone();
     let config_dispatch_1 = config_dispatch;
     let label = props.label.clone();
     use_effect_with_deps(
@@ -69,9 +67,9 @@ pub fn option_choose_config_template_html(props: &OptionChooseConfigTemplateProp
                 let args = to_value(&()).unwrap();
                 let get_value_invoke = get_value_invoke.clone();
                 let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
-                let mut config = config_1.config.clone();
-                config.insert(label, res);
-                config_dispatch_1.set(ChooseOptionState { config });
+                config_dispatch_1.reduce_mut(|state| {
+                    state.config.insert(label.clone(), res);
+                });
             });
         },
         (),

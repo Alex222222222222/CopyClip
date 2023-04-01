@@ -4,6 +4,7 @@ use yew::prelude::*;
 use yew_router::prelude::*;
 
 use crate::{
+    components::preferences::language_config::LanguagesConfigState,
     invoke::invoke,
     pages::{home::Home, preferences::Preferences, search::Search},
 };
@@ -38,34 +39,23 @@ fn switch(routes: Route) -> Html {
 
 #[function_component(Main)]
 pub fn app() -> Html {
-    use_effect(|| {
-        let window = web_sys::window().unwrap();
-        let document = window.document().unwrap();
-        let element = document.document_element().unwrap();
-        let class_list = element.class_list();
-
-        spawn_local(async move {
-            let res = invoke("get_dark_mode", to_value(&()).unwrap()).await;
-            let is_dark = res.as_bool().unwrap();
-            if is_dark {
-                class_list.add_1("dark").unwrap();
-            } else {
-                class_list.remove_1("dark").unwrap();
-            }
-        })
-
-        /*
-        let arr = js_sys::Array::new_with_length(1);
-        arr.set(0, JsValue::from_str("dark"));
+    // TODO fix the bug that change the language will force the dark mode config to disappear
+    let window = web_sys::window().unwrap();
+    let document = window.document().unwrap();
+    let element = document.document_element().unwrap();
+    let class_list = element.class_list();
+    spawn_local(async move {
+        let res = invoke("get_dark_mode", to_value(&()).unwrap()).await;
+        let is_dark = res.as_bool().unwrap();
         if is_dark {
-            class_list.add(&arr).expect("should add dark class success");
+            class_list.add_1("dark").unwrap();
         } else {
-            class_list
-                .remove(&arr)
-                .expect("should remove dark class success");
+            class_list.remove_1("dark").unwrap();
         }
-        */
     });
+
+    let (language_config, _) = yewdux::prelude::use_store::<LanguagesConfigState>();
+    rust_i18n::set_locale(&language_config.config);
 
     html! {
         <div

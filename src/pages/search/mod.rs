@@ -23,7 +23,6 @@ use crate::{
     },
 };
 
-
 mod clip;
 mod copy_clip_button;
 mod favourite_button;
