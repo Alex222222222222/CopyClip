@@ -55,9 +55,9 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     let default_value = props.default_value;
     let label_1 = label.clone();
     if !config.config.contains_key(&label_1) {
-        let mut config = config.config.clone();
-        config.insert(label_1, default_value);
-        config_dispatch.set(ConfigState { config });
+        config_dispatch.reduce_mut(|state| {
+            state.config.insert(label_1, default_value);
+        })
     }
 
     let label_1 = label.clone();
@@ -67,8 +67,10 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
         move |_| {
             spawn_local(async move {
                 let args = to_value(&()).unwrap();
-                let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
-                let res = res.parse::<i64>().unwrap();
+                gloo_console::log!("get_value_invoke: {}", get_value_invoke.clone());
+                let res = invoke(&get_value_invoke, args).await;
+                let res = res.as_f64().unwrap();
+                let res = res as i64;
                 let mut config = config_1.config.clone();
                 config.insert(label_1, res);
                 config_dispatch.set(ConfigState { config });
@@ -80,7 +82,7 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     html! {
         <div class="flex flex-row justify-between">
             <label htmlFor={format!("{}-input-box", label)} class="text-xl my-2">
-                {label.clone()}
+                {t!{&label}}
             </label>
             <input
                 id={format!("{}-input-box", label)}

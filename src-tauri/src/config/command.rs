@@ -1,3 +1,5 @@
+#[cfg(debug_assertions)]
+use log::debug;
 use tauri::{Manager, Runtime, State};
 
 use crate::{
@@ -15,9 +17,9 @@ use super::ConfigMutex;
 ///    data: i64
 /// }
 #[tauri::command]
-pub async fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<String, String> {
+pub async fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<i64, String> {
     let config = config.config.lock().await;
-    let res = config.clip_per_page.to_string();
+    let res = config.clip_per_page;
     drop(config);
     Ok(res)
 }
@@ -59,9 +61,9 @@ pub async fn set_per_page_data<R: Runtime>(
 ///    i64.to_string()
 /// }
 #[tauri::command]
-pub async fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<String, String> {
+pub async fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<i64, String> {
     let config = config.config.lock().await;
-    let res = config.clip_max_show_length.to_string();
+    let res = config.clip_max_show_length;
     drop(config);
     Ok(res)
 }
@@ -165,7 +167,12 @@ pub async fn set_dark_mode(
 #[tauri::command]
 pub async fn get_search_clip_per_batch(config: State<'_, ConfigMutex>) -> Result<i64, String> {
     let config = config.config.lock().await;
-    Ok(config.search_clip_per_batch)
+    let res = config.search_clip_per_batch;
+
+    #[cfg(debug_assertions)]
+    debug!("get_search_clip_per_batch: {}", res);
+
+    Ok(res)
 }
 
 /// set search_clip_per_page
@@ -174,9 +181,45 @@ pub async fn get_search_clip_per_batch(config: State<'_, ConfigMutex>) -> Result
 ///   data: i64
 /// }
 #[tauri::command]
-pub async fn set_search_clip_per_batch(config: State<'_, ConfigMutex>,data: i64) -> Result<(),String> {
+pub async fn set_search_clip_per_batch(
+    config: State<'_, ConfigMutex>,
+    data: i64,
+) -> Result<(), String> {
     let mut config = config.config.lock().await;
     config.search_clip_per_batch = data;
+
+    Ok(())
+}
+
+/// get language
+///
+/// input: {}
+#[tauri::command]
+pub async fn get_language(config: State<'_, ConfigMutex>) -> Result<String, String> {
+    let config = config.config.lock().await;
+    let res = config.language.to_string();
+    drop(config);
+    Ok(res)
+}
+
+/// set language
+///
+/// input: {
+///  data: String
+///  }
+#[tauri::command]
+pub async fn set_language(
+    app: tauri::AppHandle,
+    config: State<'_, ConfigMutex>,
+    data: String,
+) -> Result<(), String> {
+    let mut config = config.config.lock().await;
+    if config.language != data {
+        config.language = data;
+        let event_sender = app.state::<EventSender>();
+        event_sender.send(CopyClipEvent::SaveConfigEvent);
+        // TODO send event to change language
+    }
 
     Ok(())
 }

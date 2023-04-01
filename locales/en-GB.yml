@@ -1,0 +1,18 @@
+hello: Hello world
+preferences:
+  title: Preferences
+  advanced_title: Advanced Preferences
+  dark_mode: Dark Mode
+  clips_per_page: Clips Per Page
+  max_clip_len: Max Clip Length
+  log_level_filter: Log Level
+  language: Language
+  search_clip_per_batch: Search Clips Per Batch
+
+log_level:
+  trace: Trace
+  debug: Debug
+  warn: Warn
+  info: Info
+  off: Off
+  error: Error

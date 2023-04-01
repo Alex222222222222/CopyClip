@@ -1,0 +1,18 @@
+hello: 你好世界
+preferences:
+  title: 设置
+  advanced_title: 高级设置
+  dark_mode: 暗黑模式
+  clips_per_page: 每页记录数量
+  max_clip_len: 每条记录在系统任务栏中显示的最大长度（实际保存整条记录）
+  log_level_filter: 日志详细程度
+  language: 语言
+  search_clip_per_batch: 每次搜索的数量
+
+log_level:
+  trace: 所有
+  debug: 调试
+  warn: 报警
+  info: 信息
+  off: 关闭
+  error: 错误

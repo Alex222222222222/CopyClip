@@ -6,7 +6,7 @@ use super::int_config_template::IntConfigTemplate;
 pub fn search_clip_per_batch_config() -> Html {
     html! {
         <IntConfigTemplate
-            label={"Search Clip per Batch"}
+            label={"preferences.search_clip_per_batch"}
             default_value=2
             set_value_invoke={"set_search_clip_per_batch"}
             get_value_invoke={"get_search_clip_per_batch"}
