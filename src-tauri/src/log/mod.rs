@@ -135,11 +135,11 @@ pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
     #[cfg(debug_assertions)]
     println!("log level is {}", level);
 
-    // #[cfg(debug_assertions)]
-    // {
-    // println!("debug mode, log level is trace");
-    // log = log.level(log::LevelFilter::Trace).chain(std::io::stdout());
-    // }
+    #[cfg(debug_assertions)]
+    {
+        println!("debug mode, log level is trace");
+        log = log.level(log::LevelFilter::Trace).chain(std::io::stdout());
+    }
 
     log = log.chain(fern::log_file(path)?);
 

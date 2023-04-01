@@ -6,9 +6,12 @@ use yew_icons::{Icon, IconId};
 
 use crate::invoke::invoke;
 
-#[derive(Debug, PartialEq, Properties)]
+use super::clip::SearchRes;
+
+#[derive(PartialEq, Properties)]
 pub struct TrashClipButtonProps {
     pub id: i64,
+    pub search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
 }
 
 #[derive(Debug, Serialize)]
@@ -19,11 +22,17 @@ struct TrashClipArgs {
 #[function_component(TrashClipButton)]
 pub fn trash_clip_button(props: &TrashClipButtonProps) -> Html {
     let id = props.id;
+    let search_res_dispatch = props.search_res_dispatch.clone();
     let trash_clip_button_on_click = Callback::from(move |_| {
+        let search_res_dispatch = search_res_dispatch.clone();
         spawn_local(async move {
             let args = TrashClipArgs { id };
             let args = serde_wasm_bindgen::to_value(&args).unwrap();
             invoke("delete_clip_from_database", args).await;
+            search_res_dispatch.reduce_mut(|state| {
+                state.res.lock().unwrap().remove(&id);
+                state.rebuild_num += 1;
+            })
         });
     });
 
