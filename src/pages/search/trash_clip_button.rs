@@ -30,8 +30,13 @@ pub fn trash_clip_button(props: &TrashClipButtonProps) -> Html {
             let args = serde_wasm_bindgen::to_value(&args).unwrap();
             invoke("delete_clip_from_database", args).await;
             search_res_dispatch.reduce_mut(|state| {
-                state.res.lock().unwrap().remove(&id);
-                state.rebuild_num += 1;
+                // try find the pos of the clip
+                let mut res = state.res.lock().unwrap();
+                let pos = res.iter().position(|x| x.id == id);
+                if let Some(pos) = pos {
+                    res.remove(pos);
+                    state.rebuild_num += 1;
+                }
             })
         });
     });

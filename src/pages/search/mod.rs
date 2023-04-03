@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use serde::Deserialize;
@@ -115,7 +114,7 @@ pub fn search() -> Html {
     let search_method_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            *Rc::make_mut(&mut state.search_data) = value;
+            *Rc::make_mut(&mut state.search_method) = value;
             // TODO if the search method is different from previous state, then try to clear the
             // search res data
         });
@@ -361,14 +360,11 @@ fn search_res_table_html(
     order_by: Rc<String>,    // TODO change order by to enum
     order_order: OrderOrder, // asc or desc
     search_method: Rc<String>,
-    res: std::sync::Arc<std::sync::Mutex<HashMap<i64, Clip>>>,
+    res: std::sync::Arc<std::sync::Mutex<Vec<Clip>>>,
     search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
 ) -> Html {
+    sort_search_res(res.clone(), order_by, order_order.to_bool());
     let res = res.lock().unwrap();
-    let mut res = res.clone();
-
-    let res: Vec<(i64, Clip)> = res.drain().collect();
-    let res = sort_search_res(res, order_by, order_order.to_bool());
 
     html! {
         <div class="flex flex-col">
@@ -403,18 +399,18 @@ fn search_res_table_html(
                 </thead>
                 <tbody>
                     {
-                        res.into_iter().map(|(id, clip)| {
+                        res.iter().map(|clip| {
                             let search_method_1 = search_method.clone();
                             html! {
                                 <tr>
                                     <td class="border border-gray-200 text-center">{clip.id}</td>
                                     <td class="border border-gray-200 text-center">{clip.len}</td>
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
-                                    <FavouriteClipButton id={id} is_favourite={clip.favourite}></FavouriteClipButton>
+                                    <FavouriteClipButton id={clip.id} is_favourite={clip.favourite}></FavouriteClipButton>
                                     <td class="border border-gray-200 text-center">{clip.score}</td>
-                                    <CopyClipButton id={id}></CopyClipButton>
-                                    <TrashClipButton id={id} search_res_dispatch={search_res_dispatch.clone()}></TrashClipButton>
-                                    <SearchText text={clip.text} data={data.clone()} search_method={search_method_1}></SearchText>
+                                    <CopyClipButton id={clip.id}></CopyClipButton>
+                                    <TrashClipButton id={clip.id} search_res_dispatch={search_res_dispatch.clone()}></TrashClipButton>
+                                    <SearchText text={clip.text.clone()} data={data.clone()} search_method={search_method_1}></SearchText>
                                 </tr>
                             }
                         }).collect::<Html>()

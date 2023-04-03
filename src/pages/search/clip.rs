@@ -1,6 +1,6 @@
 use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex}, rc::Rc,
+    rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 use serde::Deserialize;
@@ -9,7 +9,7 @@ use yew::Properties;
 
 /// max len of the clip to do fuzzy search
 /// TODO change this to advanced config
-const  MAX_LEN: usize = 2000;
+const MAX_LEN: usize = 2000;
 
 /// clip data
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -68,7 +68,7 @@ pub struct ClipRes {
 #[derive(Default, Deserialize, Serialize, Clone)]
 pub struct SearchRes {
     pub rebuild_num: u64,
-    pub res: Arc<Mutex<HashMap<i64, Clip>>>,
+    pub res: Arc<Mutex<Vec<Clip>>>,
 }
 
 impl yewdux::store::Store for SearchRes {

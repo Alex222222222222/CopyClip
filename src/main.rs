@@ -4,8 +4,7 @@ mod invoke;
 mod pages;
 mod route;
 
-// TODO add i18n support
-// TODO add export database and config file
+// TODO import config and database method
 
 // Load I18n macro, for allow you use `t!` macro in anywhere.
 #[macro_use]
