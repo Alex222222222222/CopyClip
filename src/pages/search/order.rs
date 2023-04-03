@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 use super::clip::Clip;
 
@@ -28,12 +28,12 @@ impl Display for OrderOrder {
 
 pub fn sort_search_res(
     res: Vec<(i64, Clip)>,
-    method: String,
+    method: Rc<String>,
     // true for asc, false for desc
     order: bool,
 ) -> Vec<(i64, Clip)> {
     let mut res = res;
-    match method.to_lowercase().as_str() {
+    match method.as_str() {
         "time" => {
             res.sort_by(|a, b| {
                 let res = a.1.timestamp.cmp(&b.1.timestamp);
