@@ -8,6 +8,7 @@ use yew::{function_component, html, Callback, Html, TargetCast};
 use web_sys::{Event, HtmlInputElement};
 use yew_icons::{Icon, IconId};
 
+use crate::pages::search::search_method::SearchMethod;
 use crate::{
     components::head_bar::HeadBar,
     pages::search::{
@@ -32,6 +33,7 @@ mod search_clip;
 mod search_state;
 mod time_display;
 mod trash_clip_button;
+mod search_method;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct UserIdLimit {
@@ -62,7 +64,7 @@ impl UserIdLimit {
 #[derive(yewdux::prelude::Store, Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[store(storage = "local")]
 pub struct SearchFullArgs {
-    pub search_method: Rc<String>,
+    pub search_method: SearchMethod,
     pub search_state: SearchState,
     pub search_data: Rc<String>,
     pub order_by: Rc<String>,
@@ -81,7 +83,7 @@ impl SearchFullArgs {
 impl Default for SearchFullArgs {
     fn default() -> Self {
         Self {
-            search_method: Rc::new("fuzzy".to_string()),
+            search_method: SearchMethod::Fuzzy,
             search_state: SearchState::NotStarted,
             search_data: Rc::new("".to_string()),
             order_by: Rc::new("time".to_string()),
@@ -114,7 +116,7 @@ pub fn search() -> Html {
     let search_method_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            *Rc::make_mut(&mut state.search_method) = value;
+            state.search_method = SearchMethod::from(value);
             // TODO if the search method is different from previous state, then try to clear the
             // search res data
         });
@@ -229,10 +231,10 @@ pub fn search() -> Html {
                             class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
                             onchange={search_method_on_change}
                         >
-                            <option value="fuzzy" selected={"fuzzy" == search_args.search_method.as_str()}>{"Fuzzy"}</option>
-                            <option value="fast" selected={"fast" == search_args.search_method.as_str()}>{"Fast"}</option>
-                            <option value="normal" selected={"normal" == search_args.search_method.as_str()}>{"Normal"}</option>
-                            <option value="regexp" selected={"regexp" == search_args.search_method.as_str()}>{"Regexp"}</option>
+                            <option value="fuzzy" selected={SearchMethod::Fuzzy == search_args.search_method}>{"Fuzzy"}</option>
+                            <option value="fast" selected={SearchMethod::Fast == search_args.search_method}>{"Fast"}</option>
+                            <option value="normal" selected={SearchMethod::Normal == search_args.search_method}>{"Normal"}</option>
+                            <option value="regexp" selected={SearchMethod::Regexp == search_args.search_method}>{"Regexp"}</option>
                         </select>
                     </div>
 
@@ -359,7 +361,7 @@ fn search_res_table_html(
     data: Rc<String>,
     order_by: Rc<String>,    // TODO change order by to enum
     order_order: OrderOrder, // asc or desc
-    search_method: Rc<String>,
+    search_method: SearchMethod,
     res: std::sync::Arc<std::sync::Mutex<Vec<Clip>>>,
     search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
 ) -> Html {
