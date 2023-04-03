@@ -1,8 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// TODO add way to change the theme and the icon
-
 use copy_clip::{
     clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
     config,

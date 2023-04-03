@@ -24,16 +24,18 @@ use crate::{
     },
 };
 
+use self::order::OrderMethod;
+
 mod clip;
 mod copy_clip_button;
 mod favourite_button;
 mod fuzzy_search_text;
 mod order;
 mod search_clip;
+mod search_method;
 mod search_state;
 mod time_display;
 mod trash_clip_button;
-mod search_method;
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct UserIdLimit {
@@ -67,7 +69,7 @@ pub struct SearchFullArgs {
     pub search_method: SearchMethod,
     pub search_state: SearchState,
     pub search_data: Rc<String>,
-    pub order_by: Rc<String>,
+    pub order_by: OrderMethod,
     pub order_order: OrderOrder,
     pub favourite_filter: FavouriteFilter,
     pub total_search_res_limit: usize,
@@ -86,7 +88,7 @@ impl Default for SearchFullArgs {
             search_method: SearchMethod::Fuzzy,
             search_state: SearchState::NotStarted,
             search_data: Rc::new("".to_string()),
-            order_by: Rc::new("time".to_string()),
+            order_by: OrderMethod::Time,
             order_order: OrderOrder::Desc,
             favourite_filter: FavouriteFilter::default(),
             total_search_res_limit: 100,
@@ -108,26 +110,18 @@ pub fn search() -> Html {
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
             *Rc::make_mut(&mut state.search_data) = value;
-
-            // TODO if the text box is different from previous state, then try to clear the search
-            // res data
         });
 
     let search_method_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
             state.search_method = SearchMethod::from(value);
-            // TODO if the search method is different from previous state, then try to clear the
-            // search res data
         });
 
     let order_method_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            *Rc::make_mut(&mut state.order_by) = value;
-
-            // TODO if the order method is different from previous state, then try to rebuild the
-            // table
+            state.order_by = OrderMethod::from(value);
         });
 
     let order_order_on_change =
@@ -138,8 +132,6 @@ pub fn search() -> Html {
             } else {
                 state.order_order = OrderOrder::Asc;
             }
-
-            // TODO if the order order change then try to rebuild the table
         });
 
     let favourite_filter_on_change =
@@ -152,8 +144,6 @@ pub fn search() -> Html {
             } else {
                 state.favourite_filter = FavouriteFilter::NotFavourite;
             }
-
-            // TODO if the favourite filter change then try to clear rhe search res data
         });
 
     let search_res_dispatch_1 = search_res_dispatch.clone();
@@ -183,21 +173,36 @@ pub fn search() -> Html {
     let total_search_res_limit_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            // TODO raise an Error if parse failed
-            state.total_search_res_limit = value.parse().unwrap();
+            let res = value.parse::<usize>();
+            if let Err(err) = res {
+                state.search_state =
+                    SearchState::Error(format!("Total search res limit should be a int: {}", err));
+                return;
+            }
+            state.total_search_res_limit = res.unwrap();
         });
 
     let user_id_limit_min_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            // TODO raise an Error if parse failed
-            state.user_id_limit = state.user_id_limit.new_min(value.parse().unwrap());
+            let res = value.parse::<i64>();
+            if let Err(err) = res {
+                state.search_state =
+                    SearchState::Error(format!("User id limit should be a int: {}", err));
+                return;
+            }
+            state.user_id_limit = state.user_id_limit.new_min(res.unwrap());
         });
     let user_id_limit_max_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            // TODO raise an Error if parse failed
-            state.user_id_limit = state.user_id_limit.new_max(value.parse().unwrap());
+            let res = value.parse::<i64>();
+            if let Err(err) = res {
+                state.search_state =
+                    SearchState::Error(format!("User id limit should be a int: {}", err));
+                return;
+            }
+            state.user_id_limit = state.user_id_limit.new_max(res.unwrap());
         });
 
     html! {
@@ -207,8 +212,7 @@ pub fn search() -> Html {
             <div class="mx-5 my-2">
                 <div class="flex flex-col">
                     <div class="flex flex-row my-2 justify-between">
-                        // TODO change htmlFor
-                        <label htmlFor="int-input-box" class="text-xl py-1">
+                        <label htmlFor="search-page-search-data-input-box" class="text-xl py-1">
                             {"Type to search"}
                         </label>
                         <input
@@ -222,8 +226,7 @@ pub fn search() -> Html {
                     </div>
 
                     <div class="flex flex-row my-2 justify-between">
-                        // TODO change htmlFor
-                        <label htmlFor="int-input-box" class="text-xl">
+                        <label htmlFor="search-page-search-method-input-box" class="text-xl">
                             {"Choose search method"}
                         </label>
                         // search method drop list
@@ -239,8 +242,7 @@ pub fn search() -> Html {
                     </div>
 
                     <div class="flex flex-row my-2 justify-between">
-                        // TODO change htmlFor
-                        <label htmlFor="int-input-box" class="text-xl">
+                        <label htmlFor="search-page-order-method-input-box" class="text-xl">
                             {"Choose order method"}
                         </label>
                         // order method drop list
@@ -251,11 +253,11 @@ pub fn search() -> Html {
                                 class="border border-gray-200 rounded-md p-2 mr-2 text-lg dark:text-black"
                                 onchange={order_method_on_change}
                             >
-                                <option value="time" selected={"time" == search_args.order_by.as_str()}>{"Time"}</option>
-                                <option value="score" selected={"score" == search_args.order_by.as_str()}>{"Score"}</option>
-                                <option value="id" selected={"id" == search_args.order_by.as_str()}>{"Id"}</option>
-                                <option value="text" selected={"text" == search_args.order_by.as_str()}>{"Text"}</option>
-                                <option value="len" selected={"len" == search_args.order_by.as_str()}>{"Length"}</option>
+                                <option value="time" selected={OrderMethod::Time == search_args.order_by}>{"Time"}</option>
+                                <option value="fuzzy_score" selected={OrderMethod::FuzzyScore == search_args.order_by}>{"Score"}</option>
+                                <option value="id" selected={OrderMethod::Id == search_args.order_by}>{"Id"}</option>
+                                <option value="text" selected={OrderMethod::Text == search_args.order_by}>{"Text"}</option>
+                                <option value="size" selected={OrderMethod::Size == search_args.order_by}>{"Length"}</option>
                             </select>
                             // order order drop list
                             <select
@@ -270,8 +272,7 @@ pub fn search() -> Html {
 
                     <div class="flex flex-row my-2 justify-between">
                         // favourite filter
-                        // TODO change htmlFor
-                        <label htmlFor="int-input-box" class=" text-xl">
+                        <label htmlFor="search-page-favourite-filter-input-box" class=" text-xl">
                             {"Favourite filter"}
                         </label>
                         <select
@@ -286,8 +287,7 @@ pub fn search() -> Html {
 
                     // total search res num limit
                     <div class="flex flex-row my-2 justify-between">
-                        // TODO change htmlFor
-                        <label htmlFor="int-input-box" class="text-xl py-1">
+                        <label htmlFor="search-page-search-total-res-limit-input-box" class="text-xl py-1">
                             {"Total search res num limit"}
                         </label>
                         <input
@@ -302,8 +302,7 @@ pub fn search() -> Html {
                     // id min and id max
                     // total search res num limit
                     <div class="flex flex-row my-2 justify-between">
-                        // TODO change htmlFor
-                        <label htmlFor="int-input-box" class="text-xl py-1">
+                        <label htmlFor="search-page-id-limit-min-input-box" class="text-xl py-1">
                             {"Min ID"}
                         </label>
                         <input
@@ -313,8 +312,7 @@ pub fn search() -> Html {
                             onchange={user_id_limit_min_on_change}
                             value={search_args.user_id_limit.min.to_string()}
                         />
-                        // TODO change htmlFor
-                        <label htmlFor="int-input-box" class="text-xl py-1 ml-5">
+                        <label htmlFor="search-page-id-limit-max-input-box" class="text-xl py-1 ml-5">
                             {"Max ID"}
                         </label>
                         <input
@@ -357,15 +355,16 @@ pub fn search() -> Html {
 }
 
 // TODO try to pass search full args rather then passing each args
+// TODO change this to a component
 fn search_res_table_html(
     data: Rc<String>,
-    order_by: Rc<String>,    // TODO change order by to enum
+    order_by: OrderMethod,
     order_order: OrderOrder, // asc or desc
     search_method: SearchMethod,
     res: std::sync::Arc<std::sync::Mutex<Vec<Clip>>>,
     search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
 ) -> Html {
-    sort_search_res(res.clone(), order_by, order_order.to_bool());
+    sort_search_res(res.clone(), order_by, order_order);
     let res = res.lock().unwrap();
 
     html! {
