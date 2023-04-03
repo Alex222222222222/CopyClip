@@ -1,4 +1,8 @@
-use std::{fmt::Display, rc::Rc};
+use std::{
+    fmt::Display,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use super::clip::Clip;
 
@@ -27,16 +31,16 @@ impl Display for OrderOrder {
 }
 
 pub fn sort_search_res(
-    res: Vec<(i64, Clip)>,
+    res: Arc<Mutex<Vec<Clip>>>,
     method: Rc<String>,
     // true for asc, false for desc
     order: bool,
-) -> Vec<(i64, Clip)> {
-    let mut res = res;
+) {
+    let mut res = res.lock().unwrap();
     match method.as_str() {
         "time" => {
             res.sort_by(|a, b| {
-                let res = a.1.timestamp.cmp(&b.1.timestamp);
+                let res = a.timestamp.cmp(&b.timestamp);
                 if order {
                     res
                 } else {
@@ -46,7 +50,7 @@ pub fn sort_search_res(
         }
         "score" => {
             res.sort_by(|a, b| {
-                let res = a.1.score.cmp(&b.1.score);
+                let res = a.score.cmp(&b.score);
                 if order {
                     res
                 } else {
@@ -56,7 +60,7 @@ pub fn sort_search_res(
         }
         "id" => {
             res.sort_by(|a, b| {
-                let res = a.1.id.cmp(&b.1.id);
+                let res = a.id.cmp(&b.id);
                 if order {
                     res
                 } else {
@@ -66,7 +70,7 @@ pub fn sort_search_res(
         }
         "text" => {
             res.sort_by(|a, b| {
-                let res = a.1.text.cmp(&b.1.text);
+                let res = a.text.cmp(&b.text);
                 if order {
                     res
                 } else {
@@ -76,7 +80,7 @@ pub fn sort_search_res(
         }
         "len" => {
             res.sort_by(|a, b| {
-                let res = a.1.len.cmp(&b.1.len);
+                let res = a.len.cmp(&b.len);
                 if order {
                     res
                 } else {
@@ -86,6 +90,4 @@ pub fn sort_search_res(
         }
         _ => {}
     }
-
-    res
 }
