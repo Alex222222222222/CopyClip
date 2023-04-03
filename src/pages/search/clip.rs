@@ -71,6 +71,18 @@ pub struct SearchRes {
     pub res: Arc<Mutex<Vec<Clip>>>,
 }
 
+impl SearchRes {
+    pub fn self_copy(&self) -> Self {
+        self.clone()
+    }
+}
+
+impl PartialEq for SearchRes {
+    fn eq(&self, other: &Self) -> bool {
+        self.rebuild_num == other.rebuild_num
+    }
+}
+
 impl yewdux::store::Store for SearchRes {
     fn new() -> Self {
         Self::default()
