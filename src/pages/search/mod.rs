@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -62,10 +63,10 @@ impl UserIdLimit {
 #[derive(yewdux::prelude::Store, Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[store(storage = "local")]
 pub struct SearchFullArgs {
-    pub search_method: String,
+    pub search_method: Rc<String>,
     pub search_state: SearchState,
-    pub search_data: String,
-    pub order_by: String,
+    pub search_data: Rc<String>,
+    pub order_by: Rc<String>,
     pub order_order: OrderOrder,
     pub favourite_filter: FavouriteFilter,
     pub total_search_res_limit: usize,
@@ -81,10 +82,10 @@ impl SearchFullArgs {
 impl Default for SearchFullArgs {
     fn default() -> Self {
         Self {
-            search_method: "fuzzy".to_string(),
+            search_method: Rc::new("fuzzy".to_string()),
             search_state: SearchState::NotStarted,
-            search_data: "".to_string(),
-            order_by: "time".to_string(),
+            search_data: Rc::new("".to_string()),
+            order_by: Rc::new("time".to_string()),
             order_order: OrderOrder::Desc,
             favourite_filter: FavouriteFilter::default(),
             total_search_res_limit: 100,
@@ -105,8 +106,7 @@ pub fn search() -> Html {
     let text_box_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-
-            state.search_data = value;
+            *Rc::make_mut(&mut state.search_data) = value;
 
             // TODO if the text box is different from previous state, then try to clear the search
             // res data
@@ -115,8 +115,7 @@ pub fn search() -> Html {
     let search_method_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            state.search_method = value;
-
+            *Rc::make_mut(&mut state.search_data) = value;
             // TODO if the search method is different from previous state, then try to clear the
             // search res data
         });
@@ -124,7 +123,7 @@ pub fn search() -> Html {
     let order_method_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            state.order_by = value;
+            *Rc::make_mut(&mut state.order_by) = value;
 
             // TODO if the order method is different from previous state, then try to rebuild the
             // table
@@ -342,10 +341,10 @@ pub fn search() -> Html {
                     // search res
                     {
                         search_res_table_html(
-                            search_args.search_data.to_string(),
+                            search_args.search_data.clone(),
                             search_args.order_by.clone(),
                             search_args.order_order.clone(),
-                            search_args.search_method.to_string(),
+                            search_args.search_method.clone(),
                             search_res.res.clone(),
                             search_res_dispatch,
                         )
@@ -356,11 +355,12 @@ pub fn search() -> Html {
     }
 }
 
+// TODO try to pass search full args rather then passing each args
 fn search_res_table_html(
-    data: String,
-    order_by: String,
+    data: Rc<String>,
+    order_by: Rc<String>,    // TODO change order by to enum
     order_order: OrderOrder, // asc or desc
-    search_method: String,
+    search_method: Rc<String>,
     res: std::sync::Arc<std::sync::Mutex<HashMap<i64, Clip>>>,
     search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
 ) -> Html {
