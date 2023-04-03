@@ -2,25 +2,21 @@ use std::rc::Rc;
 
 use serde::Deserialize;
 use serde::Serialize;
-use wasm_bindgen_futures::spawn_local;
+use yew::platform::spawn_local;
 use yew::{function_component, html, Callback, Html, TargetCast};
 
 use web_sys::{Event, HtmlInputElement};
-use yew_icons::{Icon, IconId};
 
 use crate::pages::search::search_method::SearchMethod;
+use crate::pages::search::search_res_table::SearchResTable;
 use crate::{
     components::head_bar::HeadBar,
     pages::search::{
-        clip::{Clip, SearchRes},
-        copy_clip_button::CopyClipButton,
-        favourite_button::{FavouriteClipButton, FavouriteFilter},
-        fuzzy_search_text::SearchText,
-        order::{sort_search_res, OrderOrder},
+        clip::SearchRes,
+        favourite_button::FavouriteFilter,
+        order::OrderOrder,
         search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
-        time_display::TimeDisplay,
-        trash_clip_button::TrashClipButton,
     },
 };
 
@@ -33,6 +29,7 @@ mod fuzzy_search_text;
 mod order;
 mod search_clip;
 mod search_method;
+mod search_res_table;
 mod search_state;
 mod time_display;
 mod trash_clip_button;
@@ -103,7 +100,9 @@ pub fn search() -> Html {
 
     let (search_args, search_args_dispatch) = yewdux::prelude::use_store::<SearchFullArgs>();
     search_args_dispatch.reduce_mut(|state| {
-        state.search_state = SearchState::NotStarted;
+        if state.search_state == SearchState::Finished {
+            state.search_state = SearchState::NotStarted;
+        }
     });
 
     let text_box_on_change =
@@ -153,11 +152,12 @@ pub fn search() -> Html {
         let search_args_dispatch = search_args_dispatch_1.clone();
         let search_args = search_args_1.clone();
         let search_res_dispatch = search_res_dispatch_1.clone();
+        search_args_dispatch.reduce_mut(|state| {
+            state.search_state = SearchState::Searching;
+        });
         spawn_local(async move {
-            search_args_dispatch.reduce_mut(|state| {
-                state.search_state = SearchState::Searching;
-            });
-            let res = search_clips(search_res_dispatch, search_args.self_copy()).await;
+            let res = search_clips(search_res_dispatch, search_args.self_copy());
+            let res = res.await;
             if let Err(err) = res {
                 search_args_dispatch.reduce_mut(|state| {
                     state.search_state = SearchState::Error(err);
@@ -335,89 +335,16 @@ pub fn search() -> Html {
                     </button>
 
                     // search state
-                    <SearchStateHtml state={search_args.search_state.state()}></SearchStateHtml>
+                    <SearchStateHtml state={search_args.clone()}></SearchStateHtml>
 
                     // search res
-                    {
-                        search_res_table_html(
-                            search_args.search_data.clone(),
-                            search_args.order_by.clone(),
-                            search_args.order_order.clone(),
-                            search_args.search_method.clone(),
-                            search_res.res.clone(),
-                            search_res_dispatch,
-                        )
-                    }
+                    <SearchResTable
+                        search_args={search_args}
+                        search_res={search_res}
+                        search_res_dispatch={search_res_dispatch}
+                    ></SearchResTable>
                 </div>
             </div>
-        </div>
-    }
-}
-
-// TODO try to pass search full args rather then passing each args
-// TODO change this to a component
-fn search_res_table_html(
-    data: Rc<String>,
-    order_by: OrderMethod,
-    order_order: OrderOrder, // asc or desc
-    search_method: SearchMethod,
-    res: std::sync::Arc<std::sync::Mutex<Vec<Clip>>>,
-    search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
-) -> Html {
-    sort_search_res(res.clone(), order_by, order_order);
-    let res = res.lock().unwrap();
-
-    html! {
-        <div class="flex flex-col">
-            <table class="table-auto">
-                <thead>
-                    <tr>
-                        // the id of the clip
-                        <th class="border border-gray-200">{ "ID" }</th>
-                        // the len of the clip
-                        <th class="border border-gray-200">{ "Len" }</th>
-                        // the time of the clip
-                        <th class="border border-gray-200">
-                            <Icon icon_id={IconId::LucideTimer} class="mx-auto mt-0.5"/>
-                        </th>
-                        // favourite or not, use heart icon
-                        <th class="border border-gray-200">
-                            <Icon icon_id={IconId::BootstrapHeartHalf} class="mx-auto mt-0.5"/>
-                        </th>
-                        // the fuzzy score of the clip
-                        <th class="border border-gray-200">{ "Score" }</th>
-                        // copy the clip button icon
-                        <th class="border border-gray-200">
-                            <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList} class="mx-auto mt-0.5"/>
-                        </th>
-                        // delete the clip button icon
-                        <th class="border border-gray-200">
-                            <Icon icon_id={IconId::BootstrapTrash} class="mx-auto mt-0.5"/>
-                        </th>
-                        // only part of the clip, if the user want to see the whole clip, he can click the link which will lead to the clip page
-                        <th class="border border-gray-200">{ "Clip" }</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {
-                        res.iter().map(|clip| {
-                            let search_method_1 = search_method.clone();
-                            html! {
-                                <tr>
-                                    <td class="border border-gray-200 text-center">{clip.id}</td>
-                                    <td class="border border-gray-200 text-center">{clip.len}</td>
-                                    <TimeDisplay time={clip.timestamp}></TimeDisplay>
-                                    <FavouriteClipButton id={clip.id} is_favourite={clip.favourite}></FavouriteClipButton>
-                                    <td class="border border-gray-200 text-center">{clip.score}</td>
-                                    <CopyClipButton id={clip.id}></CopyClipButton>
-                                    <TrashClipButton id={clip.id} search_res_dispatch={search_res_dispatch.clone()}></TrashClipButton>
-                                    <SearchText text={clip.text.clone()} data={data.clone()} search_method={search_method_1}></SearchText>
-                                </tr>
-                            }
-                        }).collect::<Html>()
-                    }
-                </tbody>
-            </table>
         </div>
     }
 }
