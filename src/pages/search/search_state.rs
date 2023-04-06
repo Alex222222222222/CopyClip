@@ -74,5 +74,5 @@ pub struct SearchStateHtmlProps {
 
 #[function_component(SearchStateHtml)]
 pub fn search_state_html(props: &SearchStateHtmlProps) -> Html {
-    props.state.search_state.html()        
+    props.state.search_state.html()
 }

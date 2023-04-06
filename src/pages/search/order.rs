@@ -13,15 +13,6 @@ pub enum OrderOrder {
     Asc,
 }
 
-impl OrderOrder {
-    pub fn to_bool(&self) -> bool {
-        match self {
-            OrderOrder::Desc => false,
-            OrderOrder::Asc => true,
-        }
-    }
-}
-
 impl Display for OrderOrder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

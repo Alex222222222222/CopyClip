@@ -21,7 +21,7 @@ pub fn export_button() -> Html {
         >
             <span
                 class="dark:bg-white dark:text-black text-white"
-            > {"Press To Export Your Data to ~/Downloads"} </span>
+            > {t!("export.export_button")} </span>
         </button>
     )
 }
