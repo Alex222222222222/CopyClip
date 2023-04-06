@@ -1,6 +1,6 @@
 use std::sync::{mpsc::Sender, Mutex};
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, api::notification::Notification};
 
 use crate::{
     clip::ClipDataMutex,
@@ -24,6 +24,9 @@ pub enum CopyClipEvent {
     TrayMenuItemClickEvent(String),
     /// log
     LogEvent(LogLevel, String),
+    /// send notification event
+    /// the data is the notification message
+    SendNotificationEvent(String),
 }
 
 /// the event sender
@@ -110,6 +113,21 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
             // tray menu item click event
             CopyClipEvent::TrayMenuItemClickEvent(id) => {
                 handle_menu_item_click(app, id).await;
+            }
+            CopyClipEvent::SendNotificationEvent(msg) => {
+                #[cfg(debug_assertions)]
+                log::debug!("Notification: {}",msg);
+
+                let res = Notification::new(&app.config().tauri.bundle.identifier)
+                    .title(msg)
+                    .icon("icons/clip.png")
+                    .show();
+                if let Err(err) = res {
+                    #[cfg(debug_assertions)]
+                    println!("Error: {}",err);
+
+                    log::error!("Error: {}",err);
+                }
             }
         }
     }

@@ -12,8 +12,6 @@ use crate::{
 
 /// create the tray
 pub fn create_tray(num: i64) -> SystemTray {
-    // TODO set icon for tray
-
     let tray_menu = create_tray_menu(num);
 
     SystemTray::new().with_menu(tray_menu)

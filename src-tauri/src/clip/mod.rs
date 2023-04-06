@@ -7,9 +7,7 @@ use std::{cmp::Ordering, num::NonZeroUsize};
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
-use tauri::{
-    api::notification::Notification, async_runtime::Mutex, AppHandle, ClipboardManager, Manager,
-};
+use tauri::{async_runtime::Mutex, AppHandle, ClipboardManager, Manager};
 
 use crate::{
     config::ConfigMutex,
@@ -438,7 +436,6 @@ impl ClipData {
     pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), error::Error> {
         // get the current clip
         let current_clip = self.get_current_clip().await;
-        // TODO change this to more clear method
         let current_clip = match current_clip {
             Err(error::Error::ClipNotFoundErr(_)) => Clip::default(),
             Err(error::Error::WholeListIDSEmptyErr) => Clip::default(),
@@ -602,6 +599,7 @@ pub fn trim_clip_text(text: String, l: i64) -> String {
 #[tauri::command]
 pub async fn copy_clip_to_clipboard(
     app: tauri::AppHandle,
+    event_sender: tauri::State<'_, EventSender>,
     clip_data: tauri::State<'_, ClipDataMutex>,
     id: i64,
 ) -> Result<(), String> {
@@ -616,23 +614,15 @@ pub async fn copy_clip_to_clipboard(
         return Err(err.message());
     }
 
-    let res = Notification::new(&app.config().tauri.bundle.identifier)
-        .title("Clip copied to clipboard.")
-        .icon("icons/clip.png")
-        .show();
-    if let Err(err) = res {
-        #[cfg(debug_assertions)]
-        println!("Error: {err}");
-
-        return Err(err.to_string());
-    }
+    event_sender.send(CopyClipEvent::SendNotificationEvent(
+        "Clip copied to clipboard.".to_string(),
+    ));
 
     Ok(())
 }
 
 #[tauri::command]
 pub async fn delete_clip_from_database(
-    app: tauri::AppHandle,
     clip_data: tauri::State<'_, ClipDataMutex>,
     event_sender: tauri::State<'_, EventSender>,
     id: i64,
@@ -644,26 +634,18 @@ pub async fn delete_clip_from_database(
         return Err(err.to_string());
     }
 
-    let res = Notification::new(&app.config().tauri.bundle.identifier)
-        .title("Clip deleted from database.")
-        .icon("icons/clip.png")
-        .show();
-    if let Err(err) = res {
-        #[cfg(debug_assertions)]
-        println!("Error: {err}");
-
-        return Err(err.to_string());
-    }
-
     event_sender.send(CopyClipEvent::TrayUpdateEvent);
+    event_sender.send(CopyClipEvent::SendNotificationEvent(
+        "Clip deleted from database.".to_string(),
+    ));
 
     Ok(())
 }
 
 #[tauri::command]
 pub async fn change_favourite_clip(
-    app: tauri::AppHandle,
     clip_data: tauri::State<'_, ClipDataMutex>,
+    event_sender: tauri::State<'_, EventSender>,
     id: i64,
     target: bool,
 ) -> Result<(), String> {
@@ -674,16 +656,10 @@ pub async fn change_favourite_clip(
         return Err(err.to_string());
     }
 
-    let res = Notification::new(&app.config().tauri.bundle.identifier)
-        .title("Clip favourite status changed.")
-        .icon("icons/clip.png")
-        .show();
-    if let Err(err) = res {
-        #[cfg(debug_assertions)]
-        println!("Error: {err}");
+    event_sender.send(CopyClipEvent::SendNotificationEvent(
+        "Clip favourite status changed.".to_string(),
+    ));
 
-        return Err(err.to_string());
-    }
     Ok(())
 }
 

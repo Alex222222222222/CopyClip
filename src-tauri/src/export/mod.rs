@@ -5,6 +5,7 @@ use crate::clip::ClipDataMutex;
 use crate::config::ConfigMutex;
 
 use crate::error;
+use crate::event::EventSender;
 
 extern crate directories;
 
@@ -151,7 +152,10 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
 }
 
 #[tauri::command]
-pub async fn export_data_invoke(app: tauri::AppHandle) -> Result<(), error::Error> {
+pub async fn export_data_invoke(
+    app: tauri::AppHandle,
+    event_sender: tauri::State<'_, EventSender>,
+) -> Result<(), error::Error> {
     // save to user download dir
     // get the download dir
     let path = directories::UserDirs::new();
@@ -182,7 +186,9 @@ pub async fn export_data_invoke(app: tauri::AppHandle) -> Result<(), error::Erro
         return Err(err);
     }
 
-    // TODO send a notification for export success
+    event_sender.send(crate::event::CopyClipEvent::SendNotificationEvent(
+        "Export data successful.".to_string(),
+    ));
 
     Ok(())
 }

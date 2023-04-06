@@ -170,7 +170,7 @@ fn get_user_log_path(app: &AppHandle) -> Option<PathBuf> {
 
 /// get the user log level
 async fn get_user_log_level(app: &AppHandle) -> log::LevelFilter {
-    // TODO warn in this functions will not go to the correct place as the logger is not yet setup
+    // warn in this functions will not go to the correct place as the logger is not yet setup
 
     let data_dir = app.path_resolver().app_data_dir();
     if data_dir.is_none() {

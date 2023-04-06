@@ -155,7 +155,6 @@ pub async fn set_dark_mode(
         config.dark_mode = data;
         let event_sender = app.state::<EventSender>();
         event_sender.send(CopyClipEvent::SaveConfigEvent);
-        // TODO send event to change theme
     }
 
     Ok(())
@@ -218,7 +217,6 @@ pub async fn set_language(
         config.language = data;
         let event_sender = app.state::<EventSender>();
         event_sender.send(CopyClipEvent::SaveConfigEvent);
-        // TODO send event to change language
     }
 
     Ok(())
