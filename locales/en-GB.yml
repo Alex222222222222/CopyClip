@@ -9,6 +9,9 @@ preferences:
   language: Language
   search_clip_per_batch: Search Clips Per Batch
 
+export:
+  export_button: Press To Export Your Data to ~/Downloads
+
 log_level:
   trace: Trace
   debug: Debug

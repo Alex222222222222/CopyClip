@@ -25,7 +25,6 @@ pub fn preferences() -> Html {
                 <DarkModeSwitch></DarkModeSwitch>
                 <br />
                 <LanguagesConfig></LanguagesConfig>
-                // TODO i18n
                 <ExportButton></ExportButton>
             </div>
 
