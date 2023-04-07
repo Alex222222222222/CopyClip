@@ -209,8 +209,7 @@ pub async fn fuzzy_search(
         for row in res {
             let clip = clip_from_row(row)?;
 
-            // if the text is too long do not do fuzzy search
-            // TODO change this to user configurable
+            // TODO if the text is too long do not do fuzzy search
             if clip.text.len() > 5000 {
                 max_id = clip.id - 1;
                 continue;
