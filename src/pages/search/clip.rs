@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 
@@ -7,11 +7,15 @@ use serde::Deserialize;
 use serde::Serialize;
 use yew::Properties;
 
+/// max len of the clip to do fuzzy search
+/// TODO change this to advanced config
+const MAX_LEN: usize = 2000;
+
 /// clip data
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Clip {
     pub id: i64,
-    pub text: String,
+    pub text: Rc<String>,
     pub timestamp: i64,
     pub favourite: bool,
     pub score: i64,
@@ -22,11 +26,11 @@ impl Clip {
     /// create a new clip from the search data and the clip data
     pub fn from_clip_res(search_data: String, clip_res: ClipRes) -> Self {
         // if the text is too long, we skip the fuzzy check.
-        if clip_res.text.len() > 2000 {
+        if clip_res.text.len() > MAX_LEN {
             return Self {
                 len: clip_res.text.len() as u64,
                 id: clip_res.id,
-                text: clip_res.text,
+                text: Rc::new(clip_res.text),
                 timestamp: clip_res.timestamp,
                 favourite: clip_res.favourite,
                 score: 0,
@@ -43,7 +47,7 @@ impl Clip {
         Self {
             id: clip_res.id,
             len: clip_res.text.len() as u64,
-            text: clip_res.text,
+            text: Rc::new(clip_res.text),
             timestamp: clip_res.timestamp,
             favourite: clip_res.favourite,
             score,
@@ -64,7 +68,13 @@ pub struct ClipRes {
 #[derive(Default, Deserialize, Serialize, Clone)]
 pub struct SearchRes {
     pub rebuild_num: u64,
-    pub res: Arc<Mutex<HashMap<i64, Clip>>>,
+    pub res: Arc<Mutex<Vec<Clip>>>,
+}
+
+impl PartialEq for SearchRes {
+    fn eq(&self, other: &Self) -> bool {
+        self.rebuild_num == other.rebuild_num
+    }
 }
 
 impl yewdux::store::Store for SearchRes {

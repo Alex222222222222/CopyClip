@@ -1,29 +1,33 @@
+use std::rc::Rc;
+
 use sublime_fuzzy::ContinuousMatch;
 use yew::{function_component, html, Html, Properties};
 
+use super::search_method::SearchMethod;
+
 #[derive(PartialEq, Properties)]
 pub struct FuzzySearchTextProps {
-    pub data: String,
-    pub text: String,
+    pub data: Rc<String>,
+    pub text: Rc<String>,
 }
 
 #[derive(PartialEq, Properties)]
 pub struct RegexpSearchTextProps {
-    pub data: String,
-    pub text: String,
+    pub data: Rc<String>,
+    pub text: Rc<String>,
 }
 
 #[derive(PartialEq, Properties)]
 pub struct SearchTextProps {
-    pub data: String,
-    pub text: String,
-    pub search_method: String,
+    pub data: Rc<String>,
+    pub text: Rc<String>,
+    pub search_method: SearchMethod,
 }
 
 /// search text
 #[function_component(SearchText)]
 pub fn search_text(props: &SearchTextProps) -> Html {
-    if props.search_method != "regexp" {
+    if props.search_method != SearchMethod::Regexp {
         html! {
             <FuzzySearchText data={props.data.clone()} text={props.text.clone()} />
         }

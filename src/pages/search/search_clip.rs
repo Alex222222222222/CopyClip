@@ -37,7 +37,7 @@ pub async fn search_clips(
 ) -> Result<(), String> {
     search_res_dispatch.reduce_mut(|state| {
         state.rebuild_num += 1;
-        state.res = std::sync::Arc::new(std::sync::Mutex::new(HashMap::new()));
+        state.res = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     });
 
     let args = to_value(&()).unwrap();
@@ -77,10 +77,10 @@ pub async fn search_clips(
                 }
 
                 search_res_dispatch.reduce_mut(|state| {
-                    state.res.lock().unwrap().insert(
-                        id,
-                        Clip::from_clip_res(search_full_args.search_data.to_string(), clip),
-                    );
+                    state.res.lock().unwrap().push(Clip::from_clip_res(
+                        search_full_args.search_data.to_string(),
+                        clip,
+                    ));
                 });
                 total_len += 1;
             }

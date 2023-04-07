@@ -209,6 +209,11 @@ pub async fn fuzzy_search(
         for row in res {
             let clip = clip_from_row(row)?;
 
+            // TODO if the text is too long do not do fuzzy search
+            if clip.text.len() > 5000 {
+                max_id = clip.id - 1;
+                continue;
+            }
             let result = best_match(&data, &clip.text);
             if result.is_none() {
                 max_id = clip.id - 1;

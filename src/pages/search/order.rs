@@ -1,20 +1,16 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    sync::{Arc, Mutex},
+};
+
+use serde::{Deserialize, Serialize};
 
 use super::clip::Clip;
 
-#[derive(Debug, PartialEq, Clone, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize, Serialize)]
 pub enum OrderOrder {
     Desc,
     Asc,
-}
-
-impl OrderOrder {
-    pub fn to_bool(&self) -> bool {
-        match self {
-            OrderOrder::Desc => false,
-            OrderOrder::Asc => true,
-        }
-    }
 }
 
 impl Display for OrderOrder {
@@ -26,66 +22,97 @@ impl Display for OrderOrder {
     }
 }
 
-pub fn sort_search_res(
-    res: Vec<(i64, Clip)>,
-    method: String,
-    // true for asc, false for desc
-    order: bool,
-) -> Vec<(i64, Clip)> {
-    let mut res = res;
-    match method.to_lowercase().as_str() {
-        "time" => {
-            res.sort_by(|a, b| {
-                let res = a.1.timestamp.cmp(&b.1.timestamp);
-                if order {
-                    res
-                } else {
-                    res.reverse()
-                }
-            });
-        }
-        "score" => {
-            res.sort_by(|a, b| {
-                let res = a.1.score.cmp(&b.1.score);
-                if order {
-                    res
-                } else {
-                    res.reverse()
-                }
-            });
-        }
-        "id" => {
-            res.sort_by(|a, b| {
-                let res = a.1.id.cmp(&b.1.id);
-                if order {
-                    res
-                } else {
-                    res.reverse()
-                }
-            });
-        }
-        "text" => {
-            res.sort_by(|a, b| {
-                let res = a.1.text.cmp(&b.1.text);
-                if order {
-                    res
-                } else {
-                    res.reverse()
-                }
-            });
-        }
-        "len" => {
-            res.sort_by(|a, b| {
-                let res = a.1.len.cmp(&b.1.len);
-                if order {
-                    res
-                } else {
-                    res.reverse()
-                }
-            });
-        }
-        _ => {}
-    }
+/// the order method module
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub enum OrderMethod {
+    /// order by fuzzy score
+    FuzzyScore,
+    /// order by id
+    Id,
+    /// order by size
+    Size,
+    /// order by text
+    Text,
+    /// order by time
+    Time,
+}
 
-    res
+impl Display for OrderMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OrderMethod::FuzzyScore => write!(f, "fuzzy_score"),
+            OrderMethod::Id => write!(f, "id"),
+            OrderMethod::Size => write!(f, "size"),
+            OrderMethod::Text => write!(f, "text"),
+            OrderMethod::Time => write!(f, "time"),
+        }
+    }
+}
+
+impl From<&str> for OrderMethod {
+    fn from(s: &str) -> Self {
+        match s {
+            "fuzzy_score" => OrderMethod::FuzzyScore,
+            "id" => OrderMethod::Id,
+            "size" => OrderMethod::Size,
+            "text" => OrderMethod::Text,
+            "time" => OrderMethod::Time,
+            _ => panic!("unknown order method"),
+        }
+    }
+}
+
+impl From<String> for OrderMethod {
+    fn from(s: String) -> Self {
+        OrderMethod::from(s.as_str())
+    }
+}
+
+pub fn sort_search_res(res: Arc<Mutex<Vec<Clip>>>, method: OrderMethod, order: OrderOrder) {
+    match order {
+        OrderOrder::Asc => sort_search_res_asc(res, method),
+        OrderOrder::Desc => sort_search_res_desc(res, method),
+    }
+}
+
+fn sort_search_res_asc(res: Arc<Mutex<Vec<Clip>>>, method: OrderMethod) {
+    let mut res = res.lock().unwrap();
+    match method {
+        OrderMethod::Time => {
+            res.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        }
+        OrderMethod::FuzzyScore => {
+            res.sort_by(|a, b| a.score.cmp(&b.score));
+        }
+        OrderMethod::Id => {
+            res.sort_by(|a, b| a.id.cmp(&b.id));
+        }
+        OrderMethod::Text => {
+            res.sort_by(|a, b| a.text.cmp(&b.text));
+        }
+        OrderMethod::Size => {
+            res.sort_by(|a, b| a.len.cmp(&b.len));
+        }
+    }
+}
+
+fn sort_search_res_desc(res: Arc<Mutex<Vec<Clip>>>, method: OrderMethod) {
+    let mut res = res.lock().unwrap();
+    match method {
+        OrderMethod::Time => {
+            res.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        }
+        OrderMethod::FuzzyScore => {
+            res.sort_by(|a, b| b.score.cmp(&a.score));
+        }
+        OrderMethod::Id => {
+            res.sort_by(|a, b| b.id.cmp(&a.id));
+        }
+        OrderMethod::Text => {
+            res.sort_by(|a, b| b.text.cmp(&a.text));
+        }
+        OrderMethod::Size => {
+            res.sort_by(|a, b| b.len.cmp(&a.len));
+        }
+    }
 }

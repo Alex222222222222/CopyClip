@@ -9,6 +9,9 @@ preferences:
   language: 语言
   search_clip_per_batch: 每次搜索的数量
 
+export:
+  export_button: 导出你的数据到下载文件夹
+
 log_level:
   trace: 所有
   debug: 调试
