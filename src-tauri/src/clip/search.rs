@@ -306,6 +306,57 @@ pub async fn regexp_search(
     Ok(clips)
 }
 
+/// Return all the clips in the database with id, min_id <= id <= max_id.
+/// The total number of clips is limited to limit.
+/// If favourite is 1, only return favourite clips.
+/// If favourite is 0, only return non-favourite clips.
+/// If favourite is -1, return all clips.
+async fn empty_search(
+    app: &AppHandle,
+    min_id: i64,
+    max_id: i64,
+    limit: i64,
+    favourite: i64, // 0: not favourite, 1: favourite, -1: all
+) -> Result<HashMap<i64, Clip>, error::Error> {
+    let clip_data = app.state::<ClipDataMutex>();
+    let clip_data = clip_data.clip_data.lock().await;
+
+    let res = if favourite == -1 {
+        sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT ?")
+            .bind(min_id)
+            .bind(max_id)
+            .bind(limit)
+            .fetch_all(clip_data.database_connection.as_ref().unwrap())
+            .await
+    } else {
+        sqlx::query(
+            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? ORDER BY id DESC LIMIT ?",
+        )
+        .bind(min_id)
+        .bind(max_id)
+        .bind(favourite)
+        .bind(limit)
+        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+        .await
+    };
+
+    if let Err(err) = res {
+        return Err(error::Error::GetClipDataFromDatabaseErr(
+            -1,
+            err.to_string(),
+        ));
+    }
+
+    let res = res.unwrap();
+    let mut clips = HashMap::new();
+    for row in res {
+        let clip = clip_from_row(row)?;
+        clips.insert(clip.id, clip);
+    }
+
+    Ok(clips)
+}
+
 /// get the max id of the clip in the database,
 /// if no clip in the database, return 0
 #[tauri::command]
@@ -347,6 +398,15 @@ pub async fn search_clips(
     let config = config.config.lock().await;
     let limit = config.search_clip_per_batch;
     drop(config);
+
+    // if data is empty, return all clips
+    if data.is_empty() {
+        let res = empty_search(&app, minid, maxid, limit, favourite).await;
+        if let Err(err) = res {
+            return Err(err.message());
+        }
+        return Ok(res.unwrap());
+    }
 
     match searchmethod.as_str() {
         "fuzzy" => {
