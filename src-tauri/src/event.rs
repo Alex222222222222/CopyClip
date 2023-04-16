@@ -1,6 +1,6 @@
 use std::sync::{mpsc::Sender, Mutex};
 
-use tauri::{AppHandle, Manager, api::notification::Notification};
+use tauri::{api::notification::Notification, AppHandle, Manager};
 
 use crate::{
     clip::ClipDataMutex,
@@ -116,7 +116,7 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
             }
             CopyClipEvent::SendNotificationEvent(msg) => {
                 #[cfg(debug_assertions)]
-                log::debug!("Notification: {}",msg);
+                log::debug!("Notification: {}", msg);
 
                 let res = Notification::new(&app.config().tauri.bundle.identifier)
                     .title(msg)
@@ -124,9 +124,9 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
                     .show();
                 if let Err(err) = res {
                     #[cfg(debug_assertions)]
-                    println!("Error: {}",err);
+                    println!("Error: {}", err);
 
-                    log::error!("Error: {}",err);
+                    log::error!("Error: {}", err);
                 }
             }
         }

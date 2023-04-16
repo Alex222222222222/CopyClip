@@ -35,7 +35,7 @@ This is some explanation for configurations in the app.
 | ---- | ------------- | ----------- |
 | clips per page | 20 | this define how much clips to show in one page in the tray |
 | max clip length | 50 | when a clip is too long, we cut it to under max-clip-length to fit it into the tray |
-| log level filtr | info | the log level of the app. `trace`, `info`, `debug`, `warn`, `error`, `off` from most detailed to less |
+| log level filter | info | the log level of the app. `trace`, `info`, `debug`, `warn`, `error`, `off` from most detailed to less |
 | dark mode | off | switch the dark mode on and off |
 
 More configurations is on the way.
@@ -61,8 +61,6 @@ Use `dpkg` to install the `deb` bundle.
 
 - [x] Configuration Page
 
-- [ ] add follow system theme support
-
 - [ ] Explanation for configurations
 
 - [ ] i18n support
@@ -73,7 +71,9 @@ Use `dpkg` to install the `deb` bundle.
 
 - [ ] Change the icon of the app so it can be seen in the white background
 
-- [ ] Export the history to a file
+- [x] Export the history to a file
+
+  - [ ] import the history
 
 ## Known Issues
 
