@@ -91,6 +91,12 @@ pub fn regexp_search_text(props: &RegexpSearchTextProps) -> Html {
 #[function_component(FuzzySearchText)]
 pub fn fuzzy_search_text(props: &FuzzySearchTextProps) -> Html {
     let data = props.data.clone();
+    if data.is_empty() {
+        return html! {
+            <td class="border border-gray-200">{props.text.clone()}</td>
+        };
+    }
+
     let text = props.text.clone();
     // if text.len() > 500, text = text[0..500].to_string() + "...";
     let text = try_get_uft8_code(&text, 0, 500).1;
