@@ -72,7 +72,7 @@ pub enum Error {
     SerializeConfigToJsonErr(String),
     /// failed to set system tray title
     /// the first string is the title, the second string is the error message
-    SetSystemTrayTitleErr(String, String),
+    SetSystemTrayTitleErr(String),
     /// unknown error
     Unknown,
     /// update clips in database failed
@@ -110,7 +110,7 @@ impl Error {
             Error::DatabaseConnectionErr => "the database connection is none".to_string(),
             Error::InsertClipIntoDatabaseErr(clip, err) => format!("failed to insert new clip to the database, clip data: {clip}, error message: {err}"),
             Error::WriteToSystemClipboardErr(clip, err) => format!("failed to write to system clipboard, clip data: {clip}, error message: {err}"),
-            Error::SetSystemTrayTitleErr(title, err) => format!("failed to set system tray title, title: {title}, error message: {err}"),
+            Error::SetSystemTrayTitleErr( err) => format!("failed to set system tray title, error message: {err}"),
             Error::GetConfigFilePathErr(err) => format!("get config file path error, error message: {err}"),
             Error::SerializeConfigToJsonErr(err) => format!("serialize config to json error, error message: {err}"),
             Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {err}"),

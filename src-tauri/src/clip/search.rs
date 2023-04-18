@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use regex::Regex;
 use sublime_fuzzy::best_match;
@@ -56,7 +56,7 @@ fn clip_from_row(row: SqliteRow) -> Result<Clip, error::Error> {
 
     let clip = Clip {
         id,
-        text,
+        text: Arc::new(text),
         favourite,
         timestamp,
     };
