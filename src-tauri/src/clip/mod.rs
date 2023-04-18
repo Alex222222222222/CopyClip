@@ -2,9 +2,8 @@ pub mod database;
 pub mod monitor;
 pub mod search;
 
-use std::{cmp::Ordering, num::NonZeroUsize};
+use std::{cmp::Ordering, sync::Arc};
 
-use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use tauri::{async_runtime::Mutex, AppHandle, ClipboardManager, Manager};
@@ -15,10 +14,28 @@ use crate::{
     event::{CopyClipEvent, EventSender},
 };
 
+static CACHED_CLIP: once_cell::sync::Lazy<moka::future::Cache<i64, Arc<std::sync::Mutex<Clip>>>> =
+    once_cell::sync::Lazy::new(|| {
+        moka::future::Cache::builder()
+            .weigher(|_, value: &Arc<std::sync::Mutex<Clip>>| -> u32 {
+                let clip = value.lock().unwrap();
+                clip.text.len() as u32
+            })
+            .max_capacity(32 * 1024 * 1024)
+            .initial_capacity(1000)
+            .time_to_idle(std::time::Duration::from_secs(3600))
+            .build()
+    });
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Clip {
-    /// the text of the clip
-    pub text: String,
+    /// The text of the clip.
+    /// After the clip is created, the text should not be changed
+    #[serde(
+        deserialize_with = "arc_string_deserialize",
+        serialize_with = "arc_string_serialize"
+    )]
+    pub text: Arc<String>,
     /// in seconds
     pub timestamp: i64,
     /// the id of the clip
@@ -27,18 +44,42 @@ pub struct Clip {
     pub favourite: bool,
 }
 
+fn arc_string_deserialize<'de, D>(deserializer: D) -> Result<Arc<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s: String = serde::Deserialize::deserialize(deserializer)?;
+    Ok(Arc::new(s))
+}
+
+fn arc_string_serialize<S>(s: &Arc<String>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(s)
+}
+
 impl Clip {
     /// copy the clip to the clipboard
     pub fn copy_clip_to_clipboard(&self, app: &AppHandle) -> Result<(), error::Error> {
         let mut clipboard_manager = app.clipboard_manager();
-        let res = clipboard_manager.write_text(self.text.clone());
+        let res = clipboard_manager.write_text((*self.text).clone());
         if let Err(e) = res {
             return Err(error::Error::WriteToSystemClipboardErr(
-                self.text.clone(),
+                (*self.text).clone(),
                 e.to_string(),
             ));
         }
         Ok(())
+    }
+
+    /// convert to json format string
+    pub fn to_json_string(&self) -> Result<String, error::Error> {
+        let res = serde_json::to_string(self);
+        if let Err(e) = res {
+            return Err(error::Error::ExportError(e.to_string()));
+        }
+        Ok(res.unwrap())
     }
 }
 
@@ -52,8 +93,6 @@ pub struct Clips {
     pub whole_list_of_ids: Vec<i64>,
     /// the ids of the current displaying clips, the same order with the order displaying in the tray     
     pub tray_ids_map: Vec<i64>,
-    /// the clips that are currently in the cache
-    cached_clips: LruCache<i64, Clip>,
 }
 
 impl Default for Clips {
@@ -63,23 +102,6 @@ impl Default for Clips {
             current_page: 0,
             whole_list_of_ids: Default::default(),
             tray_ids_map: Default::default(),
-            // TODO change the size to be configurable
-            cached_clips: LruCache::new(NonZeroUsize::new(50).unwrap()),
-        }
-    }
-}
-
-impl Clips {
-    pub fn new_with_cache_size(cache_size: usize) -> Self {
-        if cache_size == 0 {
-            return Self::default();
-        }
-        Self {
-            current_clip: -1,
-            current_page: 0,
-            whole_list_of_ids: Default::default(),
-            tray_ids_map: Default::default(),
-            cached_clips: LruCache::new(NonZeroUsize::new(cache_size).unwrap()),
         }
     }
 }
@@ -97,7 +119,7 @@ pub struct ClipData {
 #[derive(Debug, Default)]
 pub struct ClipboardMonitor {
     /// the last clip
-    last_clip: String,
+    last_clip: Arc<String>,
 }
 
 pub struct ClipDataMutex {
@@ -116,8 +138,9 @@ impl ClipData {
         // change the clip in the database
 
         // change the clip in the cache
-        let clip = self.clips.cached_clips.get_mut(&id);
+        let clip = CACHED_CLIP.get(&id);
         if let Some(clip) = clip {
+            let mut clip = clip.lock().unwrap();
             clip.favourite = target;
         }
 
@@ -145,7 +168,7 @@ impl ClipData {
         // delete a clip from the database and the cache
 
         // first delete in cache
-        self.clips.cached_clips.pop(&id);
+        CACHED_CLIP.invalidate(&id).await;
 
         // delete in database
         let res = sqlx::query("DELETE FROM clips WHERE id = ?")
@@ -195,7 +218,10 @@ impl ClipData {
     /// if the given id is -1, it will return the latest clip,
     /// if no clip with id exist, it will try return an error dw
     #[warn(unused_must_use)]
-    pub async fn get_clip(&mut self, mut id: i64) -> Result<Clip, error::Error> {
+    pub async fn get_clip(
+        &mut self,
+        mut id: i64,
+    ) -> Result<Arc<std::sync::Mutex<Clip>>, error::Error> {
         // if id is -1, change it to the latest clip
         if id == -1 {
             if self.clips.whole_list_of_ids.is_empty() {
@@ -213,9 +239,9 @@ impl ClipData {
         }
 
         // if the clip is in the cache, return it
-        let clip = self.clips.cached_clips.get(&id);
+        let clip = CACHED_CLIP.get(&id);
         if let Some(clip) = clip {
-            return Ok(clip.clone());
+            return Ok(clip);
         }
 
         // if the clip is not in the cache, get it from the database
@@ -271,14 +297,16 @@ impl ClipData {
         let favourite = favourite.unwrap() == 1;
 
         let clip = Clip {
-            text: text.unwrap(),
+            text: Arc::new(text.unwrap()),
             timestamp: timestamp.unwrap(),
             id,
             favourite,
         };
 
+        let clip = Arc::new(std::sync::Mutex::new(clip));
+
         // add the clip to the cache
-        self.clips.cached_clips.put(id, clip.clone());
+        CACHED_CLIP.insert(id, clip.clone()).await;
 
         Ok(clip)
     }
@@ -296,7 +324,7 @@ impl ClipData {
         clip_pos.unwrap()
     }
 
-    pub async fn get_current_clip(&mut self) -> Result<Clip, error::Error> {
+    pub async fn get_current_clip(&mut self) -> Result<Arc<std::sync::Mutex<Clip>>, error::Error> {
         self.get_clip(self.clips.current_clip).await
     }
 
@@ -331,7 +359,7 @@ impl ClipData {
     }
 
     /// create a new clip in the database and return the id of the new clip
-    pub async fn new_clip(&mut self, text: String) -> Result<i64, error::Error> {
+    pub async fn new_clip(&mut self, text: Arc<String>) -> Result<i64, error::Error> {
         let id: i64 = if let Some(id) = self.clips.whole_list_of_ids.last() {
             *id + 1
         } else {
@@ -346,14 +374,14 @@ impl ClipData {
         let res =
             sqlx::query("INSERT INTO clips (id, text, timestamp, favourite) VALUES (?, ?, ?, ?)")
                 .bind(id)
-                .bind(&text)
+                .bind(&(*text))
                 .bind(timestamp)
                 .bind(0)
                 .fetch_optional(self.database_connection.as_ref().unwrap())
                 .await;
         if let Err(err) = res {
             return Err(error::Error::InsertClipIntoDatabaseErr(
-                text,
+                (*text).clone(),
                 err.to_string(),
             ));
         }
@@ -366,7 +394,9 @@ impl ClipData {
         };
 
         // add the clip to the cache
-        self.clips.cached_clips.put(id, clip);
+        CACHED_CLIP
+            .insert(id, Arc::new(std::sync::Mutex::new(clip)))
+            .await;
 
         self.clips.whole_list_of_ids.push(id);
 
@@ -408,6 +438,7 @@ impl ClipData {
         let c = c.unwrap();
         self.clips.current_clip = id;
 
+        let c = c.lock().unwrap();
         c.copy_clip_to_clipboard(app)?;
 
         Ok(())
@@ -434,37 +465,42 @@ impl ClipData {
     /// handle the clip board change event
     #[warn(unused_must_use)]
     pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), error::Error> {
-        // get the current clip
+        // get the current clip text
         let current_clip = self.get_current_clip().await;
-        let current_clip = match current_clip {
-            Err(error::Error::ClipNotFoundErr(_)) => Clip::default(),
-            Err(error::Error::WholeListIDSEmptyErr) => Clip::default(),
+        let current_clip_text = match current_clip {
+            Err(error::Error::ClipNotFoundErr(_)) => Arc::new(String::new()),
+            Err(error::Error::WholeListIDSEmptyErr) => Arc::new(String::new()),
             Err(err) => {
                 return Err(err);
             }
-            Ok(clip) => clip,
+            Ok(clip) => {
+                let c = clip.lock().unwrap();
+                c.text.clone()
+            }
         };
 
         // get the current clip text
-        let current_clip_text = clip_data_from_system_clipbaord(app)?;
+        let clipboard_clip_text = clip_data_from_system_clipbaord(app)?;
 
         // if the current clip text is empty, then return
-        if current_clip_text.is_empty() {
+        if clipboard_clip_text.is_empty() {
             return Ok(());
         }
 
         // if the current clip text is the same as the current clip text, then return
-        if current_clip_text == current_clip.text {
+        if clipboard_clip_text == *current_clip_text {
             return Ok(());
         }
 
         // if the current clip text is the same as the last clip text, then return
-        if current_clip_text == self.clipboard_monitor.last_clip {
+        if clipboard_clip_text == *self.clipboard_monitor.last_clip {
             return Ok(());
         }
 
-        let id = self.new_clip(current_clip_text.clone()).await?;
-        self.clipboard_monitor.last_clip = current_clip_text;
+        let clipboard_clip_text = Arc::new(clipboard_clip_text);
+
+        let id = self.new_clip(clipboard_clip_text.clone()).await?;
+        self.clipboard_monitor.last_clip = clipboard_clip_text;
         self.clips.current_clip = id;
 
         // update the tray
@@ -520,19 +556,23 @@ impl ClipData {
         for i in 0..current_page_clips.len() {
             let tray_id = "tray_clip_".to_string() + &i.to_string();
             let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
-            let res = tray_clip_sub_menu.set_title(trim_clip_text(
-                current_page_clips.get(i).unwrap().text.clone(),
-                max_clip_length,
-            ));
+
+            let c = current_page_clips.get(i);
+            if c.is_none() {
+                continue;
+            }
+            let c = c.unwrap();
+            let c = c.lock().unwrap();
+
+            let text = c.text.clone();
+            let text = trim_clip_text(text, max_clip_length);
+            let res = tray_clip_sub_menu.set_title(text);
             if res.is_err() {
                 return Err(error::Error::SetSystemTrayTitleErr(
-                    current_page_clips.get(i).unwrap().text.clone(),
                     res.err().unwrap().to_string(),
                 ));
             }
-            self.clips
-                .tray_ids_map
-                .push(current_page_clips.get(i).unwrap().id)
+            self.clips.tray_ids_map.push(c.id)
         }
 
         // clean out the rest of the tray
@@ -542,7 +582,6 @@ impl ClipData {
             let res = tray_clip_sub_menu.set_title("".to_string());
             if res.is_err() {
                 return Err(error::Error::SetSystemTrayTitleErr(
-                    "".to_string(),
                     res.err().unwrap().to_string(),
                 ));
             }
@@ -555,10 +594,9 @@ impl ClipData {
             current_page + 1,
             whole_pages + 1
         );
-        let res = tray_page_info_item.set_title(tray_page_info_title.clone());
+        let res = tray_page_info_item.set_title(tray_page_info_title);
         if res.is_err() {
             return Err(error::Error::SetSystemTrayTitleErr(
-                tray_page_info_title,
                 res.err().unwrap().to_string(),
             ));
         }
@@ -567,7 +605,10 @@ impl ClipData {
     }
 }
 
-pub fn trim_clip_text(text: String, l: i64) -> String {
+/// Trim the text to the given length.
+///
+/// Also take care of slicing the text in the middle of a unicode character
+fn trim_clip_text(text: Arc<String>, l: i64) -> String {
     // trim the leading white space
     let text = text.trim_start().to_string();
 
@@ -609,6 +650,7 @@ pub async fn copy_clip_to_clipboard(
         return Err(err.message());
     }
     let clip_data = clip_data.unwrap();
+    let clip_data = clip_data.lock().unwrap();
     let res = clip_data.copy_clip_to_clipboard(&app);
     if let Err(err) = res {
         return Err(err.message());

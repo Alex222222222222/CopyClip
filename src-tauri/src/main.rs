@@ -114,8 +114,13 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app_handle, event| {
+        .run(|app_handle, event| {
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                let windows = app_handle.windows();
+                for (_,window) in windows {
+                    let res = window.close();
+                    panic_app(&format!("failed to close window {err}", err = res.unwrap_err()));
+                }
                 api.prevent_exit();
             }
         });
