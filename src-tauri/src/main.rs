@@ -117,9 +117,12 @@ fn main() {
         .run(|app_handle, event| {
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
                 let windows = app_handle.windows();
-                for (_,window) in windows {
+                for (_, window) in windows {
                     let res = window.close();
-                    panic_app(&format!("failed to close window {err}", err = res.unwrap_err()));
+                    panic_app(&format!(
+                        "failed to close window {err}",
+                        err = res.unwrap_err()
+                    ));
                 }
                 api.prevent_exit();
             }

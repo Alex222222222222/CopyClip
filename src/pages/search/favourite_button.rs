@@ -5,8 +5,8 @@ use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, Callback, Html, Properties};
 use yew_icons::{Icon, IconId};
-use yewdux::prelude::Store;
 use yewdux::prelude::use_store;
+use yewdux::prelude::Store;
 
 use crate::invoke::invoke;
 
@@ -48,7 +48,8 @@ struct ChangeFavouriteClipArgs {
 #[derive(PartialEq, Debug, Store, Clone, Eq, Default, Serialize, Deserialize)]
 #[store(storage = "session")]
 pub struct IsFavoriteID {
-    pub content : HashSet<i64>,
+    pub content: HashSet<i64>,
+    pub initialized: HashSet<i64>,
 }
 
 #[function_component(FavouriteClipButton)]
@@ -56,14 +57,18 @@ pub fn favourite_clip_button(props: &FavouriteClipButtonProps) -> Html {
     let (favourite, dispatch) = use_store::<IsFavoriteID>();
     let id = props.id;
 
-    let contain = favourite.content.contains(&id);
-    if props.is_favourite != contain {
-        dispatch.reduce_mut(|state| {
-            if contain {
+    if !favourite.initialized.contains(&id) {
+        if props.is_favourite {
+            dispatch.reduce_mut(|state| {
                 state.content.insert(id);
-            } else {
+            });
+        } else {
+            dispatch.reduce_mut(|state| {
                 state.content.remove(&id);
-            }
+            });
+        }
+        dispatch.reduce_mut(|state| {
+            state.initialized.insert(id);
         });
     }
 
