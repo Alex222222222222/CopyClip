@@ -14,10 +14,11 @@ else
     # optimize wasm files
     for wasm_file in $wasm_files
     do
+        echo "Optimizing $wasm_file..."
         # wasm-snip --snip-rust-fmt-code --snip-rust-panicking-code $wasm_file -o $wasm_file annoying_space_waster
         wasm-opt -Oz $wasm_file -o $wasm_file
         wasm-opt -Os $wasm_file -o $wasm_file
     done
 
-    twiggy top -n 20 ./dist/*.wasm
+    #twiggy top -n 20 ./dist/*.wasm
 fi

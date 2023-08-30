@@ -1,7 +1,12 @@
+use std::collections::HashSet;
+
+use serde::Deserialize;
 use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
-use yew::{function_component, html, use_state_eq, Callback, Html, Properties};
+use yew::{function_component, html, Callback, Html, Properties};
 use yew_icons::{Icon, IconId};
+use yewdux::prelude::Store;
+use yewdux::prelude::use_store;
 
 use crate::invoke::invoke;
 
@@ -40,49 +45,50 @@ struct ChangeFavouriteClipArgs {
     pub target: bool,
 }
 
-#[derive(PartialEq, Debug)]
-enum IsFavourite {
-    True,
-    False,
-}
-
-impl IsFavourite {
-    pub fn to_bool(&self) -> bool {
-        match self {
-            Self::True => true,
-            Self::False => false,
-        }
-    }
-
-    pub fn from_bool(value: bool) -> Self {
-        if value {
-            Self::True
-        } else {
-            Self::False
-        }
-    }
+#[derive(PartialEq, Debug, Store, Clone, Eq, Default, Serialize, Deserialize)]
+#[store(storage = "session")]
+pub struct IsFavoriteID {
+    pub content : HashSet<i64>,
 }
 
 #[function_component(FavouriteClipButton)]
 pub fn favourite_clip_button(props: &FavouriteClipButtonProps) -> Html {
-    let favourite = use_state_eq(|| IsFavourite::from_bool(props.is_favourite));
+    let (favourite, dispatch) = use_store::<IsFavoriteID>();
     let id = props.id;
 
-    let favourite_1 = favourite.clone();
+    let contain = favourite.content.contains(&id);
+    if props.is_favourite != contain {
+        dispatch.reduce_mut(|state| {
+            if contain {
+                state.content.insert(id);
+            } else {
+                state.content.remove(&id);
+            }
+        });
+    }
+
+    let favourite1 = favourite.clone();
     let copy_clip_button_on_click = Callback::from(move |_| {
-        let favourite_2 = favourite_1.clone();
+        let favourite = favourite1.clone();
+        let dispatch = dispatch.clone();
         spawn_local(async move {
             let args = ChangeFavouriteClipArgs {
                 id,
-                target: !favourite_2.to_bool(),
+                target: !favourite.content.contains(&id),
             };
             let args = serde_wasm_bindgen::to_value(&args).unwrap();
             invoke("change_favourite_clip", args).await;
-            favourite_2.set(IsFavourite::from_bool(!favourite_2.to_bool()));
+            dispatch.reduce_mut(|state| {
+                if favourite.content.contains(&id) {
+                    state.content.remove(&id);
+                } else {
+                    state.content.insert(id);
+                }
+            });
         });
     });
 
-    let icon = if favourite.to_bool() {
+    let icon = if favourite.content.contains(&id) {
         IconId::BootstrapHeartFill
     } else {
         IconId::BootstrapHeart
