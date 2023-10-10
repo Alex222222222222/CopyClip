@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    sync::{Arc, Mutex},
-};
+use std::{fmt::Display, rc::Rc, sync::Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -68,14 +65,14 @@ impl From<String> for OrderMethod {
     }
 }
 
-pub fn sort_search_res(res: Arc<Mutex<Vec<Clip>>>, method: OrderMethod, order: OrderOrder) {
+pub fn sort_search_res(res: Rc<Mutex<Vec<Clip>>>, method: OrderMethod, order: OrderOrder) {
     match order {
         OrderOrder::Asc => sort_search_res_asc(res, method),
         OrderOrder::Desc => sort_search_res_desc(res, method),
     }
 }
 
-fn sort_search_res_asc(res: Arc<Mutex<Vec<Clip>>>, method: OrderMethod) {
+fn sort_search_res_asc(res: Rc<Mutex<Vec<Clip>>>, method: OrderMethod) {
     let mut res = res.lock().unwrap();
     match method {
         OrderMethod::Time => {
@@ -96,7 +93,7 @@ fn sort_search_res_asc(res: Arc<Mutex<Vec<Clip>>>, method: OrderMethod) {
     }
 }
 
-fn sort_search_res_desc(res: Arc<Mutex<Vec<Clip>>>, method: OrderMethod) {
+fn sort_search_res_desc(res: Rc<Mutex<Vec<Clip>>>, method: OrderMethod) {
     let mut res = res.lock().unwrap();
     match method {
         OrderMethod::Time => {

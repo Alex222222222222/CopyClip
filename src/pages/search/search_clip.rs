@@ -37,7 +37,7 @@ pub async fn search_clips(
 ) -> Result<(), String> {
     search_res_dispatch.reduce_mut(|state| {
         state.rebuild_num += 1;
-        state.res = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        state.res = std::rc::Rc::new(std::sync::Mutex::new(Vec::new()));
     });
 
     let args = to_value(&()).unwrap();

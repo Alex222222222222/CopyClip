@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{Event, HtmlInputElement};
-use yew::{function_component, html, use_effect_with_deps, Callback, Html, TargetCast};
+use yew::{function_component, html, use_effect_with, Callback, Html, TargetCast};
 
 use crate::invoke::invoke;
 
@@ -67,16 +67,13 @@ pub fn languages_config() -> Html {
     });
 
     let config_dispatch_1 = config_dispatch;
-    use_effect_with_deps(
-        move |_| {
-            spawn_local(async move {
-                let args = to_value(&()).unwrap();
-                let res = invoke(get_value_invoke, args).await.as_string().unwrap();
-                config_dispatch_1.set(LanguagesConfigState { config: res });
-            });
-        },
-        (),
-    );
+    use_effect_with((), move |_| {
+        spawn_local(async move {
+            let args = to_value(&()).unwrap();
+            let res = invoke(get_value_invoke, args).await.as_string().unwrap();
+            config_dispatch_1.set(LanguagesConfigState { config: res });
+        });
+    });
 
     html! {
         <div

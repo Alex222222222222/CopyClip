@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{Event, HtmlInputElement};
-use yew::{function_component, html, use_effect_with_deps, Callback, Html, TargetCast};
+use yew::{function_component, html, use_effect_with, Callback, Html, TargetCast};
 
 use crate::{invoke::invoke, route::DarkModeConfig};
 
@@ -42,17 +42,14 @@ pub fn dark_mode_switch() -> Html {
         }
     });
 
-    use_effect_with_deps(
-        move |_| {
-            spawn_local(async move {
-                let args = to_value(&()).unwrap();
-                let res = invoke(get_value_invoke, args).await;
-                let res = res.as_bool().unwrap();
-                dark_mode_dispatch.set(DarkModeConfig { is_dark: res });
-            });
-        },
-        (),
-    );
+    use_effect_with((), move |_| {
+        spawn_local(async move {
+            let args = to_value(&()).unwrap();
+            let res = invoke(get_value_invoke, args).await;
+            let res = res.as_bool().unwrap();
+            dark_mode_dispatch.set(DarkModeConfig { is_dark: res });
+        });
+    });
 
     html! {
         <div class="flex flex-row justify-between">

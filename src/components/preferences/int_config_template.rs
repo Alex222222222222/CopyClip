@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{Event, HtmlInputElement};
-use yew::{function_component, html, use_effect_with_deps, Callback, Html, Properties, TargetCast};
+use yew::{function_component, html, use_effect_with, Callback, Html, Properties, TargetCast};
 
 use crate::invoke::invoke;
 
@@ -63,21 +63,18 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     let label_1 = label.clone();
     let get_value_invoke = props.get_value_invoke.clone();
     let config_1 = config.clone();
-    use_effect_with_deps(
-        move |_| {
-            spawn_local(async move {
-                let args = to_value(&()).unwrap();
-                gloo_console::log!("get_value_invoke: {}", get_value_invoke.clone());
-                let res = invoke(&get_value_invoke, args).await;
-                let res = res.as_f64().unwrap();
-                let res = res as i64;
-                let mut config = config_1.config.clone();
-                config.insert(label_1, res);
-                config_dispatch.set(ConfigState { config });
-            });
-        },
-        (),
-    );
+    use_effect_with((), move |_| {
+        spawn_local(async move {
+            let args = to_value(&()).unwrap();
+            gloo_console::log!("get_value_invoke: {}", get_value_invoke.clone());
+            let res = invoke(&get_value_invoke, args).await;
+            let res = res.as_f64().unwrap();
+            let res = res as i64;
+            let mut config = config_1.config.clone();
+            config.insert(label_1, res);
+            config_dispatch.set(ConfigState { config });
+        });
+    });
 
     html! {
         <div class="flex flex-row justify-between">

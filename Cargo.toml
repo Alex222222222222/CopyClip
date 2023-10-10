@@ -32,10 +32,10 @@ web-sys = { version = "0.3.61", features = [
   "MediaQueryList",
   "DomTokenList",
 ] }
-yew = { version = "0.20", features = ["csr"] }
-yewdux = "0.9"
-yew-router = "0.17"
-yew_icons = { version = "0.7", features = [
+yew = { version = "0.21", features = ["csr"] }
+yewdux = "0.9.4"
+yew-router = "0.18"
+yew_icons = { version = "0.8", features = [
   "HeroiconsOutlineClipboardDocumentList",
   "BootstrapTrash",
   "LucideTimer",

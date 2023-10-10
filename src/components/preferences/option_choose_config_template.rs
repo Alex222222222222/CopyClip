@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde_wasm_bindgen::to_value;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{Event, HtmlInputElement};
-use yew::{function_component, html, use_effect_with_deps, Callback, Html, Properties, TargetCast};
+use yew::{function_component, html, use_effect_with, Callback, Html, Properties, TargetCast};
 
 use crate::invoke::invoke;
 
@@ -61,19 +61,16 @@ pub fn option_choose_config_template_html(props: &OptionChooseConfigTemplateProp
     let get_value_invoke = props.get_value_invoke.clone();
     let config_dispatch_1 = config_dispatch;
     let label = props.label.clone();
-    use_effect_with_deps(
-        move |_| {
-            spawn_local(async move {
-                let args = to_value(&()).unwrap();
-                let get_value_invoke = get_value_invoke.clone();
-                let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
-                config_dispatch_1.reduce_mut(|state| {
-                    state.config.insert(label.clone(), res);
-                });
+    use_effect_with((), move |_| {
+        spawn_local(async move {
+            let args = to_value(&()).unwrap();
+            let get_value_invoke = get_value_invoke.clone();
+            let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
+            config_dispatch_1.reduce_mut(|state| {
+                state.config.insert(label.clone(), res);
             });
-        },
-        (),
-    );
+        });
+    });
 
     let options = props.option.clone();
     html! {

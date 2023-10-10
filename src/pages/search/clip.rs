@@ -1,7 +1,4 @@
-use std::{
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use std::{rc::Rc, sync::Mutex};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -68,7 +65,7 @@ pub struct ClipRes {
 #[derive(Default, Deserialize, Serialize, Clone)]
 pub struct SearchRes {
     pub rebuild_num: u64,
-    pub res: Arc<Mutex<Vec<Clip>>>,
+    pub res: std::rc::Rc<Mutex<Vec<Clip>>>,
 }
 
 impl PartialEq for SearchRes {

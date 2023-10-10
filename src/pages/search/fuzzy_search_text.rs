@@ -142,7 +142,6 @@ pub fn fuzzy_search_text(props: &FuzzySearchTextProps) -> Html {
 }
 
 fn try_get_uft8_code(text: &str, start: usize, end: usize) -> (usize, String) {
-    let start = start;
     let mut end = end;
     while end < text.len() {
         let res = text.get(start..end);

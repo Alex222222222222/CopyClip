@@ -3,8 +3,8 @@ use serde_wasm_bindgen::to_value;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{Event, HtmlInputElement};
 use yew::{
-    function_component, html, use_effect_with_deps, use_state, Callback, Html, Properties,
-    TargetCast, UseStateHandle,
+    function_component, html, use_effect_with, use_state, Callback, Html, Properties, TargetCast,
+    UseStateHandle,
 };
 
 use crate::invoke::invoke;
@@ -43,17 +43,14 @@ pub fn switch_config_template(props: &SwitcherConfigTemplateProps) -> Html {
     });
 
     let get_value_invoke = props.get_value_invoke.clone();
-    use_effect_with_deps(
-        move |_| {
-            spawn_local(async move {
-                let args = to_value(&()).unwrap();
-                let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
-                let res = res.parse::<bool>().unwrap();
-                value_handle.set(res);
-            });
-        },
-        (),
-    );
+    use_effect_with((), move |_| {
+        spawn_local(async move {
+            let args = to_value(&()).unwrap();
+            let res = invoke(&get_value_invoke, args).await.as_string().unwrap();
+            let res = res.parse::<bool>().unwrap();
+            value_handle.set(res);
+        });
+    });
 
     html! {
         <div class="flex flex-col">

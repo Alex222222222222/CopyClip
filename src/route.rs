@@ -64,7 +64,7 @@ pub fn app() -> Html {
             class="bg-white dark:bg-gray-800 text-black dark:text-white min-h-screen"
         >
             <BrowserRouter>
-                    <Switch<Route> render={switch}/> // <- must be child of <BrowserRouter>
+                <Switch<Route> render={switch}/> // <- must be child of <BrowserRouter>
             </BrowserRouter>
         </div>
     }
