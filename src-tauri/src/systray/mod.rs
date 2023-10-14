@@ -201,8 +201,9 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             });
         }
         _ => {
-            // test if the id is a tray_clip
             if id.starts_with("tray_clip_") {
+                // test if the id is a tray_clip
+
                 let app_handle = app.app_handle();
                 // get the index of the clip
                 let index = id.replace("tray_clip_", "").parse::<i64>().unwrap();
@@ -226,6 +227,34 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                     return;
                 }
                 drop(clips);
+            } else if id.starts_with("pinned_clip_") {
+                // test if the id is a pinned_clip
+
+                let app_handle = app.app_handle();
+                // get the index of the clip
+                let index = id.replace("pinned_clip_", "").parse::<i64>().unwrap();
+
+                // select the index
+                let clips = app_handle.state::<ClipDataMutex>();
+                let mut clips = clips.clip_data.lock().await;
+                let item_id = clips.clips.pinned_clips_ids.get(index as usize);
+                if item_id.is_none() {
+                    warn!(
+                        "Failed to get the item id for the pinned clip id: {}",
+                        index
+                    );
+                    drop(clips);
+                    return;
+                }
+                let item_id = item_id.unwrap();
+                let item_id = *item_id;
+
+                let res = clips.select_clip(app, item_id).await;
+                if res.is_err() {
+                    warn!("Failed to select the clip: {}", res.err().unwrap());
+                    drop(clips);
+                    return;
+                }
             } else {
                 warn!("Unknown menu item id: {}", id);
             }
