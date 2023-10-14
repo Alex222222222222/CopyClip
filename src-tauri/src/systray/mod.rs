@@ -11,13 +11,26 @@ use crate::{
 };
 
 /// create the tray
-pub fn create_tray(num: i64) -> SystemTray {
-    let tray_menu = create_tray_menu(num);
+pub fn create_tray(page_len: i64, pinned_clips_num: i64) -> SystemTray {
+    let tray_menu = create_tray_menu(page_len, pinned_clips_num);
 
     SystemTray::new().with_menu(tray_menu)
 }
 
-pub fn create_tray_menu(num: i64) -> SystemTrayMenu {
+/// create the tray menu
+/// the menu is created with the given number of clips
+/// the menu is created with the following items:
+/// - notice select
+/// - pinned clips slot
+/// - clips slot
+/// - page info
+/// - prev page
+/// - next page
+/// - first page
+/// - preferences
+/// - search
+/// - quit
+pub fn create_tray_menu(page_len: i64, pinned_clips_num: i64) -> SystemTrayMenu {
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
     let notice_select = CustomMenuItem::new(
         "notice_select".to_string(),
@@ -40,7 +53,15 @@ pub fn create_tray_menu(num: i64) -> SystemTrayMenu {
         .add_item(notice_select)
         .add_native_item(SystemTrayMenuItem::Separator);
 
-    for i in 0..num {
+    // add the pinned clips slot
+    for i in 0..pinned_clips_num {
+        let clip = CustomMenuItem::new("pinned_clip_".to_string() + &i.to_string(), "");
+        tray_menu = tray_menu.add_item(clip);
+    }
+    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
+
+    // add the clips slot
+    for i in 0..page_len {
         let clip = CustomMenuItem::new("tray_clip_".to_string() + &i.to_string(), "");
         tray_menu = tray_menu.add_item(clip);
     }

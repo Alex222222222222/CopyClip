@@ -23,6 +23,9 @@ pub async fn init_database_connection(app: &AppHandle) -> Result<(), error::Erro
     // init the clips table
     init_clips_table(&connection).await?;
 
+    // init the pinned clips table
+    init_pinned_clips_table(&connection).await?;
+
     // after init the database, recreate a connection with higher connection number
     let connection = get_and_create_database(app_data_dir, 10).await?;
     // init the clips mutex
@@ -219,7 +222,7 @@ async fn backward_comparability(
     }
 
     // when moving from 0.3.3, 0.3.4, to 0.3.5,
-    // I rename the column favorite to favourite in clips table, so need to do a sql ALTER command
+    // I rename the column "favorite" to favourite in clips table, so need to do a sql ALTER command
     if major == 0 && minor == 3 && patch < 5 {
         backward::v0_3_x_to_0_3_5_database::upgrade(connection).await?;
         patch = 5;
@@ -284,6 +287,26 @@ async fn init_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
     Ok(())
 }
 
+// init the pinned clips table
+//
+// this function will
+//     - create the pinned clips table if it does not exist
+#[warn(unused_must_use)]
+async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
+    // create the pinned clips table if it does not exist
+    let res = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS pinned_clips (
+            id INTEGER PRIMARY KEY
+        )",
+    )
+    .fetch_optional(connection)
+    .await;
+    if let Err(err) = res {
+        return Err(error::Error::CreatePinnedClipsTableErr(err.to_string()));
+    }
+    Ok(())
+}
+
 /// init the clips mutex state
 ///
 /// this function will
@@ -297,7 +320,10 @@ async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(),
     drop(clip_data);
 
     // init the whole list of ids
-    init_whole_list_of_ids(app).await
+    init_whole_list_of_ids(app).await?;
+
+    // init pinned clips
+    init_pinned_clips_ids(app).await
 }
 
 /// init the whole list of ids,
@@ -328,6 +354,35 @@ async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
     }
 
     clip_data.clips.whole_list_of_ids = ids;
+
+    Ok(())
+}
+
+/// init the pinned clips
+///
+/// this function will
+///    - get the pinned clips from the database
+///   - fill the pinned clips into the clips mutex
+async fn init_pinned_clips_ids(app: &AppHandle) -> Result<(), error::Error> {
+    let clip_data_mutex = app.state::<ClipDataMutex>();
+    let mut clip_data = clip_data_mutex.clip_data.lock().await;
+
+    // get the pinned clips from the database
+    let res = sqlx::query("SELECT id FROM pinned_clips")
+        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+        .await;
+    if let Err(err) = res {
+        return Err(error::Error::GetPinnedClipsErr(err.to_string()));
+    }
+    let res = res.unwrap();
+
+    for row in res {
+        let id = row.try_get::<i64, _>("id");
+        if let Err(err) = id {
+            return Err(error::Error::GetPinnedClipsErr(err.to_string()));
+        }
+        clip_data.clips.pinned_clips_ids.push(id.unwrap());
+    }
 
     Ok(())
 }

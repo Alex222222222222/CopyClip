@@ -27,6 +27,11 @@ pub enum CopyClipEvent {
     /// send notification event
     /// the data is the notification message
     SendNotificationEvent(String),
+    /// pinned clips changed event
+    /// no data
+    /// this event is sent when the pinned clips changed
+    /// should update the pinned clips in the tray menu
+    PinnedClipsChangedEvent,
 }
 
 /// the event sender
@@ -71,9 +76,20 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
             // rebuild the tray menu
             CopyClipEvent::RebuildTrayMenuEvent => {
                 // get number of clips to show from config
-                let num = app.state::<ConfigMutex>();
-                let num = num.config.lock().await.clip_per_page;
-                let res = app.tray_handle().set_menu(create_tray_menu(num));
+                let page_len = app.state::<ConfigMutex>();
+                let page_len = page_len.config.lock().await.clip_per_page;
+                // get the number of pinned clips
+                let pinned_clips = app.state::<ClipDataMutex>();
+                let pinned_clips = pinned_clips
+                    .clip_data
+                    .lock()
+                    .await
+                    .clips
+                    .pinned_clips_ids
+                    .len();
+                let res = app
+                    .tray_handle()
+                    .set_menu(create_tray_menu(page_len, pinned_clips as i64));
                 if res.is_err() {
                     panic_app(&format!(
                         "Failed to set tray menu, error: {}",
@@ -82,6 +98,12 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
                 }
                 // initial the tray
                 send_tray_update_event(app);
+            }
+            // pinned clips changed event
+            CopyClipEvent::PinnedClipsChangedEvent => {
+                // send rebuild tray menu event
+                let event = app.state::<EventSender>();
+                event.send(CopyClipEvent::RebuildTrayMenuEvent);
             }
             // save config event
             CopyClipEvent::SaveConfigEvent => {

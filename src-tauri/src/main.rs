@@ -40,6 +40,7 @@ fn main() {
             rx.recv().unwrap();
 
             // set up the database connection and create the table
+            // will also init the clip data state
             let app_handle = app.handle();
             let (tx, rx) = std::sync::mpsc::channel::<()>();
             tauri::async_runtime::spawn(async move {
@@ -109,6 +110,7 @@ fn main() {
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,
             clip::change_favourite_clip,
+            clip::add_remove_pinned_clip,
             clip::search::search_clips,
             clip::search::get_max_id,
         ])

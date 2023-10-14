@@ -1,3 +1,4 @@
+pub mod add_remove_pinned_clips;
 pub mod clips_per_page_config;
 pub mod clips_search_per_batch;
 pub mod dark_mode_switch;

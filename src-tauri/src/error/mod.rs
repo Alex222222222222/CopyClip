@@ -86,6 +86,10 @@ pub enum Error {
     /// failed to write to system clipboard
     /// the string is the text that failed to write to the system clipboard, the second string is the error message
     WriteToSystemClipboardErr(String, String),
+    /// create pinned clips table failed
+    CreatePinnedClipsTableErr(String),
+    /// failed to get pinned clips from the database
+    GetPinnedClipsErr(String),
 }
 
 impl Error {
@@ -118,6 +122,8 @@ impl Error {
             Error::RegexpErr(err) => format!("invalid regexp string, error message: {err}"),
             Error::ReadFromSystemClipboardErr(err) => format!("read from system clipboard failed, error message: {err}"),
             Error::ExportError(err) => format!("error occurred when exporting data, error message: {err}"),
+            Error::CreatePinnedClipsTableErr(err) => format!("create pinned clips table failed, error message: {err}"),
+            Error::GetPinnedClipsErr(err) => format!("failed to get pinned clips from the database, error message: {err}"),
         }
     }
 

@@ -1,6 +1,10 @@
 hello: Hello world
 preferences:
   title: Preferences
+  pinned_clips: Pinned Clips
+  pinned_clips_add: Add
+  pinned_clips_remove: Remove
+  pinned_clips_description: Pinned clips will always be shown at the top of the list
   advanced_title: Advanced Preferences
   dark_mode: Dark Mode
   clips_per_page: Clips Per Page

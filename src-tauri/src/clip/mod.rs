@@ -1,5 +1,6 @@
 pub mod database;
 pub mod monitor;
+pub mod pinned;
 pub mod search;
 
 use std::{cmp::Ordering, sync::Arc};
@@ -93,6 +94,8 @@ pub struct Clips {
     pub whole_list_of_ids: Vec<i64>,
     /// the ids of the current displaying clips, the same order with the order displaying in the tray     
     pub tray_ids_map: Vec<i64>,
+    /// the ids of the pinned clips
+    pub pinned_clips_ids: Vec<i64>,
 }
 
 impl Default for Clips {
@@ -102,6 +105,7 @@ impl Default for Clips {
             current_page: 0,
             whole_list_of_ids: Default::default(),
             tray_ids_map: Default::default(),
+            pinned_clips_ids: Default::default(),
         }
     }
 }
@@ -601,6 +605,91 @@ impl ClipData {
             ));
         }
 
+        // TODO update pinned clips
+        for i in 0..self.clips.pinned_clips_ids.len() {
+            let pinned_clip_id = self.clips.pinned_clips_ids.get(i);
+            if pinned_clip_id.is_none() {
+                continue;
+            }
+            let pinned_clip_id = pinned_clip_id.unwrap();
+            let pinned_clip = self.get_clip(*pinned_clip_id).await?;
+            let pinned_clip = pinned_clip.lock().unwrap();
+            let pinned_clip_text = pinned_clip.text.clone();
+            let pinned_clip_text = trim_clip_text(pinned_clip_text, max_clip_length);
+            let pinned_clip_id = "pinned_clip_".to_string() + &i.to_string();
+            let pinned_clip_item: tauri::SystemTrayMenuItemHandle =
+                app.tray_handle().get_item(&pinned_clip_id);
+            let res = pinned_clip_item.set_title(pinned_clip_text);
+            if res.is_err() {
+                return Err(error::Error::SetSystemTrayTitleErr(
+                    res.err().unwrap().to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// add or remove a clip from the pinned clips
+    ///
+    /// if action is 0, then add the clip to the pinned clips
+    /// if action is 1, then remove the clip from the pinned clips
+    pub async fn add_remove_pinned_clip(
+        &mut self,
+        id: i64,
+        action: i64,
+    ) -> Result<(), error::Error> {
+        // if action is 0, then add the clip to the pinned clips
+        // if action is 1, then remove the clip from the pinned clips
+
+        // if action is 0, then add the clip to the pinned clips
+        if action == 0 {
+            // if the clip is already in the pinned clips, then return
+            if self.clips.pinned_clips_ids.contains(&id) {
+                return Ok(());
+            }
+
+            // if the clip is not in the pinned clips, then add it to the pinned clips
+            self.clips.pinned_clips_ids.push(id);
+
+            // Add the clip from database
+            let res = sqlx::query("INSERT INTO pinned_clips (id) VALUES (?)")
+                .bind(id)
+                .fetch_optional(self.database_connection.as_ref().unwrap())
+                .await;
+            if let Err(err) = res {
+                return Err(error::Error::InsertClipIntoDatabaseErr(
+                    format!("insert clip id: {} into pinned clips", id),
+                    err.to_string(),
+                ));
+            }
+        }
+
+        // if action is 1, then remove the clip from the pinned clips
+        if action == 1 {
+            // if the clip is not in the pinned clips, then return
+            if !self.clips.pinned_clips_ids.contains(&id) {
+                return Ok(());
+            }
+
+            // if the clip is in the pinned clips, then remove it from the pinned clips
+            let pos = self.clips.pinned_clips_ids.iter().position(|&r| r == id);
+            if pos.is_none() {
+                return Ok(());
+            }
+            let pos = pos.unwrap();
+            self.clips.pinned_clips_ids.remove(pos);
+
+            // remove the clip from database
+            let res = sqlx::query("DELETE FROM pinned_clips WHERE id = ?")
+                .bind(id)
+                .fetch_optional(self.database_connection.as_ref().unwrap())
+                .await;
+            if let Err(err) = res {
+                return Err(error::Error::DeleteClipFromDatabaseErr(id, err.to_string()));
+            }
+        }
+
         Ok(())
     }
 }
@@ -701,6 +790,33 @@ pub async fn change_favourite_clip(
     event_sender.send(CopyClipEvent::SendNotificationEvent(
         "Clip favourite status changed.".to_string(),
     ));
+
+    Ok(())
+}
+
+/// the function to handle the pinned clip change
+/// if action is 0, then add the clip to the pinned clips
+/// if action is 1, then remove the clip from the pinned clips
+#[tauri::command]
+pub async fn add_remove_pinned_clip(
+    clip_data: tauri::State<'_, ClipDataMutex>,
+    event_sender: tauri::State<'_, EventSender>,
+    id: i64,
+    action: i64,
+) -> Result<(), String> {
+    let mut clip_data = clip_data.clip_data.lock().await;
+    let res = clip_data.add_remove_pinned_clip(id, action).await;
+
+    if let Err(err) = res {
+        return Err(err.to_string());
+    }
+
+    println!(
+        "pinned clips ids: {:?}",
+        clip_data.clips.pinned_clips_ids.len()
+    );
+
+    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent);
 
     Ok(())
 }
