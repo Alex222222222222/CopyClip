@@ -143,7 +143,7 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
                 let res = Notification::new(&app.config().tauri.bundle.identifier)
                     .title(msg)
                     .icon("icons/clip.png")
-                    .show();
+                    .notify(app);
                 if let Err(err) = res {
                     #[cfg(debug_assertions)]
                     println!("Error: {}", err);

@@ -25,7 +25,7 @@ pub enum Route {
 fn switch(routes: Route) -> Html {
     match routes {
         Route::Home => html! {
-           <Home />
+            <Home />
         },
         Route::Preferences => html! {
             <Preferences />
