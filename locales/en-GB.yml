@@ -12,6 +12,7 @@ preferences:
   log_level_filter: Log Level
   language: Language
   search_clip_per_batch: Search Clips Per Batch
+  enable_auto_delete_duplications: Enable Auto Delete Duplications
 
 export:
   export_button: Press To Export Your Data to ~/Downloads

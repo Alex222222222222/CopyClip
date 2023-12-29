@@ -63,7 +63,7 @@ pub fn dark_mode_switch() -> Html {
                     onchange={on_change}
                     checked={dark_mode_state.is_dark}
                 />
-                <span class="slider dark:bg-white bg-black"></span>
+                <span class="slider dark:bg-gray-500 bg-black"></span>
             </label>
         </div>
     }

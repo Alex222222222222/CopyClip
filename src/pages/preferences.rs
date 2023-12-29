@@ -11,6 +11,7 @@ use crate::components::{
         language_config::LanguagesConfig,
         log_level_filter_config::LogLevelFilterConfig,
         max_clip_len_config::MaxClipLenConfig,
+        set_auto_delete_duplications::AutoDeleteDuplications,
     },
 };
 
@@ -28,7 +29,10 @@ pub fn preferences() -> Html {
                 // TODO add follow system theme
                 <DarkModeSwitch></DarkModeSwitch>
                 <br />
+                <AutoDeleteDuplications></AutoDeleteDuplications>
+                <br />
                 <LanguagesConfig></LanguagesConfig>
+                <br />
                 <ExportButton></ExportButton>
             </div>
 

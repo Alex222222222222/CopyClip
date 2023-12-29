@@ -1,5 +1,5 @@
 {
   "build": {
-    "beforeBuildCommand": "trunk build"
+    "beforeBuildCommand": "npx tailwindcss --minify -c ./tailwind.config.js -o ./tailwind.css && trunk build"
   }
 }

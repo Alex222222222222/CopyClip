@@ -6,6 +6,7 @@ pub mod export_button;
 pub mod language_config;
 pub mod log_level_filter_config;
 pub mod max_clip_len_config;
+pub mod set_auto_delete_duplications;
 
 mod int_config_template;
 mod option_choose_config_template;

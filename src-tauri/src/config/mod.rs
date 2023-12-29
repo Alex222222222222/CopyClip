@@ -31,6 +31,8 @@ pub struct Config {
     pub dark_mode: bool,
     /// user defined language
     pub language: String,
+    /// enable the feature to auto delete duplicate clips when insert new clip
+    pub auto_delete_duplicate_clip: bool,
 }
 
 /// load the config from app data folder
@@ -185,6 +187,9 @@ impl Config {
         self.search_clip_per_batch = config.search_clip_per_batch;
         self.log_level = config.log_level;
         self.dark_mode = config.dark_mode;
+        self.search_page_clip_max_show_length = config.search_page_clip_max_show_length;
+        self.language = config.language;
+        self.auto_delete_duplicate_clip = config.auto_delete_duplicate_clip;
     }
 }
 
@@ -199,6 +204,7 @@ impl Default for Config {
             dark_mode: false,
             search_page_clip_max_show_length: 500,
             language: "en-GB".to_string(),
+            auto_delete_duplicate_clip: false,
         }
     }
 }

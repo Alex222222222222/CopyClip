@@ -106,6 +106,8 @@ fn main() {
             config::command::set_search_clip_per_batch,
             config::command::get_language,
             config::command::set_language,
+            config::command::get_auto_delete_duplicate_clip,
+            config::command::set_auto_delete_duplicate_clip,
             export::export_data_invoke,
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,

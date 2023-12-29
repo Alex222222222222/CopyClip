@@ -221,3 +221,35 @@ pub async fn set_language(
 
     Ok(())
 }
+
+/// get auto_delete_duplicate_clip
+///
+/// input: {}
+#[tauri::command]
+pub async fn get_auto_delete_duplicate_clip(
+    config: State<'_, ConfigMutex>,
+) -> Result<bool, String> {
+    let config = config.config.lock().await;
+    let res = config.auto_delete_duplicate_clip;
+    drop(config);
+    Ok(res)
+}
+
+/// set auto_delete_duplicate_clip
+///
+/// input: { data: bool }
+#[tauri::command]
+pub async fn set_auto_delete_duplicate_clip(
+    app: tauri::AppHandle,
+    config: State<'_, ConfigMutex>,
+    data: bool,
+) -> Result<(), String> {
+    let mut config = config.config.lock().await;
+    if config.auto_delete_duplicate_clip != data {
+        config.auto_delete_duplicate_clip = data;
+        let event_sender = app.state::<EventSender>();
+        event_sender.send(CopyClipEvent::SaveConfigEvent);
+    }
+
+    Ok(())
+}

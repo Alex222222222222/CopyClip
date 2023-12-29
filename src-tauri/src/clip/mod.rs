@@ -5,6 +5,7 @@ pub mod search;
 
 use std::{cmp::Ordering, sync::Arc};
 
+use log::debug;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use tauri::{async_runtime::Mutex, AppHandle, ClipboardManager, Manager};
@@ -363,7 +364,11 @@ impl ClipData {
     }
 
     /// create a new clip in the database and return the id of the new clip
-    pub async fn new_clip(&mut self, text: Arc<String>) -> Result<i64, error::Error> {
+    pub async fn new_clip(
+        &mut self,
+        text: Arc<String>,
+        app: &AppHandle,
+    ) -> Result<i64, error::Error> {
         let id: i64 = if let Some(id) = self.clips.whole_list_of_ids.last() {
             *id + 1
         } else {
@@ -390,6 +395,7 @@ impl ClipData {
             ));
         }
 
+        let text1 = (*text).clone();
         let clip = Clip {
             text,
             timestamp,
@@ -406,6 +412,41 @@ impl ClipData {
 
         // change the current clip to the last one
         self.clips.current_clip = id;
+
+        let config = app.state::<ConfigMutex>();
+        let config = config.config.lock().await;
+        if !config.auto_delete_duplicate_clip {
+            debug!("Auto delete duplicate clip is disabled");
+            return Ok(id);
+        }
+        drop(config);
+        debug!("Start auto delete duplicate clip");
+        let res = sqlx::query("SELECT id FROM clips WHERE text = ?")
+            .bind(&text1)
+            .fetch_all(self.database_connection.as_ref().unwrap())
+            .await;
+        if let Err(err) = res {
+            return Err(error::Error::GetClipDataFromDatabaseErr(
+                id,
+                err.to_string(),
+            ));
+        }
+        let res = res.unwrap();
+        if res.len() <= 1 {
+            return Ok(id);
+        }
+        let mut ids_to_delete = Vec::new();
+        for row in res {
+            let id: i64 = row.try_get("id").unwrap();
+            if id == self.clips.current_clip {
+                continue;
+            }
+            ids_to_delete.push(id);
+        }
+        for id in ids_to_delete {
+            debug!("Delete duplicate clip id: {}", id);
+            self.delete_clip(id).await?;
+        }
 
         Ok(id)
     }
@@ -503,7 +544,7 @@ impl ClipData {
 
         let clipboard_clip_text = Arc::new(clipboard_clip_text);
 
-        let id = self.new_clip(clipboard_clip_text.clone()).await?;
+        let id = self.new_clip(clipboard_clip_text.clone(), app).await?;
         self.clipboard_monitor.last_clip = clipboard_clip_text;
         self.clips.current_clip = id;
 
