@@ -2,30 +2,13 @@
 
 A MacOS app used to manage your clipboard history.
 
-<!-- vscode-markdown-toc -->
+## Feedbacks
 
-1. [Install](#install)
-    1.1. [MacOS](#macos)
-    1.2. [Linux](#linux)
-    1.3. [TODO](#todo)
-2. [Known Issues](#known-issues)
-    2.1. [MacOS Security Policy](#macos-security-policy)
-    2.2. [Other Issues](#other-issues)
-3. [Build](#build)
-    3.1. [Prerequisites](#prerequisites)
-    3.2. [Build](#build-the-app)
-    3.3. [Run](#run)
-4. [Bonnie](#bonnie)
-    4.1. [Install](#install-bonnie)
-    4.2. [Use](#use-bonnie)
-    4.3. [Config](#config-bonnie)
+If you have any feedbacks, 
+including requests for new features, reports for bugs, and so on,
+please open an [issue](https://github.com/Alex222222222222/CopyClip/issues).
 
-<!-- vscode-markdown-toc-config
-    numbering=true
-    autoSave=true
-    /vscode-markdown-toc-config -->
-
-<!-- /vscode-markdown-toc -->
+We will try our best to solve the problem.
 
 ## Configuration
 
@@ -55,26 +38,6 @@ Just copy the app to the application folder.
 
 Use `dpkg` to install the `deb` bundle.
 
-## TODO
-
-- [x] Search Page
-
-- [x] Configuration Page
-
-- [ ] Explanation for configurations
-
-- [ ] i18n support
-
-  - [ ] Chinese
-
-- [ ] Sign the app for MacOS build
-
-- [ ] Change the icon of the app so it can be seen in the white background
-
-- [x] Export the history to a file
-
-  - [ ] import the history
-
 ## Known Issues
 
 ### MacOS Security Policy
@@ -103,128 +66,101 @@ The log file is located at `~/Library/Logs/org.eu.huazifan.copyclip/log`on MacOS
 
 ## Build
 
+### Download the source code
+
+```bash
+git clone https://github.com/Alex222222222222/CopyClip.git
+cd CopyClip
+```
+
 ### Prerequisites
 
 You need to have the following installed:
 
 - Rust
-- pnpm
+- Node.js
+- npm
 - wasm32-unknown-unknown
 - tauri-cli
 - trunk
-- bonnie
 - wasm-opt
 - twiggy
 - wasm-snip
 - tailwindcss
 
+To install `rust`,
+please refer to [rustup](https://www.rust-lang.org/tools/install).
+
+To install `Node.js` and `npm`,
+please refer to [Get Node.js](https://nodejs.org/en/download).
+
+Other dependencies can be installed by the following command:
+
 ```bash
 # wasm32-unknown-unknown
 rustup target add wasm32-unknown-unknown
 
-# Install the Tauri CLI
-cargo install tauri-cli
+# Install Dependencies
+cargo install tauri-cli trunk wasm-opt twiggy wasm-snip
 
-# Install the Trunk CLI
-cargo install trunk
+# Install npm
+npm install
+```
 
-# Install Bonnie
-cargo install bonnie
+For MacOS, install `XCode` and `XCode Command Line Tools`:
 
-# Install wasm-opt
-cargo install wasm-opt
-
-# Install twiggy
-cargo install twiggy
-
-# Install wasm-snip
-cargo install wasm-snip
-
-# Install tailwindcss
-pnpm install tailwindcss@latest
+```bash
+# This will install XCode Command Line Tools
+# For XCode, please install it from App Store
+xcode-select --install
 ```
 
 For linux, you need to install extra dependency: - `libxcb*`
 
 ```bash
 sudo apt-get update
-sudo apt install libdbus-1-dev libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev \
-    libayatana-appindicator3-dev librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev \
+sudo apt install libdbus-1-dev libwebkit2gtk-4.0-dev build-essential \
+    curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev \
+    librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev \
     libxcb-shape0-dev libxcb-xkb-dev libxcb-xfixes0-dev
+```
+
+If you are using `NixOS`,
+you can use the following command in the current dir to install all the dependencies:
+
+```bash
+nix develop
 ```
 
 ### Build The App
 
 ```bash
-bonnie build frontend
+cargo tauri build
 ```
+
+While building, there are some known issues on MacOS:
+- Failed to run custom build command for `mac-notification-sys v0.6.1`.
+  - This is a known issue, which sometimes caused by use of `nix` to manage dependencies.
+  - Myself currently also suffer from this issue, and still looking for a solution.
+  - For any progress, please refer to [this issue](https://github.com/Alex222222222222/CopyClip/issues/88).
+- Other issues related to `cc` or `ld`, try the following:
+  - `rm -rf ./target` and try rebuild again.
+  - `sudo rm -rf /Library/Developer/CommandLineTools` and install `XCode Command Line Tools` again, then try rebuild again.
 
 ### Run
 
 ```bash
-bonnie run frontend
+cargo tauri dev
 ```
 
-## Bonnie
+## TODO
 
-Use ![Bonnie](https://github.com/arctic-hen7/bonnie) to manage the repo.
-
-### Install Bonnie
-
-```bash
-cargo install bonnie
-```
-
-### Use Bonnie
-
-```bash
-# Build
-bonnie build frontend
-
-# Run
-bonnie run frontend
-```
-
-### Config Bonnie
-
-```toml
-version="0.3.2"
-
-[scripts]
-## Builds Tailwind CSS for development (no purging)
-build-tailwind-dev = [
-    "tailwindcss -c ./tailwind.config.js -o ./tailwind.css"
-]
-## Builds Tailwind CSS for production (maximum purging and minification)
-build-tailwind-prod = [
-    "NODE_ENV=production tailwindcss -c ./tailwind.config.js -o ./tailwind.css --minify"
-]
-## Builds Tailwind CSS for development usage
-setup.subcommands.tailwind = "bonnie build-tailwind-dev"
-setup.subcommands.prompt-tailwind = "echo \"Have you installed the Tailwind CLI globally with 'npm i -g tailwindcss' or 'yarn global add tailwindcss'?\""
-setup.order = """
-tailwind {
-    Failure => prompt-tailwind
-}
-"""
-
-## Builds everything
-build.cmd = "cargo build"
-## Builds the frontend
-build.subcommands.frontend = [
-    "bonnie build-tailwind-prod",
-    "cargo tauri build"
-]
-## Runs the frontend, watching for changes (uses Trunk)
-## Tailwind is assumed to be set up after `setup`
-run.subcommands.frontend = [
-    "cargo tauri dev"
-]
-```
-
-## Cargo Outdated
-
-```bash
-cargo install cargo-outdated
-cargo outdated
-```
+- [x] Search Page
+- [x] Configuration Page
+- [ ] Explanation for configurations
+- [ ] i18n support
+  - [ ] Chinese
+- [ ] Sign the app for MacOS build
+- [ ] Change the icon of the app so it can be seen in the white background
+- [x] Export the history to a file
+  - [ ] import the history
