@@ -84,8 +84,6 @@ You need to have the following installed:
 - tauri-cli
 - trunk
 - wasm-opt
-- twiggy
-- wasm-snip
 - tailwindcss
 
 To install `rust`,
@@ -101,7 +99,7 @@ Other dependencies can be installed by the following command:
 rustup target add wasm32-unknown-unknown
 
 # Install Dependencies
-cargo install tauri-cli trunk wasm-opt twiggy wasm-snip
+cargo install tauri-cli trunk wasm-opt
 
 # Install npm
 npm install
