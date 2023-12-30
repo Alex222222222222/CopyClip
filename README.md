@@ -166,3 +166,8 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
 - [ ] Change the icon of the app so it can be seen in the white background
 - [x] Export the history to a file
   - [ ] import the history
+
+## Contributors
+
+<!-- readme: contributors -start -->
+<!-- readme: contributors -end -->
