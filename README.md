@@ -170,4 +170,21 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
 ## Contributors
 
 <!-- readme: contributors -start -->
+<table>
+<tr>
+    <td align="center">
+        <a href="https://github.com/Alex222222222222">
+            <img src="https://avatars.githubusercontent.com/u/61620490?v=4" width="100;" alt="Alex222222222222"/>
+            <br />
+            <sub><b>Zifan Hua</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/Chloe1222">
+            <img src="https://avatars.githubusercontent.com/u/118044032?v=4" width="100;" alt="Chloe1222"/>
+            <br />
+            <sub><b>Chloe</b></sub>
+        </a>
+    </td></tr>
+</table>
 <!-- readme: contributors -end -->
