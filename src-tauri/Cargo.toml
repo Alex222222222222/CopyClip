@@ -7,7 +7,10 @@ description = "A feature-rich clipboard manager for Windows, Linux and macOS."
 edition = "2021"
 license = "MIT"
 name = "copy_clip"
-repository = ""
+repository = "https://github.com/Alex222222222222/CopyClip"
+documentation = "https://github.com/Alex222222222222/CopyClip"
+homepage = "https://github.com/Alex222222222222/CopyClip"
+readme = "README.md"
 version = "0.3.7"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
