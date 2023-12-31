@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use tauri::{AppHandle, Manager};
@@ -140,7 +140,7 @@ async fn first_lunch_the_version_table(
 
 /// this function will
 ///     - check if the save version is the same as the current version
-///     - if not, trigger backward_comparability and update the version table
+///     - if not, trigger backward_compability and update the version table
 ///     - if yes, do nothing
 #[warn(unused_must_use)]
 async fn check_save_version_and_current_version(
@@ -187,6 +187,7 @@ async fn backward_comparability(
             "The version number is not correct".to_string(),
         ));
     }
+    // a version number is like [major].[minor].[patch]
     let major = version[0].parse::<i32>();
     let minor = version[1].parse::<i32>();
     let patch = version[2].parse::<i32>();
@@ -226,6 +227,13 @@ async fn backward_comparability(
     if major == 0 && minor == 3 && patch < 5 {
         backward::v0_3_x_to_0_3_5_database::upgrade(connection).await?;
         patch = 5;
+    }
+
+    // when moving fom 0.3.5, 0.3.6, to 0.3.7,
+    // we need to update the pinned clips table
+    if major == 0 && minor == 3 && patch < 7 {
+        backward::v0_3_x_to_0_3_7_database::upgrade(connection).await?;
+        patch = 7;
     }
 
     Ok(format!("{}.{}.{}", major, minor, patch))
@@ -295,8 +303,10 @@ async fn init_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
 async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
     // create the pinned clips table if it does not exist
     let res = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS pinned_clips (
-            id INTEGER PRIMARY KEY
+        "CREATE TABLE IF NOT EXISTS pinned_clips_new (
+            id INTEGER PRIMARY KEY,
+            text TEXT,
+            timestamp INTEGER
         )",
     )
     .fetch_optional(connection)
@@ -323,7 +333,7 @@ async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(),
     init_whole_list_of_ids(app).await?;
 
     // init pinned clips
-    init_pinned_clips_ids(app).await
+    init_pinned_clips(app).await
 }
 
 /// init the whole list of ids,
@@ -361,14 +371,15 @@ async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
 /// init the pinned clips
 ///
 /// this function will
-///    - get the pinned clips from the database
-///   - fill the pinned clips into the clips mutex
-async fn init_pinned_clips_ids(app: &AppHandle) -> Result<(), error::Error> {
+///     - get the pinned clips from the database
+///     - fill the pinned clips into the clips mutex
+///     - the order is based on the timestamp
+async fn init_pinned_clips(app: &AppHandle) -> Result<(), error::Error> {
     let clip_data_mutex = app.state::<ClipDataMutex>();
     let mut clip_data = clip_data_mutex.clip_data.lock().await;
 
     // get the pinned clips from the database
-    let res = sqlx::query("SELECT id FROM pinned_clips")
+    let res = sqlx::query("SELECT * FROM pinned_clips ORDER BY timestamp DESC")
         .fetch_all(clip_data.database_connection.as_ref().unwrap())
         .await;
     if let Err(err) = res {
@@ -381,7 +392,22 @@ async fn init_pinned_clips_ids(app: &AppHandle) -> Result<(), error::Error> {
         if let Err(err) = id {
             return Err(error::Error::GetPinnedClipsErr(err.to_string()));
         }
-        clip_data.clips.pinned_clips_ids.push(id.unwrap());
+        let text = row.try_get::<String, _>("text");
+        if let Err(err) = text {
+            return Err(error::Error::GetPinnedClipsErr(err.to_string()));
+        }
+        let timestamp = row.try_get::<i64, _>("timestamp");
+        if let Err(err) = timestamp {
+            return Err(error::Error::GetPinnedClipsErr(err.to_string()));
+        }
+        clip_data
+            .clips
+            .pinned_clips
+            .push(super::pinned::PinnedClip {
+                id: id.unwrap(),
+                text: Arc::new(text.unwrap()),
+                timestamp: timestamp.unwrap(),
+            });
     }
 
     Ok(())

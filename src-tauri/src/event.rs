@@ -80,13 +80,7 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
                 let page_len = page_len.config.lock().await.clip_per_page;
                 // get the number of pinned clips
                 let pinned_clips = app.state::<ClipDataMutex>();
-                let pinned_clips = pinned_clips
-                    .clip_data
-                    .lock()
-                    .await
-                    .clips
-                    .pinned_clips_ids
-                    .len();
+                let pinned_clips = pinned_clips.clip_data.lock().await.clips.pinned_clips.len();
                 let res = app
                     .tray_handle()
                     .set_menu(create_tray_menu(page_len, pinned_clips as i64));

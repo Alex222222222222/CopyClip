@@ -111,8 +111,7 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
     let mut clip_data = clip_data.clip_data.lock().await;
     for i in 0..clip_data.clips.whole_list_of_ids.len() {
         let id = clip_data.clips.whole_list_of_ids[i];
-        let clip = clip_data.get_clip(id).await?;
-        let clip = clip.lock().unwrap();
+        let clip = clip_data.get_normal_clip(Some(id)).await?;
         let c_json = clip.to_json_string();
         if let Err(e) = c_json {
             return Err(error::Error::ExportError(e.to_string()));

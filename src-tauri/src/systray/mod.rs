@@ -220,7 +220,9 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 let item_id = item_id.unwrap();
                 let item_id = *item_id;
 
-                let res = clips.select_clip(app, item_id).await;
+                let res = clips
+                    .select_clip(app, crate::clip::CurrentClip::Clip(item_id))
+                    .await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     drop(clips);
@@ -237,7 +239,7 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 // select the index
                 let clips = app_handle.state::<ClipDataMutex>();
                 let mut clips = clips.clip_data.lock().await;
-                let item_id = clips.clips.pinned_clips_ids.get(index as usize);
+                let item_id = clips.clips.pinned_clips.get(index as usize);
                 if item_id.is_none() {
                     warn!(
                         "Failed to get the item id for the pinned clip id: {}",
@@ -247,9 +249,11 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                     return;
                 }
                 let item_id = item_id.unwrap();
-                let item_id = *item_id;
+                let id = item_id.id;
 
-                let res = clips.select_clip(app, item_id).await;
+                let res = clips
+                    .select_clip(app, crate::clip::CurrentClip::PinnedClip(id))
+                    .await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     drop(clips);
