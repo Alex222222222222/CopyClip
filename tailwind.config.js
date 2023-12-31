@@ -1,7 +1,7 @@
 module.exports = {
     mode: 'all',
     darkMode: 'class',
-    purge: [
+    content: [
         "./src/**/*.rs",
         "./index.html",
         "./src/**/*.html",
