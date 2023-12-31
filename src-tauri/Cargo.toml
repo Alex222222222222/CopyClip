@@ -1,8 +1,11 @@
 [package]
-authors = ["you"]
-description = "A Tauri App"
+authors = [
+    "Zifan Hua <zifan.hua@icloud.com>",
+    "Chloe1222 <keyiwangcw@gmail.com>",
+]
+description = "A feature-rich clipboard manager for Windows, Linux and macOS."
 edition = "2021"
-license = ""
+license = "MIT"
 name = "copy_clip"
 repository = ""
 version = "0.3.7"
