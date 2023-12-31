@@ -34,7 +34,7 @@ jobs:
           sudo apt install -y libxcb-xkb-dev libxcb-xfixes0-dev
 
       - name: set up rust cache for macos and ubuntu
-        if : runner.os != 'windows-latest'
+        if : matrix.os != 'windows-latest'
         uses: actions/cache@v3
         with:
           path: |
@@ -44,34 +44,34 @@ jobs:
             ~/.cargo/git/db/
             target/
             src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: set up rust cache for windows
-        if : runner.os == 'windows-latest'
+        if : matrix.os == 'windows-latest'
         uses: actions/cache@v3
         with:
           path: |
             target\
             src-tauri\target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: set up npm cache for macos and ubuntu
         uses: actions/cache@v3
-        if : runner.os != 'windows-latest'
+        if : matrix.os != 'windows-latest'
         with:
           path: |
             node_modules
             ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ matrix.os }}-npm-${{ hashFiles('**/package-lock.json') }}
 
       - name: set up npm cache for windows
         uses: actions/cache@v3
-        if : runner.os == 'windows-latest'
+        if : matrix.os == 'windows-latest'
         with:
           path: |
             %AppData%\npm-cache
             node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ matrix.os }}-npm-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install minimal stable with clippy and rustfmt
         uses: actions-rs/toolchain@v1
@@ -96,7 +96,7 @@ jobs:
           trunk --version
       
       - name: Install wasm-opt for ubuntu and macos
-        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        if: matrix.os != 'windows-latest'
         continue-on-error: true
         run: |
             cargo install wasm-opt
