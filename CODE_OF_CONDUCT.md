@@ -23,12 +23,12 @@ but if any test failed, we will not merge your pull request.
 cargo test
 # cargo check
 cargo check
-# cargo fmt
-cargo fmt --all -- --check
 # cargo clippy for frontend
 cargo clippy --all-targets --all-features -- -D warnings
 # cargo clippy for backend
 cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings && cd ..
 # try to build the app
 cargo tauri build
+# cargo fmt
+cargo fmt --all -- --check
 ```
