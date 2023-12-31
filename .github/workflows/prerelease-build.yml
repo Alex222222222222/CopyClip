@@ -33,7 +33,8 @@ jobs:
           sudo apt install -y libxcb-xinerama0-dev libxcb-shape0-dev
           sudo apt install -y libxcb-xkb-dev libxcb-xfixes0-dev
 
-      - name: set up rust cache
+      - name: set up rust cache for macos and ubuntu
+        if : runner.os != 'windows-latest'
         uses: actions/cache@v3
         with:
           path: |
@@ -45,9 +46,18 @@ jobs:
             src-tauri/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: set up rust cache for windows
+        if : runner.os == 'windows-latest'
+        uses: actions/cache@v3
+        with:
+          path: |
+            target\
+            src-tauri\target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: set up npm cache for macos and ubuntu
         uses: actions/cache@v3
-        if : runner.os == 'ubuntu-latest' || runner.os == 'macos-latest'
+        if : runner.os != 'windows-latest'
         with:
           path: |
             node_modules
@@ -59,8 +69,8 @@ jobs:
         if : runner.os == 'windows-latest'
         with:
           path: |
-            %AppData%/npm-cache
-            ~/.npm
+            %AppData%\npm-cache
+            node_modules
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install minimal stable with clippy and rustfmt
@@ -78,14 +88,23 @@ jobs:
       - name: Install tauri-cli, trunk
         continue-on-error: true
         run: |
-            cargo install tauri-cli
-            cargo install trunk
+            cargo install tauri-cli trunk
+      
+      - name: Verify tauri-cli, trunk installation
+        run: |
+          cargo tauri --version
+          trunk --version
       
       - name: Install wasm-opt for ubuntu and macos
         if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         continue-on-error: true
         run: |
             cargo install wasm-opt
+      
+      - name: Verify wasm-opt installation for ubuntu and macos
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: |
+          wasm-opt --version
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
@@ -95,9 +114,10 @@ jobs:
         with:
           node-version: 'latest'
 
-      - name: set up tailwindcss
+      - name: Set up tailwindcss
         run: |
           npm install
+          npx tailwindcss --help
 
       - name: Create empty 'dist' directory
         run: mkdir dist
@@ -110,16 +130,16 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.os }}-prerelease
-          path: ./target/release/bundle/dmg
+          path: target/release/bundle/dmg
 
       - if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.os }}-prerelease
-          path: ./target/release/bundle/deb/
+          path: target/release/bundle/deb/
       
       - if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.os }}-prerelease
-          path: ./target/release/bundle/msi/
+          path: target\release\bundle\msi\

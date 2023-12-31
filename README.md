@@ -147,6 +147,15 @@ While building, there are some known issues on MacOS:
 
 ### Run
 
+To automatically rebuild the `TailwindCSS` when the source code changes,
+we need to run the following command in another terminal:
+
+```bash
+npx tailwindcss -w
+```
+
+Then, run the following command to start the app:
+
 ```bash
 cargo tauri dev
 ```
