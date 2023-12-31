@@ -761,10 +761,7 @@ impl ClipData {
 
         /// get pos of the clip in the pinned clips.
         /// if the clip is not in it, then return None
-        fn text_in_pinned_clips(
-            text: &String,
-            pinned_clips: &[pinned::PinnedClip],
-        ) -> Option<i64> {
+        fn text_in_pinned_clips(text: &String, pinned_clips: &[pinned::PinnedClip]) -> Option<i64> {
             for i in 0..pinned_clips.len() {
                 let pinned_clip = pinned_clips.get(i);
                 if pinned_clip.is_none() {
