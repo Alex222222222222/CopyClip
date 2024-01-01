@@ -26,7 +26,6 @@ pub fn preferences() -> Html {
                 <br />
                 <MaxClipLenConfig></MaxClipLenConfig>
                 <br />
-                // TODO add follow system theme
                 <DarkModeSwitch></DarkModeSwitch>
                 <br />
                 <AutoDeleteDuplications></AutoDeleteDuplications>

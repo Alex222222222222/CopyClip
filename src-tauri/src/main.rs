@@ -2,10 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use copy_clip::{
-    clip::{self, database::init_database_connection, ClipData, ClipDataMutex},
+    clip::{self, clip_data::ClipData, database::init_database_connection},
     config,
     config::{Config, ConfigMutex},
-    event::{event_daemon, CopyClipEvent, EventSender},
+    event::{event_daemon, event_sender, CopyClipEvent, EventSender},
     export,
     log::{panic_app, setup_logger},
     systray::handle_tray_event,
@@ -13,15 +13,15 @@ use copy_clip::{
 use log::info;
 use tauri::{async_runtime::Mutex, Manager, SystemTray};
 
+const EVENT_CHANNEL_SIZE: usize = 1000;
+
 fn main() {
     tauri::Builder::default()
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .manage(ConfigMutex {
             config: Mutex::<Config>::default(),
         })
-        .manage(ClipDataMutex {
-            clip_data: Mutex::<ClipData>::default(),
-        })
+        .manage(ClipData::default())
         .setup(|app| {
             // tx and rx is used to wait until the prepare finished
 
@@ -69,7 +69,8 @@ fn main() {
 
             // set up event sender and receiver
             let app_handle = app.handle();
-            let (event_tx, event_rx) = std::sync::mpsc::channel::<CopyClipEvent>();
+            let (event_tx, event_rx) =
+                tauri::async_runtime::channel::<CopyClipEvent>(EVENT_CHANNEL_SIZE);
             app.manage(EventSender::new(event_tx));
             // set up the event receiver daemon
             tauri::async_runtime::spawn(async move {
@@ -83,8 +84,8 @@ fn main() {
             });
 
             // initial the tray
-            let event = app.state::<EventSender>();
-            event.send(CopyClipEvent::RebuildTrayMenuEvent);
+            let app_handle = &app.handle();
+            event_sender(app_handle, CopyClipEvent::RebuildTrayMenuEvent);
 
             info!("app setup finished");
 

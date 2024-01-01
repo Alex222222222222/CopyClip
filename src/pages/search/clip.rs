@@ -5,7 +5,6 @@ use serde::Serialize;
 use yew::Properties;
 
 /// max len of the clip to do fuzzy search
-/// TODO change this to advanced config
 const MAX_LEN: usize = 2000;
 
 /// clip data

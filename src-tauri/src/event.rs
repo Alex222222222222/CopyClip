@@ -1,9 +1,10 @@
-use std::sync::{mpsc::Sender, Mutex};
+use log::error;
+use tauri::async_runtime::{Receiver, Sender};
 
 use tauri::{api::notification::Notification, AppHandle, Manager};
 
 use crate::{
-    clip::ClipDataMutex,
+    clip::clip_data::ClipData,
     config::ConfigMutex,
     log::{panic_app, LogLevel},
     systray::{create_tray_menu, handle_menu_item_click, send_tray_update_event},
@@ -38,34 +39,54 @@ pub enum CopyClipEvent {
 /// the sender is wrapped in a mutex to allow it to be used in multiple threads
 /// the mutex is locked when sending an event
 /// the sender should in pair with a receiver that is used in the event daemon
+#[derive(Clone)]
 pub struct EventSender {
-    tx: Mutex<Sender<CopyClipEvent>>,
+    pub tx: Sender<CopyClipEvent>,
 }
 
 impl EventSender {
     pub fn new(tx: Sender<CopyClipEvent>) -> Self {
-        Self { tx: Mutex::new(tx) }
+        Self { tx }
     }
 
-    pub fn send(&self, event: CopyClipEvent) {
-        let tx = self.tx.lock().unwrap();
-        tx.send(event).unwrap();
-        drop(tx);
+    pub async fn send(&self, event: CopyClipEvent) {
+        let res = self.tx.send(event).await;
+        if let Err(err) = res {
+            error!("Failed to send event, error: {}", err);
+            panic_app(&format!("Failed to send event, error: {}", err));
+        }
     }
+}
+
+/// Send an event to the event daemon
+///
+/// Will panic if the event cannot be sent
+pub fn event_sender(app: &AppHandle, event: CopyClipEvent) {
+    let event_sender = app.state::<EventSender>();
+    let tx = event_sender.tx.clone();
+    tauri::async_runtime::spawn(async move {
+        let res = tx.send(event).await;
+        if let Err(err) = res {
+            error!("Failed to send event, error: {}", err);
+            panic_app(&format!("Failed to send event, error: {}", err));
+        }
+    });
 }
 
 /// the event daemon
 /// the daemon is a loop that waits for events to be sent to it
-pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &AppHandle) {
+pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
     loop {
-        let event = rx.recv().unwrap();
+        let event = rx.recv().await;
+        if event.is_none() {
+            continue;
+        }
+        let event = event.unwrap();
         match event {
             // update the clips in the tray menu
             CopyClipEvent::TrayUpdateEvent => {
-                let clip_data = app.state::<ClipDataMutex>();
-                let mut clip_data = clip_data.clip_data.lock().await;
+                let clip_data = app.state::<ClipData>();
                 let res = clip_data.update_tray(app).await;
-                drop(clip_data);
                 if let Err(err) = res {
                     panic_app(&format!(
                         "Failed to update tray menu, error: {}",
@@ -79,8 +100,8 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
                 let page_len = app.state::<ConfigMutex>();
                 let page_len = page_len.config.lock().await.clip_per_page;
                 // get the number of pinned clips
-                let pinned_clips = app.state::<ClipDataMutex>();
-                let pinned_clips = pinned_clips.clip_data.lock().await.clips.pinned_clips.len();
+                let pinned_clips = app.state::<ClipData>();
+                let pinned_clips = pinned_clips.clips.lock().await.pinned_clips.len();
                 let res = app
                     .tray_handle()
                     .set_menu(create_tray_menu(page_len, pinned_clips as i64));
@@ -97,7 +118,7 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
             CopyClipEvent::PinnedClipsChangedEvent => {
                 // send rebuild tray menu event
                 let event = app.state::<EventSender>();
-                event.send(CopyClipEvent::RebuildTrayMenuEvent);
+                event.send(CopyClipEvent::RebuildTrayMenuEvent).await;
             }
             // save config event
             CopyClipEvent::SaveConfigEvent => {
@@ -115,10 +136,8 @@ pub async fn event_daemon(rx: std::sync::mpsc::Receiver<CopyClipEvent>, app: &Ap
             }
             // clipboard change event
             CopyClipEvent::ClipboardChangeEvent => {
-                let clip_data = app.state::<ClipDataMutex>();
-                let mut clip_data = clip_data.clip_data.lock().await;
+                let clip_data = app.state::<ClipData>();
                 let res = clip_data.update_clipboard(app).await;
-                drop(clip_data);
                 if let Err(err) = res {
                     panic_app(&format!(
                         "Failed to update clipboard, error: {}",

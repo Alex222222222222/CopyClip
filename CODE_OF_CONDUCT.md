@@ -3,6 +3,8 @@
 Any contribution is welcome.
 However, please follow the following rules:
 
+## General Rules
+
 Open pull request for any change.
 
 If you are fixing an existing issue or implementing a feature request,
@@ -13,6 +15,8 @@ so that we can understand your change easily.
 
 Signing off your commit is not required,
 but it is recommended.
+
+## Linting and Formatting
 
 Run the following test before opening a pull request.
 GitHub Actions will automatically run the following test for you
@@ -32,3 +36,10 @@ cargo tauri build
 # cargo fmt
 cargo fmt --all -- --check
 ```
+
+## Documentation
+
+Please write documentation for your code.
+
+If your `async` function tries to lock a mutex,
+please state it in the documentation.

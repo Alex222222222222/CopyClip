@@ -6,13 +6,13 @@ use tauri::{AppHandle, Manager};
 
 use crate::{config::ConfigMutex, error};
 
-use super::{Clip, ClipDataMutex};
+use super::{clip_data::ClipData, Clip};
 
 use sqlx::{sqlite::SqliteRow, Row};
 
 /// search for a clip in the database
-/// SELECT * FROM enrondata1 WHERE content MATCH 'linux';
-
+/// SELECT * FROM clips WHERE content MATCH 'linux';
+///
 /// get the clip data from a sqlite row
 /// this function will not test if the row is valid
 #[warn(unused_must_use)]
@@ -79,8 +79,10 @@ pub async fn fast_search(
     data: String,
     favourite: i64,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let clip_data = app.state::<ClipDataMutex>();
-    let clip_data = clip_data.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
     let res = if favourite == -1 {
         sqlx::query(
             "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?",
@@ -89,10 +91,10 @@ pub async fn fast_search(
             .bind(max_id)
             .bind(&data)
             .bind(limit)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap()).await
+            .fetch_all(db_connection.as_ref()).await
     } else {
         sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND text MATCH ? ORDER BY id DESC LIMIT ?").bind(min_id).bind(max_id).bind(favourite).bind(&data).bind(limit)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap()).await
+            .fetch_all(db_connection.as_ref()).await
     };
 
     if let Err(err) = res {
@@ -111,7 +113,7 @@ pub async fn fast_search(
 }
 
 /// normal search for a clip in the database
-/// SELECT count(*) FROM enrondata2 WHERE content LIKE '%linux%'
+/// SELECT count(*) FROM clips WHERE content LIKE '%linux%'
 /// will search for substring
 ///
 /// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
@@ -124,8 +126,10 @@ pub async fn normal_search(
     data: String,
     favourite: i64,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let clip_data = app.state::<ClipDataMutex>();
-    let clip_data = clip_data.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
     let res = if favourite == -1 {
         sqlx::query(
             "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
@@ -134,12 +138,12 @@ pub async fn normal_search(
         .bind(max_id)
         .bind("%".to_string() + data.as_str() + "%")
         .bind(limit)
-        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+        .fetch_all(db_connection.as_ref())
         .await
     } else {
         sqlx::query(            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND text Like ? ORDER BY id DESC LIMIT ?",
 ).bind(min_id).bind(max_id).bind(favourite).bind("%".to_string() + data.as_str() + "%").bind(limit)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap()).await
+            .fetch_all(db_connection.as_ref()).await
     };
 
     if let Err(err) = res {
@@ -170,8 +174,10 @@ pub async fn fuzzy_search(
     data: String,
     favourite: i64, // 0: not favourite, 1: favourite, -1: all
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let clip_data = app.state::<ClipDataMutex>();
-    let clip_data = clip_data.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
 
     let mut max_id = max_id;
     let mut count = 0;
@@ -182,7 +188,7 @@ pub async fn fuzzy_search(
             sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
                 .bind(min_id)
                 .bind(max_id)
-                .fetch_all(clip_data.database_connection.as_ref().unwrap())
+                .fetch_all(db_connection.as_ref())
                 .await
         } else {
             sqlx::query(
@@ -191,7 +197,7 @@ pub async fn fuzzy_search(
             .bind(min_id)
             .bind(max_id)
             .bind(favourite)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap())
+            .fetch_all(db_connection.as_ref())
             .await
         };
 
@@ -253,8 +259,10 @@ pub async fn regexp_search(
     }
     let re = re.unwrap();
 
-    let clip_data = app.state::<ClipDataMutex>();
-    let clip_data = clip_data.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
 
     let mut max_id = max_id;
     let mut count = 0;
@@ -265,7 +273,7 @@ pub async fn regexp_search(
             sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
                 .bind(min_id)
                 .bind(max_id)
-                .fetch_all(clip_data.database_connection.as_ref().unwrap())
+                .fetch_all(db_connection.as_ref())
                 .await
         } else {
             sqlx::query(
@@ -274,7 +282,7 @@ pub async fn regexp_search(
             .bind(max_id)
             .bind(min_id)
             .bind(favourite)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap())
+            .fetch_all(db_connection.as_ref())
             .await
         };
 
@@ -319,15 +327,17 @@ async fn empty_search(
     limit: i64,
     favourite: i64, // 0: not favourite, 1: favourite, -1: all
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let clip_data = app.state::<ClipDataMutex>();
-    let clip_data = clip_data.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
 
     let res = if favourite == -1 {
         sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT ?")
             .bind(min_id)
             .bind(max_id)
             .bind(limit)
-            .fetch_all(clip_data.database_connection.as_ref().unwrap())
+            .fetch_all(db_connection.as_ref())
             .await
     } else {
         sqlx::query(
@@ -337,7 +347,7 @@ async fn empty_search(
         .bind(max_id)
         .bind(favourite)
         .bind(limit)
-        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+        .fetch_all(db_connection.as_ref())
         .await
     };
 
@@ -361,14 +371,13 @@ async fn empty_search(
 /// get the max id of the clip in the database,
 /// if no clip in the database, return 0
 #[tauri::command]
-pub async fn get_max_id(clip_data: tauri::State<'_, ClipDataMutex>) -> Result<i64, error::Error> {
-    let clip_data = clip_data.clip_data.lock().await;
-    let res = clip_data.clips.whole_list_of_ids.last();
+pub async fn get_max_id(clip_data: tauri::State<'_, ClipData>) -> Result<i64, error::Error> {
+    let res = clip_data.get_latest_clip_id().await;
     if res.is_none() {
         return Ok(0);
     }
-    let res = res.unwrap();
-    Ok(*res)
+
+    Ok(res.unwrap())
 }
 
 /// search for a clip in the database

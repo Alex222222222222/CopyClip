@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{backward, error};
 
-use super::ClipDataMutex;
+use super::clip_data::ClipData;
 
 /// init the database connection and create the table
 /// also init the clips mutex
@@ -140,7 +140,7 @@ async fn first_lunch_the_version_table(
 
 /// this function will
 ///     - check if the save version is the same as the current version
-///     - if not, trigger backward_compability and update the version table
+///     - if not, trigger backward_compatibility and update the version table
 ///     - if yes, do nothing
 #[warn(unused_must_use)]
 async fn check_save_version_and_current_version(
@@ -324,16 +324,19 @@ async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), error::E
 ///     - init the whole list of ids
 async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(), error::Error> {
     // fill the connection into the clips mutex
-    let clip_data_mutex = app.state::<ClipDataMutex>();
-    let mut clip_data = clip_data_mutex.clip_data.lock().await;
-    clip_data.database_connection = Some(connection);
-    drop(clip_data);
+    let clip_data_connection = app.state::<ClipData>();
+    let mut clip_data_connection = clip_data_connection.database_connection.lock().await;
+    *clip_data_connection = Some(Arc::new(connection));
+    // drop otherwise deadlock
+    drop(clip_data_connection);
 
     // init the whole list of ids
-    init_whole_list_of_ids(app).await?;
+    let future1 = init_whole_list_of_ids(app);
 
     // init pinned clips
-    init_pinned_clips(app).await
+    init_pinned_clips(app).await?;
+
+    future1.await
 }
 
 /// init the whole list of ids,
@@ -342,13 +345,15 @@ async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(),
 ///     - get the whole clips ids
 ///     - fill the ids into the clips mutex
 async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
-    let clip_data_mutex = app.state::<ClipDataMutex>();
-    let mut clip_data = clip_data_mutex.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
 
     // get the whole clips ids
     let mut ids: Vec<i64> = Vec::new();
     let res = sqlx::query("SELECT id FROM clips")
-        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+        .fetch_all(db_connection.as_ref())
         .await;
     if let Err(err) = res {
         return Err(error::Error::GetWholeIdsErr(err.to_string()));
@@ -363,7 +368,9 @@ async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
         ids.push(id.unwrap());
     }
 
-    clip_data.clips.whole_list_of_ids = ids;
+    let clips = app.state::<ClipData>();
+    let mut clips = clips.clips.lock().await;
+    clips.whole_list_of_ids = ids;
 
     Ok(())
 }
@@ -375,12 +382,14 @@ async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
 ///     - fill the pinned clips into the clips mutex
 ///     - the order is based on the timestamp
 async fn init_pinned_clips(app: &AppHandle) -> Result<(), error::Error> {
-    let clip_data_mutex = app.state::<ClipDataMutex>();
-    let mut clip_data = clip_data_mutex.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
 
     // get the pinned clips from the database
-    let res = sqlx::query("SELECT * FROM pinned_clips ORDER BY timestamp DESC")
-        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+    let res = sqlx::query("SELECT * FROM pinned_clips ORDER BY timestamp ASC")
+        .fetch_all(db_connection.as_ref())
         .await;
     if let Err(err) = res {
         return Err(error::Error::GetPinnedClipsErr(err.to_string()));
@@ -400,26 +409,32 @@ async fn init_pinned_clips(app: &AppHandle) -> Result<(), error::Error> {
         if let Err(err) = timestamp {
             return Err(error::Error::GetPinnedClipsErr(err.to_string()));
         }
-        clip_data
-            .clips
-            .pinned_clips
-            .push(super::pinned::PinnedClip {
-                id: id.unwrap(),
-                text: Arc::new(text.unwrap()),
-                timestamp: timestamp.unwrap(),
-            });
+        let clips = app.state::<ClipData>();
+        let mut clips = clips.clips.lock().await;
+        clips.pinned_clips.push(super::pinned::PinnedClip {
+            id: id.unwrap(),
+            text: Arc::new(text.unwrap()),
+            timestamp: timestamp.unwrap(),
+        });
+        drop(clips);
     }
 
     Ok(())
 }
 
-/// get all the versions from the database
-/// in the format of Vec<id,String>
+/// Get all the versions from the database,
+/// in the format of Vec<id,String>.
+/// This function is used to export the data only.
+/// And should not be used to check the version of the database,
+/// when the app is launched.
 pub async fn get_all_versions(app: &AppHandle) -> Result<Vec<(i64, String)>, error::Error> {
-    let clip_data = app.state::<ClipDataMutex>();
-    let clip_data = clip_data.clip_data.lock().await;
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
+
     let res = sqlx::query("SELECT * FROM version")
-        .fetch_all(clip_data.database_connection.as_ref().unwrap())
+        .fetch_all(db_connection.as_ref())
         .await;
     if let Err(err) = res {
         return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));

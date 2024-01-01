@@ -4,7 +4,7 @@ use tauri::AppHandle;
 
 use crate::error;
 
-use super::{pinned::PinnedClip, Clip};
+use super::{clip_struct::Clip, pinned::PinnedClip};
 
 /// A clip is a piece of text that is copied to the clipboard
 /// require to implement Debug, Clone, Serialize, Deserialize, Default

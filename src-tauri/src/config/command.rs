@@ -44,8 +44,8 @@ pub async fn set_per_page_data<R: Runtime>(
     config.clip_per_page = data;
 
     let event_sender = app.state::<EventSender>();
-    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent);
-    event_sender.send(CopyClipEvent::SaveConfigEvent);
+    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
+    event_sender.send(CopyClipEvent::SaveConfigEvent).await;
 
     Ok(())
 }
@@ -88,8 +88,8 @@ pub async fn set_max_clip_len<R: Runtime>(
     config.clip_max_show_length = data;
 
     let event_sender = app.state::<EventSender>();
-    event_sender.send(CopyClipEvent::TrayUpdateEvent);
-    event_sender.send(CopyClipEvent::SaveConfigEvent);
+    event_sender.send(CopyClipEvent::TrayUpdateEvent).await;
+    event_sender.send(CopyClipEvent::SaveConfigEvent).await;
 
     Ok(())
 }
@@ -121,7 +121,7 @@ pub async fn set_log_level_filter(
     if log_level != config.log_level {
         config.log_level = log_level;
         let event_sender = app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::SaveConfigEvent);
+        event_sender.send(CopyClipEvent::SaveConfigEvent).await;
         // TODO add restart to take effect to description
     }
 
@@ -154,7 +154,7 @@ pub async fn set_dark_mode(
     if config.dark_mode != data {
         config.dark_mode = data;
         let event_sender = app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::SaveConfigEvent);
+        event_sender.send(CopyClipEvent::SaveConfigEvent).await;
     }
 
     Ok(())
@@ -216,7 +216,7 @@ pub async fn set_language(
     if config.language != data {
         config.language = data;
         let event_sender = app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::SaveConfigEvent);
+        event_sender.send(CopyClipEvent::SaveConfigEvent).await;
     }
 
     Ok(())
@@ -248,7 +248,7 @@ pub async fn set_auto_delete_duplicate_clip(
     if config.auto_delete_duplicate_clip != data {
         config.auto_delete_duplicate_clip = data;
         let event_sender = app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::SaveConfigEvent);
+        event_sender.send(CopyClipEvent::SaveConfigEvent).await;
     }
 
     Ok(())

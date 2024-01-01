@@ -742,6 +742,7 @@ dependencies = [
  "directories",
  "fern",
  "flate2",
+ "futures",
  "log",
  "moka",
  "once_cell",
@@ -752,6 +753,8 @@ dependencies = [
  "sublime_fuzzy",
  "tauri",
  "tauri-build",
+ "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]

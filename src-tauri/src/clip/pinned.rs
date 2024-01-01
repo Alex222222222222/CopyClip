@@ -15,8 +15,13 @@ use crate::error;
 /// );
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PinnedClip {
+    /// id of the pinned clip,
+    /// may be same with some normal clip id.
+    /// Need to be manually managed
     pub id: i64,
+    /// The text of the clip.
     pub text: Arc<String>,
+    /// in seconds
     pub timestamp: i64,
 }
 

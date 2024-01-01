@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::clip;
-use crate::clip::ClipDataMutex;
+use crate::clip::clip_data::ClipData;
 use crate::config::ConfigMutex;
 
 use crate::error;
@@ -107,11 +107,17 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
     }
 
     // the clips
-    let clip_data = app.state::<ClipDataMutex>();
-    let mut clip_data = clip_data.clip_data.lock().await;
-    for i in 0..clip_data.clips.whole_list_of_ids.len() {
-        let id = clip_data.clips.whole_list_of_ids[i];
+    let clip_data = app.state::<ClipData>();
+    let whole_list_of_ids_len = clip_data.get_whole_list_of_ids_len().await;
+    for i in 0..whole_list_of_ids_len {
+        let clips = clip_data.clips.lock().await;
+        let id = clips.whole_list_of_ids[i];
+        drop(clips);
         let clip = clip_data.get_normal_clip(Some(id)).await?;
+        if clip.is_none() {
+            continue;
+        }
+        let clip = clip.unwrap();
         let c_json = clip.to_json_string();
         if let Err(e) = c_json {
             return Err(error::Error::ExportError(e.to_string()));
@@ -127,7 +133,6 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
             return Err(error::Error::ExportError(e.to_string()));
         }
     }
-    drop(clip_data);
 
     let res = e.finish();
     if let Err(e) = res {
@@ -186,9 +191,11 @@ pub async fn export_data_invoke(
         return Err(err);
     }
 
-    event_sender.send(crate::event::CopyClipEvent::SendNotificationEvent(
-        "Export data successful.".to_string(),
-    ));
+    event_sender
+        .send(crate::event::CopyClipEvent::SendNotificationEvent(
+            "Export data successful.".to_string(),
+        ))
+        .await;
 
     Ok(())
 }

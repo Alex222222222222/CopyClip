@@ -16,7 +16,7 @@ use crate::{
     log::panic_app,
 };
 
-use log::debug;
+use log::{debug, error};
 
 /// the handler for the system clipboard change
 struct Handler<'a> {
@@ -30,8 +30,15 @@ impl ClipboardHandler for &mut Handler<'_> {
     /// try to read the clipboard, and if the clipboard is different from the last one, and current one update the app clips data
     fn on_clipboard_change(&mut self) -> CallbackResult {
         debug!("clipboard change");
-        let event_sender = self.app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::ClipboardChangeEvent);
+        let tx = self.app.state::<EventSender>();
+        let tx = tx.tx.clone();
+        tauri::async_runtime::spawn(async move {
+            let res = tx.send(CopyClipEvent::ClipboardChangeEvent).await;
+            if let Err(err) = res {
+                error!("Failed to send event, error: {}", err);
+                panic_app(&format!("Failed to send event, error: {}", err));
+            }
+        });
 
         CallbackResult::Next
     }
