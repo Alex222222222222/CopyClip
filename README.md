@@ -1,6 +1,33 @@
 # Copy Clip
 
-A MacOS app used to manage your clipboard history.
+A cross-platform and feature-rich app used to manage your clipboard history.
+
+## Disclaimer
+
+### Issues and Bugs
+
+This app is still under development,
+and have some known issues and known bugs.
+
+### Privacy
+
+This app only store your clipboard history locally,
+and will not send any data to any server.
+
+This is an open source project,
+you can check the source code to make sure that we are not doing anything bad.
+
+Or, if you are not familiar with rust,
+you can use [WireShark](https://www.wireshark.org/)
+or any other packet capture tools to monitor the network traffic of the app.
+
+Or, on MacOS, you can use the system `Activity Monitor`
+to monitor the network traffic of the app.
+![Activity Monitor](./docs/imgs/macos_system_activity_monitor.png)
+
+Or, on Windows, you can use the system `Task Manager`
+to monitor the network traffic of the app.
+![Task Manager](./docs/imgs/windows_system_task_manager.png)
 
 ## Feedbacks
 
@@ -20,10 +47,16 @@ This is some explanation for configurations in the app.
 | max clip length | 50 | when a clip is too long, we cut it to under max-clip-length to fit it into the tray |
 | log level filter | info | the log level of the app. `trace`, `info`, `debug`, `warn`, `error`, `off` from most detailed to less |
 | dark mode | off | switch the dark mode on and off |
+| Enable Auto Delete Duplications | false | if this is true, when a clip is copied, if it is already in the history, the history clip will be deleted |
+| Pinned Clips Add | None | Some text to be pinned |
+| Pinned Clips Remove | None | The text of the pinned clip that you want to remove |
 
 More configurations is on the way.
 
 ## Install
+
+The app supports MacOS, Windows and Ubuntu.
+For other Linux distributions, you can [build](#build) the app from source.
 
 ### MacOS
 
