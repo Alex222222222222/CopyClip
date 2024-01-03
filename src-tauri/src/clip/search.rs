@@ -1,12 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
+use log::debug;
 use regex::Regex;
 use sublime_fuzzy::best_match;
 use tauri::{AppHandle, Manager};
 
 use crate::{config::ConfigMutex, error};
 
-use super::{clip_data::ClipData, Clip};
+use super::{clip_data::ClipData, clip_struct::Clip};
 
 use sqlx::{sqlite::SqliteRow, Row};
 
@@ -45,6 +46,16 @@ fn clip_from_row(row: SqliteRow) -> Result<Clip, error::Error> {
     let favourite = favourite.unwrap();
     let favourite = favourite == 1;
 
+    let pinned = row.try_get::<i64, _>("pinned");
+    if let Err(err) = pinned {
+        return Err(error::Error::GetClipDataFromDatabaseErr(
+            id,
+            err.to_string(),
+        ));
+    }
+    let pinned = pinned.unwrap();
+    let pinned = pinned == 1;
+
     let timestamp = row.try_get::<i64, _>("timestamp");
     if let Err(err) = timestamp {
         return Err(error::Error::GetClipDataFromDatabaseErr(
@@ -59,6 +70,7 @@ fn clip_from_row(row: SqliteRow) -> Result<Clip, error::Error> {
         text: Arc::new(text),
         favourite,
         timestamp,
+        pinned,
     };
 
     Ok(clip)
@@ -98,6 +110,10 @@ pub async fn fast_search(
     };
 
     if let Err(err) = res {
+        debug!(
+            "failed to get clip from row, error message: {}",
+            err.to_string()
+        );
         return Err(error::Error::GetClipDataFromDatabaseErr(
             -1,
             err.to_string(),
@@ -105,7 +121,15 @@ pub async fn fast_search(
     }
     let mut clips = HashMap::new();
     for row in res.unwrap() {
-        let clip = clip_from_row(row)?;
+        let clip = clip_from_row(row);
+        if let Err(err) = clip {
+            debug!(
+                "failed to get clip from row, error message: {}",
+                err.to_string()
+            );
+            return Err(err);
+        }
+        let clip = clip.unwrap();
         clips.insert(clip.id, clip);
     }
 

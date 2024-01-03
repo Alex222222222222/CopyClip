@@ -27,6 +27,7 @@ mod copy_clip_button;
 mod favourite_button;
 mod fuzzy_search_text;
 mod order;
+mod pin_clip_button;
 mod search_clip;
 mod search_method;
 mod search_res_table;

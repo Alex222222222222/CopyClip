@@ -34,7 +34,7 @@ struct RemoveClipText {
     clip_text: String,
 }
 
-/// the struct to be passed to the add_remove_pinned_clip function
+/// the struct to be passed to the switch_pinned_status function
 /// action: 0 for add, 1 for remove
 #[derive(serde::Serialize, serde::Deserialize)]
 struct AddRemovePinnedClipsPros {
@@ -61,7 +61,7 @@ pub fn add_pinned_clips() -> Html {
         })
         .unwrap();
         spawn_local(async {
-            invoke("add_remove_pinned_clip", args).await;
+            invoke("switch_pinned_status", args).await;
         })
     });
 
@@ -111,7 +111,7 @@ pub fn remove_pinned_clips() -> Html {
         })
         .unwrap();
         spawn_local(async {
-            invoke("add_remove_pinned_clip", args).await;
+            invoke("switch_pinned_status", args).await;
         })
     });
 

@@ -5,9 +5,10 @@ use tauri::{
 };
 
 use crate::{
-    clip::{clip_data::ClipData, clip_id::ClipID},
+    clip::clip_data::ClipData,
+    config::ConfigMutex,
     event::{event_sender, CopyClipEvent, EventSender},
-    log::panic_app, config::ConfigMutex,
+    log::panic_app,
 };
 
 /// create the tray
@@ -193,7 +194,10 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             config.pause_monitoring = !config.pause_monitoring;
             drop(config);
             let event_sender = app.state::<EventSender>();
-            let res = event_sender.tx.send(CopyClipEvent::RebuildTrayMenuEvent).await;
+            let res = event_sender
+                .tx
+                .send(CopyClipEvent::RebuildTrayMenuEvent)
+                .await;
             if let Err(err) = res {
                 warn!("Failed to send event, error: {}", err);
             }
@@ -218,7 +222,7 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 drop(clips);
 
                 let clips = app_handle.state::<ClipData>();
-                let res = clips.select_clip(app, ClipID::Clip(item_id)).await;
+                let res = clips.select_clip(app, Some(item_id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;
@@ -243,11 +247,11 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                     return;
                 }
                 let item_id = item_id.unwrap();
-                let id = item_id.id;
+                let id = *item_id;
                 drop(clips);
 
                 let clips = app_handle.state::<ClipData>();
-                let res = clips.select_clip(app, ClipID::PinnedClip(id)).await;
+                let res = clips.select_clip(app, Some(id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;

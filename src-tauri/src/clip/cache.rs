@@ -48,4 +48,14 @@ impl ClipCache {
             self.insert(id, clip).await;
         }
     }
+
+    pub(super) async fn update_pinned_state(&self, id: i64, pinned: bool) {
+        // change the clip in the cache
+        let clip = self.get(id).await;
+        if let Some(mut clip) = clip {
+            clip.pinned = pinned;
+            // no need to wait for the result
+            self.insert(id, clip).await;
+        }
+    }
 }

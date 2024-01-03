@@ -16,6 +16,7 @@ pub struct Clip {
     pub favourite: bool,
     pub score: i64,
     pub len: u64,
+    pub pinned: bool,
 }
 
 impl Clip {
@@ -30,6 +31,7 @@ impl Clip {
                 timestamp: clip_res.timestamp,
                 favourite: clip_res.favourite,
                 score: 0,
+                pinned: clip_res.pinned,
             };
         }
 
@@ -46,6 +48,7 @@ impl Clip {
             text: Rc::new(clip_res.text),
             timestamp: clip_res.timestamp,
             favourite: clip_res.favourite,
+            pinned: clip_res.pinned,
             score,
         }
     }
@@ -58,6 +61,7 @@ pub struct ClipRes {
     pub text: String,
     pub timestamp: i64,
     pub favourite: bool,
+    pub pinned: bool,
 }
 
 /// search Result

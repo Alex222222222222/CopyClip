@@ -110,12 +110,13 @@ fn main() {
             config::command::get_auto_delete_duplicate_clip,
             config::command::set_auto_delete_duplicate_clip,
             export::export_data_invoke,
+            clip::switch_pinned_status,
             clip::copy_clip_to_clipboard,
             clip::delete_clip_from_database,
             clip::change_favourite_clip,
-            clip::add_remove_pinned_clip,
             clip::search::search_clips,
             clip::search::get_max_id,
+            clip::id_is_pinned,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

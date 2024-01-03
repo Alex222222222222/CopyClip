@@ -3,7 +3,6 @@ use yew::{function_component, html, Html};
 use crate::components::{
     head_bar::HeadBar,
     preferences::{
-        add_remove_pinned_clips::{AddPinnedClips, RemovePinnedClips},
         clips_per_page_config::ClipsPerPageConfig,
         clips_search_per_batch::SearchClipPerBatchConfig,
         dark_mode_switch::DarkModeSwitch,
@@ -12,6 +11,7 @@ use crate::components::{
         log_level_filter_config::LogLevelFilterConfig,
         max_clip_len_config::MaxClipLenConfig,
         set_auto_delete_duplications::AutoDeleteDuplications,
+        switch_pinned_status::{AddPinnedClips, RemovePinnedClips},
     },
 };
 

@@ -21,9 +21,11 @@ pub struct Clip {
     pub id: i64,
     ///  if the clip is a favourite 1 means true, 0 means false
     pub favourite: bool,
+    /// if the clip is pinned 1 means true, 0 means false
+    pub pinned: bool,
 }
 
-fn arc_string_deserialize<'de, D>(deserializer: D) -> Result<Arc<String>, D::Error>
+pub fn arc_string_deserialize<'de, D>(deserializer: D) -> Result<Arc<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -31,7 +33,7 @@ where
     Ok(Arc::new(s))
 }
 
-fn arc_string_serialize<S>(s: &Arc<String>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn arc_string_serialize<S>(s: &Arc<String>, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {

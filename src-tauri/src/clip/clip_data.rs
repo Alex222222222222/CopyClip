@@ -6,19 +6,17 @@ use crate::{
 };
 use std::sync::Arc;
 
-use super::{
-    cache::CACHED_CLIP, clip_id::ClipID, clip_struct::Clip, clip_type::ClipType, pinned::PinnedClip,
-};
+use super::{cache::CACHED_CLIP, clip_struct::Clip};
 use log::debug;
 use once_cell::sync::Lazy;
 use sqlx::{Row, SqlitePool};
 use tauri::{async_runtime::Mutex, AppHandle, ClipboardManager, Manager};
 use unicode_segmentation::UnicodeSegmentation;
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct Clips {
     /// the id of the current clip
-    pub current_clip: ClipID,
+    pub current_clip: Option<i64>,
     /// the current page
     pub current_page: usize,
     /// the ids of all the clips, well sorted               
@@ -26,19 +24,7 @@ pub struct Clips {
     /// the ids of the current displayed clips, the same order with the order displayed in the tray     
     pub tray_ids_map: Vec<i64>,
     /// the pinned clips
-    pub pinned_clips: Vec<PinnedClip>,
-}
-
-impl Default for Clips {
-    fn default() -> Self {
-        Self {
-            current_clip: ClipID::None,
-            current_page: 0,
-            whole_list_of_ids: Default::default(),
-            tray_ids_map: Default::default(),
-            pinned_clips: Default::default(),
-        }
-    }
+    pub pinned_clips: Vec<i64>,
 }
 
 /// The clip data to be shared between threads
@@ -89,7 +75,7 @@ impl ClipData {
     ///     - change the clip in the database
     ///
     /// Will try lock `database_connection`.
-    pub async fn change_favourite_clip(&self, id: i64, target: bool) -> Result<(), Error> {
+    pub async fn change_clip_favourite_status(&self, id: i64, target: bool) -> Result<(), Error> {
         // change the clip in the cache
         // no need to wait for the result
         CACHED_CLIP.update_favourite_state(id, target).await;
@@ -118,6 +104,60 @@ impl ClipData {
         Ok(())
     }
 
+    /// change the clip pinned state to the target state
+    ///     - change the clip in the cache
+    ///     - change the clip in the database
+    ///     - edit the clips.pinned_clips to add or remove the id
+    ///
+    /// Will try lock `database_connection` and `clips`.
+    pub async fn change_clip_pinned_status(&self, id: i64, target: bool) -> Result<(), Error> {
+        // change the clip in the cache
+        // no need to wait for the result
+        CACHED_CLIP.update_pinned_state(id, target).await;
+
+        // change the clip in the database
+        let db_connection_mutex = self.database_connection.lock().await;
+        let db_connection = db_connection_mutex.clone().unwrap();
+        drop(db_connection_mutex);
+        let res = sqlx::query("UPDATE clips SET pinned = ? WHERE id = ?")
+            .bind(target)
+            .bind(id)
+            .fetch_optional(db_connection.as_ref())
+            .await;
+        if let Err(err) = res {
+            return Err(Error::UpdateClipsInDatabaseErr(
+                format!(
+                    "toggle clip pinned state of id: {} to pinned state:{}",
+                    id, target
+                ),
+                err.to_string(),
+            ));
+        }
+
+        // edit the pinned clips slot in the tray
+        if target {
+            // decide whether the id is in the pinned_clips vector list
+            let mut clips = self.clips.lock().await;
+            let res = clips.pinned_clips.binary_search(&id);
+            if res.is_err() {
+                // if the id is not in the pinned_clips vector list, then add it to the list
+                clips.pinned_clips.push(id);
+                // sort
+                clips.pinned_clips.sort();
+            }
+        } else {
+            // decide whether the id is in the pinned_clips vector list
+            let mut clips = self.clips.lock().await;
+            let res = clips.pinned_clips.binary_search(&id);
+            if let Ok(pos) = res {
+                // if the id is in the pinned_clips vector list, then remove it from the list
+                clips.pinned_clips.remove(pos);
+            }
+        }
+
+        Ok(())
+    }
+
     /// Delete a clip from the database and the cache,
     /// this method will not delete any pinned clip.
     ///
@@ -126,7 +166,7 @@ impl ClipData {
     /// Will try lock `database_connection` and `clips`.
     ///
     /// Will not trigger a tray update event.
-    pub async fn delete_normal_clip(&self, mut id: Option<i64>) -> Result<(), Error> {
+    pub async fn delete_clip(&self, mut id: Option<i64>) -> Result<(), Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
             id = self.get_latest_clip_id().await;
@@ -154,26 +194,24 @@ impl ClipData {
         }
 
         // delete from the whole list of ids
-        // if the clip is the current clip, then change the current clip to most recent clip
-        let pos = self.get_id_pos_in_whole_list_of_ids(Some(id)).await;
-        if pos.is_none() {
-            // no need to delete
-            return Ok(());
-        }
+        // get the position of the id in the whole list of ids
+        // return if current clip is pinned clip
         let mut clips = self.clips.lock().await;
-        let pos = pos.unwrap();
-        if pos as usize >= clips.whole_list_of_ids.len() {
-            return Ok(());
-        }
-        if clips.current_clip.is_clip() {
-            let id_c = clips.current_clip.get_id();
-            if let Some(id_c) = id_c {
-                if id == id_c {
-                    clips.current_clip = ClipID::None;
-                }
+        if let Some(id_c) = clips.current_clip {
+            if id_c == id {
+                clips.current_clip = None;
             }
         }
-        clips.whole_list_of_ids.remove(pos as usize);
+
+        let whole_list_index = clips.whole_list_of_ids.binary_search(&id);
+        let pinned_list_index = clips.pinned_clips.binary_search(&id);
+        if let Ok(whole_list_index) = whole_list_index {
+            clips.whole_list_of_ids.remove(whole_list_index);
+        }
+
+        if let Ok(pinned_list_index) = pinned_list_index {
+            clips.pinned_clips.remove(pinned_list_index);
+        }
 
         Ok(())
     }
@@ -188,15 +226,14 @@ impl ClipData {
         clips.current_page = 0;
     }
 
-    /// Get the clip with id.
+    /// Get a clip by id
     ///
-    /// If the given id is none, it will return the latest clip.
-    /// If no clip with id exist, it will return None.
-    /// The clip id should not be a pinned clip id.
+    /// Get the latest clip if the id is none.
+    /// None if the clip is not found.
     ///
     /// Will try lock `database_connection` and `clips`.
     #[warn(unused_must_use)]
-    pub async fn get_normal_clip(&self, mut id: Option<i64>) -> Result<Option<Clip>, Error> {
+    pub async fn get_clip(&self, mut id: Option<i64>) -> Result<Option<Clip>, Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
             id = self.get_latest_clip_id().await;
@@ -253,66 +290,24 @@ impl ClipData {
         }
         let favourite = favourite.unwrap() == 1;
 
+        let pinned = res.try_get::<i64, _>("pinned");
+        if let Err(err) = pinned {
+            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
+        }
+        let pinned = pinned.unwrap() == 1;
+
         let clip = Clip {
             text: Arc::new(text.unwrap()),
             timestamp: timestamp.unwrap(),
             id,
             favourite,
+            pinned,
         };
 
         // add the clip to the cache
         CACHED_CLIP.insert(id, clip.clone()).await;
 
         Ok(clip.into())
-    }
-
-    /// Get a pinned clip with id
-    ///
-    /// If no clip with id exist, it will try return None.
-    ///
-    /// Will try lock `clips`.
-    #[warn(unused_must_use)]
-    pub async fn get_pinned_clip(&self, id: i64) -> Result<Option<PinnedClip>, Error> {
-        let clips = self.clips.lock().await;
-        for clip in clips.pinned_clips.iter() {
-            if clip.id == id {
-                return Ok(clip.clone().into());
-            }
-        }
-
-        Ok(None)
-    }
-
-    /// Get a clip by id
-    ///
-    /// None if the clip is not found.
-    ///
-    /// Will try lock `database_connection` and `clips`.
-    #[warn(unused_must_use)]
-    pub async fn get_clip(&self, id: ClipID) -> Result<Option<ClipType>, Error> {
-        match id {
-            ClipID::Clip(id) => {
-                let clip = self.get_normal_clip(Some(id)).await?;
-                if clip.is_none() {
-                    return Ok(None);
-                }
-                Ok(Some(ClipType::Clip(clip.unwrap())))
-            }
-            ClipID::PinnedClip(id) => {
-                let clip = self.get_pinned_clip(id).await?;
-                if clip.is_none() {
-                    return Ok(None);
-                }
-                Ok(Some(ClipType::PinnedClip(clip.unwrap())))
-            }
-            ClipID::None => {
-                let clip = self.get_normal_clip(None).await?;
-                if clip.is_none() {
-                    return Ok(None);
-                }
-                Ok(Some(ClipType::Clip(clip.unwrap())))
-            }
-        }
     }
 
     /// Get the position of the clip in the whole list of ids.
@@ -340,7 +335,7 @@ impl ClipData {
     /// Get the clip data if current clip is not pinned clip,
     ///
     /// Will try lock `database_connection` and `clips`.
-    pub async fn get_current_clip(&self) -> Result<Option<ClipType>, Error> {
+    pub async fn get_current_clip(&self) -> Result<Option<Clip>, Error> {
         let clips = self.clips.lock().await;
         let current = clips.current_clip;
         drop(clips);
@@ -359,11 +354,9 @@ impl ClipData {
         let current = clips.current_clip;
         drop(clips);
 
-        if current.is_pinned_clip() {
-            return None;
-        }
+        current?;
 
-        self.get_clip_pos(current.get_id()).await
+        self.get_clip_pos(current).await
     }
 
     /// Get the position of the id in the whole list of ids
@@ -417,10 +410,7 @@ impl ClipData {
             1
         };
 
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let timestamp = get_system_timestamp();
 
         let db_connection_mutex = app.state::<ClipData>();
         let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
@@ -447,6 +437,7 @@ impl ClipData {
             timestamp,
             id,
             favourite: false,
+            pinned: false,
         };
 
         // add the clip to the cache
@@ -456,7 +447,7 @@ impl ClipData {
         clips.whole_list_of_ids.push(id);
 
         // change the current clip to the last one
-        clips.current_clip = ClipID::Clip(id);
+        clips.current_clip = Some(id);
 
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().await;
@@ -467,7 +458,7 @@ impl ClipData {
         drop(config);
 
         debug!("Start auto delete duplicate clip");
-        let res = sqlx::query("SELECT id FROM clips WHERE text = ?")
+        let res = sqlx::query("SELECT id, favourite, pinned FROM clips WHERE text = ?")
             .bind(&text1)
             .fetch_all(db_connection.as_ref())
             .await;
@@ -478,19 +469,41 @@ impl ClipData {
         if res.len() <= 1 {
             return Ok(id);
         }
-        let mut ids_to_delete = Vec::new();
+        let mut ids_to_delete: Vec<i64> = Vec::new();
         let c = clips.current_clip;
         drop(clips);
+        let mut is_favourite = false;
+        let mut is_pinned = false;
         for row in res {
-            let id: i64 = row.try_get("id").unwrap();
-            if ClipID::Clip(id) == c {
-                continue;
+            let id = row.try_get("id");
+            if let Ok(id) = id {
+                if Some(id) == c {
+                    continue;
+                }
+                ids_to_delete.push(id);
             }
-            ids_to_delete.push(id);
+            let favourite: Result<i64, sqlx::Error> = row.try_get("favourite");
+            if let Ok(favourite) = favourite {
+                if favourite == 1 {
+                    is_favourite = true;
+                }
+            }
+            let pinned: Result<i64, sqlx::Error> = row.try_get("pinned");
+            if let Ok(pinned) = pinned {
+                if pinned == 1 {
+                    is_pinned = true;
+                }
+            }
+        }
+        if is_favourite {
+            self.change_clip_favourite_status(id, true).await?;
+        }
+        if is_pinned {
+            self.change_clip_pinned_status(id, true).await?;
         }
         for id in ids_to_delete {
             debug!("Delete duplicate clip id: {}", id);
-            self.delete_normal_clip(Some(id)).await?;
+            self.delete_clip(Some(id)).await?;
         }
 
         Ok(id)
@@ -525,13 +538,15 @@ impl ClipData {
     /// Change the clipboard to the selected clip,
     /// and also change the current clip to the selected clip
     ///
+    /// If id is None, then change to the latest clip.
+    ///
     /// Will try `lock database_connection` and `clips`.
     #[warn(unused_must_use)]
-    pub async fn select_clip(&self, app: &AppHandle, id: ClipID) -> Result<(), Error> {
+    pub async fn select_clip(&self, app: &AppHandle, id: Option<i64>) -> Result<(), Error> {
         // try get the clip
         let c = self.get_clip(id).await?;
         if c.is_none() {
-            debug!("The requested ClipID: {} is not found", id);
+            debug!("The requested ClipID: {:?} is not found", id);
             return Ok(());
         }
         let c = c.unwrap();
@@ -595,7 +610,7 @@ impl ClipData {
         // get the current clip text
         let current_clip = self.get_current_clip().await?;
         let current_clip_text = if let Some(current_clip_text) = current_clip {
-            current_clip_text.get_text()
+            current_clip_text.text
         } else {
             Arc::new("".to_string())
         };
@@ -624,7 +639,7 @@ impl ClipData {
         *last_clip = clipboard_clip_text;
         drop(last_clip);
         let mut clips = self.clips.lock().await;
-        clips.current_clip = ClipID::Clip(id);
+        clips.current_clip = Some(id);
         drop(clips);
 
         // update the tray
@@ -672,7 +687,7 @@ impl ClipData {
         current_page: i64,
     ) -> Result<(), Error> {
         // get the current page clips
-        let mut current_page_clips: Vec<ClipType> = Vec::new();
+        let mut current_page_clips: Vec<Clip> = Vec::new();
         for i in 0..clips_per_page {
             let pos = whole_list_of_ids_len as i64 - (current_page * clips_per_page + i + 1);
             if pos < 0 {
@@ -685,7 +700,7 @@ impl ClipData {
             }
             let clip_id: i64 = *clip_id.unwrap();
             drop(clips);
-            let clip = self.get_clip(ClipID::Clip(clip_id)).await?;
+            let clip = self.get_clip(Some(clip_id)).await?;
             if clip.is_none() {
                 break;
             }
@@ -707,14 +722,14 @@ impl ClipData {
             }
             let c = c.unwrap();
 
-            let text = c.get_text();
+            let text = c.text.clone();
             let text = trim_clip_text(text, max_clip_length);
             let res = tray_clip_sub_menu.set_title(text);
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
             let mut clips = self.clips.lock().await;
-            clips.tray_ids_map.push(c.get_id());
+            clips.tray_ids_map.push(c.id);
             drop(clips);
         }
 
@@ -782,8 +797,14 @@ impl ClipData {
                 continue;
             }
             let pinned_clip = pinned_clip.unwrap();
-            let pinned_clip_text = pinned_clip.text.clone();
+            let pinned_clip = *pinned_clip;
             drop(clips);
+            let pinned_clip = self.get_clip(Some(pinned_clip)).await?;
+            if pinned_clip.is_none() {
+                continue;
+            }
+            let pinned_clip = pinned_clip.unwrap();
+            let pinned_clip_text = pinned_clip.text.clone();
             let pinned_clip_text = trim_clip_text(pinned_clip_text, max_clip_length);
             let pinned_clip_id = "pinned_clip_".to_string() + &i.to_string();
             let pinned_clip_item: tauri::SystemTrayMenuItemHandle =
@@ -852,124 +873,6 @@ impl ClipData {
         update_page_info_res.await?;
         update_pinned_res.await?;
         update_normal_res.await?;
-
-        Ok(())
-    }
-
-    /// Get the position of the pinned clip in the pinned clips with text.
-    ///
-    /// If the clip is not in the pinned clips, then return None.
-    ///
-    /// Will try lock `clips`.
-    ///
-    /// As text do not have any order, we have to do a linear search.
-    async fn get_pos_of_pinned_clips_text(&self, text: Arc<String>) -> Option<usize> {
-        let clips = self.clips.lock().await;
-        for (i, pinned_clip) in clips.pinned_clips.iter().enumerate() {
-            if pinned_clip.text == text {
-                return Some(i);
-            }
-        }
-
-        None
-    }
-
-    /// New a pinned clip in the database and return the id of the new pinned clip
-    ///     - insert the pinned clip to the database
-    ///     - insert the pinned clip to the pinned clips
-    ///     - will not update the tray
-    ///
-    /// Will try lock `database_connection` and `clips`.
-    pub async fn add_pinned_clips(&self, text: Arc<String>) -> Result<(), Error> {
-        debug!("Add clip to pinned clips");
-        // if the clip is already in the pinned clips, then return
-        let text1 = text.clone();
-        if self.get_pos_of_pinned_clips_text(text1).await.is_some() {
-            debug!("Clip is already in pinned clips, not adding it");
-            return Ok(());
-        }
-
-        // if the clip is not in the pinned clips, then add it to the database pinned_clips
-        let timestamp = get_system_timestamp();
-
-        debug!("Insert clip into database");
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
-        let text1 = text.clone();
-        let res = sqlx::query("INSERT INTO pinned_clips (text, timestamp) VALUES (?, ?)")
-            .bind(&(*text))
-            .bind(timestamp)
-            .fetch_optional(db_connection.as_ref())
-            .await;
-        let text2 = text1.clone();
-        if let Err(err) = res {
-            return Err(Error::InsertClipIntoDatabaseErr(
-                format!("insert clip text: {} into pinned clips", text1),
-                err.to_string(),
-            ));
-        }
-
-        // get the id of the clip
-        let res = sqlx::query("SELECT id FROM pinned_clips ORDER BY id DESC LIMIT 1")
-            .fetch_optional(db_connection.as_ref())
-            .await;
-        if let Err(err) = res {
-            return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-        }
-
-        if let Some(row) = res.unwrap() {
-            let id: i64 = row.get("id");
-
-            let pinned_clip = PinnedClip {
-                id,
-                text: text2,
-                timestamp,
-            };
-
-            debug!("Add clip to pinned clips");
-            let mut clips = self.clips.lock().await;
-            clips.pinned_clips.push(pinned_clip);
-        } else {
-            return Err(Error::GetClipDataFromDatabaseErr(
-                -1,
-                "no pinned clip obtained, but we expected to have inserted one".to_string(),
-            ));
-        }
-
-        Ok(())
-    }
-
-    /// Remove a pinned clip from the database and the pinned clips
-    ///     - remove the pinned clip from the database
-    ///     - remove the pinned clip from the pinned clips
-    ///     - will not update the tray
-    ///
-    /// Will try lock `database_connection` and `clips`.
-    pub async fn remove_pinned_clip(&self, text: Arc<String>) -> Result<(), Error> {
-        let text1 = text.clone();
-        let index = self.get_pos_of_pinned_clips_text(text1).await;
-        // if the clip is not in the pinned clips, then return
-        if index.is_none() {
-            return Ok(());
-        }
-
-        // if the clip is in the pinned clips, then remove it from the pinned clips
-        let mut clips = self.clips.lock().await;
-        clips.pinned_clips.remove(index.unwrap() as usize);
-        drop(clips);
-
-        // remove the clip from database
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
-        let res = sqlx::query("DELETE FROM pinned_clips WHERE text = ?")
-            .bind(&(*text))
-            .fetch_optional(db_connection.as_ref())
-            .await;
-        if let Err(err) = res {
-            return Err(Error::DeleteClipFromDatabaseErr(-1, err.to_string()));
-        }
 
         Ok(())
     }

@@ -1,15 +1,17 @@
 use std::{sync::Arc, time::Duration};
 
+use log::debug;
 use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use tauri::{AppHandle, Manager};
 
-use crate::{backward, error};
+use crate::backward;
+use crate::error::Error;
 
 use super::clip_data::ClipData;
 
 /// init the database connection and create the table
 /// also init the clips mutex
-pub async fn init_database_connection(app: &AppHandle) -> Result<(), error::Error> {
+pub async fn init_database_connection(app: &AppHandle) -> Result<(), Error> {
     // get the app data dir
     let app_data_dir = get_and_create_app_data_dir(app);
     let app_data_dir = app_data_dir?;
@@ -33,18 +35,18 @@ pub async fn init_database_connection(app: &AppHandle) -> Result<(), error::Erro
 }
 
 /// get the app data dir and create it if it does not exist
-fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, error::Error> {
+fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, Error> {
     // get the app data dir
     let app_data_dir = app.path_resolver().app_data_dir();
     if app_data_dir.is_none() {
-        return Err(error::Error::GetAppDataDirErr);
+        return Err(Error::GetAppDataDirErr);
     }
     let app_data_dir = app_data_dir.unwrap();
 
     // if the app data dir does not exist, create it
     if !app_data_dir.exists() {
         if let Err(err) = std::fs::create_dir_all(app_data_dir.as_path()) {
-            return Err(error::Error::CreateAppDataDirErr(err.to_string()));
+            return Err(Error::CreateAppDataDirErr(err.to_string()));
         }
     }
 
@@ -55,7 +57,7 @@ fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, er
 async fn get_and_create_database(
     app_data_dir: std::path::PathBuf,
     connection_num: u32,
-) -> Result<SqlitePool, error::Error> {
+) -> Result<SqlitePool, Error> {
     // create the database dir if it does not exist
     let database_path = app_data_dir.join("database");
 
@@ -63,7 +65,7 @@ async fn get_and_create_database(
     if !database_path.exists() {
         // create database file
         if let Err(err) = std::fs::File::create(database_path.as_path()) {
-            return Err(error::Error::OpenDatabaseErr(err.to_string()));
+            return Err(Error::OpenDatabaseErr(err.to_string()));
         }
     }
 
@@ -72,7 +74,7 @@ async fn get_and_create_database(
         .idle_timeout(Duration::from_secs(1))
         .connect_lazy(database_path.to_str().unwrap());
     if let Err(err) = connection {
-        return Err(error::Error::OpenDatabaseErr(err.to_string()));
+        return Err(Error::OpenDatabaseErr(err.to_string()));
     }
 
     let connection = connection.unwrap();
@@ -81,10 +83,10 @@ async fn get_and_create_database(
 }
 
 /// get the current version from the tauri config
-fn get_current_version(app: &AppHandle) -> Result<String, error::Error> {
+fn get_current_version(app: &AppHandle) -> Result<String, Error> {
     let current_version = app.config().package.version.clone();
     if current_version.is_none() {
-        return Err(error::Error::GetVersionFromTauriErr);
+        return Err(Error::GetVersionFromTauriErr);
     }
     Ok(current_version.unwrap())
 }
@@ -93,7 +95,7 @@ fn get_current_version(app: &AppHandle) -> Result<String, error::Error> {
 /// if there is no version, it is the first time the app is launched and return is 0.0.0
 ///
 /// this function does not test validity of the version in the database
-async fn get_save_version(connection: &SqlitePool) -> Result<String, error::Error> {
+async fn get_save_version(connection: &SqlitePool) -> Result<String, Error> {
     // get the latest version, if it exists
     // if not exists, it is the first time the app is launched return 0.0.0
 
@@ -102,7 +104,7 @@ async fn get_save_version(connection: &SqlitePool) -> Result<String, error::Erro
             .fetch_optional(connection)
             .await;
     if let Err(err) = res {
-        return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
+        return Err(Error::GetVersionFromDatabaseErr(err.to_string()));
     }
     let res = res.unwrap();
     if let Some(res) = res {
@@ -120,7 +122,7 @@ async fn get_save_version(connection: &SqlitePool) -> Result<String, error::Erro
 async fn first_lunch_the_version_table(
     connection: &SqlitePool,
     app: &AppHandle,
-) -> Result<(), error::Error> {
+) -> Result<(), Error> {
     let current_version = get_current_version(app)?;
 
     let res = sqlx::query("INSERT INTO version (version) VALUES (?)")
@@ -129,10 +131,7 @@ async fn first_lunch_the_version_table(
         .await;
 
     if let Err(err) = res {
-        return Err(error::Error::InsertVersionErr(
-            current_version,
-            err.to_string(),
-        ));
+        return Err(Error::InsertVersionErr(current_version, err.to_string()));
     }
 
     Ok(())
@@ -147,8 +146,11 @@ async fn check_save_version_and_current_version(
     save_version: String,
     connection: &SqlitePool,
     app: &AppHandle,
-) -> Result<(), error::Error> {
+) -> Result<(), Error> {
     let current_version = get_current_version(app)?;
+
+    debug!("save version: {}", save_version);
+    debug!("current version: {}", current_version);
 
     if current_version == save_version {
         return Ok(());
@@ -164,10 +166,7 @@ async fn check_save_version_and_current_version(
         .fetch_optional(connection)
         .await;
     if let Err(err) = res {
-        return Err(error::Error::InsertVersionErr(
-            current_version,
-            err.to_string(),
-        ));
+        return Err(Error::InsertVersionErr(current_version, err.to_string()));
     }
 
     Ok(())
@@ -179,11 +178,11 @@ async fn backward_comparability(
     app: &AppHandle,
     connection: &SqlitePool,
     save_version: String,
-) -> Result<String, error::Error> {
+) -> Result<String, Error> {
     // get the three version number from save_version
     let version = save_version.split('.').collect::<Vec<&str>>();
     if version.len() != 3 {
-        return Err(error::Error::GetVersionFromDatabaseErr(
+        return Err(Error::GetVersionFromDatabaseErr(
             "The version number is not correct".to_string(),
         ));
     }
@@ -193,7 +192,7 @@ async fn backward_comparability(
     let patch = version[2].parse::<i32>();
 
     if major.is_err() || minor.is_err() || patch.is_err() {
-        return Err(error::Error::GetVersionFromDatabaseErr(
+        return Err(Error::GetVersionFromDatabaseErr(
             "The version number is not correct".to_string(),
         ));
     }
@@ -236,6 +235,15 @@ async fn backward_comparability(
         patch = 7;
     }
 
+    debug!("current version: {}.{}.{}", major, minor, patch);
+
+    // when moving from 0.3.7 to 0.3.8,
+    // we need to update the pinned clips table
+    if major == 0 && minor == 3 && patch < 8 {
+        backward::v0_3_7_to_0_3_8_database::upgrade(connection).await?;
+        patch = 8;
+    }
+
     Ok(format!("{}.{}.{}", major, minor, patch))
 }
 
@@ -248,7 +256,7 @@ async fn backward_comparability(
 ///     - if the save version is not 0.0.0, check if the save version is the same as the current version
 ///     - if not, trigger backward_comparability and update the version table
 #[warn(unused_must_use)]
-async fn init_version_table(connection: &SqlitePool, app: &AppHandle) -> Result<(), error::Error> {
+async fn init_version_table(connection: &SqlitePool, app: &AppHandle) -> Result<(), Error> {
     // create the version table if it does not exist
     let res = sqlx::query(
         "CREATE TABLE IF NOT EXISTS version (id INTEGER PRIMARY KEY AUTOINCREMENT, version TEXT)",
@@ -256,7 +264,7 @@ async fn init_version_table(connection: &SqlitePool, app: &AppHandle) -> Result<
     .fetch_optional(connection)
     .await;
     if let Err(err) = res {
-        return Err(error::Error::CreateVersionTableErr(err.to_string()));
+        return Err(Error::CreateVersionTableErr(err.to_string()));
     }
 
     // try get the save version
@@ -277,7 +285,7 @@ async fn init_version_table(connection: &SqlitePool, app: &AppHandle) -> Result<
 /// this function will
 ///     - create the clips table if it does not exist
 #[warn(unused_must_use)]
-async fn init_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
+async fn init_clips_table(connection: &SqlitePool) -> Result<(), Error> {
     // create the clips table if it does not exist
     let res = sqlx::query(
         "CREATE VIRTUAL TABLE IF NOT EXISTS clips USING fts4(
@@ -290,7 +298,7 @@ async fn init_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
     .fetch_optional(connection)
     .await;
     if let Err(err) = res {
-        return Err(error::Error::CreateClipsTableErr(err.to_string()));
+        return Err(Error::CreateClipsTableErr(err.to_string()));
     }
     Ok(())
 }
@@ -300,7 +308,7 @@ async fn init_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
 // this function will
 //     - create the pinned clips table if it does not exist
 #[warn(unused_must_use)]
-async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), error::Error> {
+async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), Error> {
     // create the pinned clips table if it does not exist
     let res = sqlx::query(
         "CREATE TABLE IF NOT EXISTS pinned_clips_new (
@@ -312,7 +320,7 @@ async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), error::E
     .fetch_optional(connection)
     .await;
     if let Err(err) = res {
-        return Err(error::Error::CreatePinnedClipsTableErr(err.to_string()));
+        return Err(Error::CreatePinnedClipsTableErr(err.to_string()));
     }
     Ok(())
 }
@@ -322,7 +330,7 @@ async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), error::E
 /// this function will
 ///     - fill the connection into the clips mutex
 ///     - init the whole list of ids
-async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(), error::Error> {
+async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(), Error> {
     // fill the connection into the clips mutex
     let clip_data_connection = app.state::<ClipData>();
     let mut clip_data_connection = clip_data_connection.database_connection.lock().await;
@@ -344,7 +352,7 @@ async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(),
 /// this function will
 ///     - get the whole clips ids
 ///     - fill the ids into the clips mutex
-async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
+async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), Error> {
     let db_connection_mutex = app.state::<ClipData>();
     let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
     let db_connection = db_connection_mutex.clone().unwrap();
@@ -356,14 +364,14 @@ async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
         .fetch_all(db_connection.as_ref())
         .await;
     if let Err(err) = res {
-        return Err(error::Error::GetWholeIdsErr(err.to_string()));
+        return Err(Error::GetWholeIdsErr(err.to_string()));
     }
     let res = res.unwrap();
 
     for row in res {
         let id = row.try_get::<i64, _>("id");
         if let Err(err) = id {
-            return Err(error::Error::GetWholeIdsErr(err.to_string()));
+            return Err(Error::GetWholeIdsErr(err.to_string()));
         }
         ids.push(id.unwrap());
     }
@@ -381,44 +389,30 @@ async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), error::Error> {
 ///     - get the pinned clips from the database
 ///     - fill the pinned clips into the clips mutex
 ///     - the order is based on the timestamp
-async fn init_pinned_clips(app: &AppHandle) -> Result<(), error::Error> {
+async fn init_pinned_clips(app: &AppHandle) -> Result<(), Error> {
     let db_connection_mutex = app.state::<ClipData>();
     let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
     let db_connection = db_connection_mutex.clone().unwrap();
     drop(db_connection_mutex);
 
     // get the pinned clips from the database
-    let res = sqlx::query("SELECT * FROM pinned_clips ORDER BY timestamp ASC")
+    let res = sqlx::query("SELECT id FROM clips WHERE pinned = 1 ORDER BY timestamp ASC")
         .fetch_all(db_connection.as_ref())
         .await;
     if let Err(err) = res {
-        return Err(error::Error::GetPinnedClipsErr(err.to_string()));
+        return Err(Error::GetPinnedClipsErr(err.to_string()));
     }
     let res = res.unwrap();
 
     for row in res {
         let id = row.try_get::<i64, _>("id");
         if let Err(err) = id {
-            return Err(error::Error::GetPinnedClipsErr(err.to_string()));
-        }
-        let text = row.try_get::<String, _>("text");
-        if let Err(err) = text {
-            return Err(error::Error::GetPinnedClipsErr(err.to_string()));
-        }
-        let timestamp = row.try_get::<i64, _>("timestamp");
-        if let Err(err) = timestamp {
-            return Err(error::Error::GetPinnedClipsErr(err.to_string()));
+            return Err(Error::GetPinnedClipsErr(err.to_string()));
         }
         let clips = app.state::<ClipData>();
         let mut clips = clips.clips.lock().await;
-        clips.pinned_clips.push(super::pinned::PinnedClip {
-            id: id.unwrap(),
-            text: Arc::new(text.unwrap()),
-            timestamp: timestamp.unwrap(),
-        });
-        drop(clips);
+        clips.pinned_clips.push(id.unwrap());
     }
-
     Ok(())
 }
 
@@ -427,7 +421,7 @@ async fn init_pinned_clips(app: &AppHandle) -> Result<(), error::Error> {
 /// This function is used to export the data only.
 /// And should not be used to check the version of the database,
 /// when the app is launched.
-pub async fn get_all_versions(app: &AppHandle) -> Result<Vec<(i64, String)>, error::Error> {
+pub async fn get_all_versions(app: &AppHandle) -> Result<Vec<(i64, String)>, Error> {
     let db_connection_mutex = app.state::<ClipData>();
     let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
     let db_connection = db_connection_mutex.clone().unwrap();
@@ -437,11 +431,11 @@ pub async fn get_all_versions(app: &AppHandle) -> Result<Vec<(i64, String)>, err
         .fetch_all(db_connection.as_ref())
         .await;
     if let Err(err) = res {
-        return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
+        return Err(Error::GetVersionFromDatabaseErr(err.to_string()));
     }
     let res = res.unwrap();
     if res.is_empty() {
-        return Err(error::Error::GetVersionFromDatabaseErr(
+        return Err(Error::GetVersionFromDatabaseErr(
             "the version table is empty".to_string(),
         ));
     }
@@ -450,11 +444,11 @@ pub async fn get_all_versions(app: &AppHandle) -> Result<Vec<(i64, String)>, err
     for row in res {
         let id = row.try_get::<i64, _>("id");
         if let Err(err) = id {
-            return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
+            return Err(Error::GetVersionFromDatabaseErr(err.to_string()));
         }
         let version = row.try_get::<String, _>("version");
         if let Err(err) = version {
-            return Err(error::Error::GetVersionFromDatabaseErr(err.to_string()));
+            return Err(Error::GetVersionFromDatabaseErr(err.to_string()));
         }
         versions.push((id.unwrap(), version.unwrap()));
     }

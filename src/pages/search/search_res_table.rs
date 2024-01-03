@@ -5,8 +5,8 @@ use yew_icons::{Icon, IconId};
 
 use crate::pages::search::{
     copy_clip_button::CopyClipButton, favourite_button::FavouriteClipButton,
-    fuzzy_search_text::SearchText, order::sort_search_res, time_display::TimeDisplay,
-    trash_clip_button::TrashClipButton,
+    fuzzy_search_text::SearchText, order::sort_search_res, pin_clip_button::PinClipButton,
+    time_display::TimeDisplay, trash_clip_button::TrashClipButton,
 };
 
 use super::{clip::SearchRes, SearchFullArgs};
@@ -47,16 +47,20 @@ pub fn search_res_table_html(props: &SearchResTableProps) -> Html {
                         </th>
                         // the fuzzy score of the clip
                         <th class="border border-gray-200">{ "Score" }</th>
+                        // pin the clip button icon
+                        <th class="border border-gray-200">
+                            <Icon icon_id={IconId::BootstrapPinAngleFill} class="mx-auto mt-0.5"/>
+                        </th>
                         // copy the clip button icon
                         <th class="border border-gray-200">
                             <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList} class="mx-auto mt-0.5"/>
                         </th>
+                        // only part of the clip, if the user want to see the whole clip, he can click the link which will lead to the clip page
+                        <th class="border border-gray-200">{ "Clip" }</th>
                         // delete the clip button icon
                         <th class="border border-gray-200">
                             <Icon icon_id={IconId::BootstrapTrash} class="mx-auto mt-0.5"/>
                         </th>
-                        // only part of the clip, if the user want to see the whole clip, he can click the link which will lead to the clip page
-                        <th class="border border-gray-200">{ "Clip" }</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -69,9 +73,10 @@ pub fn search_res_table_html(props: &SearchResTableProps) -> Html {
                                     <TimeDisplay time={clip.timestamp}></TimeDisplay>
                                     <FavouriteClipButton id={clip.id} is_favourite={clip.favourite}></FavouriteClipButton>
                                     <td class="border border-gray-200 text-center">{clip.score}</td>
+                                    <PinClipButton id={clip.id} pinned={clip.pinned}></PinClipButton>
                                     <CopyClipButton id={clip.id}></CopyClipButton>
-                                    <TrashClipButton id={clip.id} search_res_dispatch={props.search_res_dispatch.clone()}></TrashClipButton>
                                     <SearchText text={clip.text.clone()} data={props.search_args.search_data.clone()} search_method={props.search_args.search_method.clone()}></SearchText>
+                                    <TrashClipButton id={clip.id} search_res_dispatch={props.search_res_dispatch.clone()}></TrashClipButton>
                                 </tr>
                             }
                         }).collect::<Html>()

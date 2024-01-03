@@ -185,7 +185,13 @@ impl Config {
 
     pub fn load_config(&mut self, app: &AppHandle) {
         let config = load_config(app);
-        self.clip_per_page = config.clip_per_page;
+        self.clip_per_page = if config.clip_per_page > 50 {
+            50
+        } else if config.clip_per_page < 1 {
+            1
+        } else {
+            config.clip_per_page
+        };
         self.clip_max_show_length = config.clip_max_show_length;
         self.search_clip_per_batch = config.search_clip_per_batch;
         self.log_level = config.log_level;
