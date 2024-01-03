@@ -25,9 +25,6 @@ pub async fn init_database_connection(app: &AppHandle) -> Result<(), Error> {
     // init the clips table
     init_clips_table(&connection).await?;
 
-    // init the pinned clips table
-    init_pinned_clips_table(&connection).await?;
-
     // after init the database, recreate a connection with higher connection number
     let connection = get_and_create_database(app_data_dir, 10).await?;
     // init the clips mutex
@@ -293,34 +290,13 @@ async fn init_clips_table(connection: &SqlitePool) -> Result<(), Error> {
             text TEXT,
             timestamp INTEGER, 
             favourite INTEGER,
+            pinned INTEGER
         )",
     )
     .fetch_optional(connection)
     .await;
     if let Err(err) = res {
         return Err(Error::CreateClipsTableErr(err.to_string()));
-    }
-    Ok(())
-}
-
-// init the pinned clips table
-//
-// this function will
-//     - create the pinned clips table if it does not exist
-#[warn(unused_must_use)]
-async fn init_pinned_clips_table(connection: &SqlitePool) -> Result<(), Error> {
-    // create the pinned clips table if it does not exist
-    let res = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS pinned_clips_new (
-            id INTEGER PRIMARY KEY,
-            text TEXT,
-            timestamp INTEGER
-        )",
-    )
-    .fetch_optional(connection)
-    .await;
-    if let Err(err) = res {
-        return Err(Error::CreatePinnedClipsTableErr(err.to_string()));
     }
     Ok(())
 }
