@@ -6,13 +6,13 @@ use tauri::{
 
 use crate::{
     clip::{clip_data::ClipData, clip_id::ClipID},
-    event::{event_sender, CopyClipEvent},
-    log::panic_app,
+    event::{event_sender, CopyClipEvent, EventSender},
+    log::panic_app, config::ConfigMutex,
 };
 
 /// create the tray
-pub fn create_tray(page_len: i64, pinned_clips_num: i64) -> SystemTray {
-    let tray_menu = create_tray_menu(page_len, pinned_clips_num);
+pub fn create_tray(page_len: i64, pinned_clips_num: i64, paused: bool) -> SystemTray {
+    let tray_menu = create_tray_menu(page_len, pinned_clips_num, paused);
 
     SystemTray::new().with_menu(tray_menu)
 }
@@ -30,7 +30,7 @@ pub fn create_tray(page_len: i64, pinned_clips_num: i64) -> SystemTray {
 /// - preferences
 /// - search
 /// - quit
-pub fn create_tray_menu(page_len: i64, pinned_clips_num: i64) -> SystemTrayMenu {
+pub fn create_tray_menu(page_len: i64, pinned_clips_num: i64, paused: bool) -> SystemTrayMenu {
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
     let notice_select = CustomMenuItem::new(
         "notice_select".to_string(),
@@ -47,6 +47,12 @@ pub fn create_tray_menu(page_len: i64, pinned_clips_num: i64) -> SystemTrayMenu 
 
     let preferences = CustomMenuItem::new("preferences".to_string(), "Preferences");
     let search = CustomMenuItem::new("search".to_string(), "Search");
+    let text = if paused {
+        "Resume monitoring"
+    } else {
+        "Pause monitoring"
+    };
+    let pause = CustomMenuItem::new("pause".to_string(), text);
 
     let quit = CustomMenuItem::new("quit".to_string(), "Quit");
     let mut tray_menu = SystemTrayMenu::new()
@@ -75,6 +81,7 @@ pub fn create_tray_menu(page_len: i64, pinned_clips_num: i64) -> SystemTrayMenu 
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(preferences)
         .add_item(search)
+        .add_item(pause)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit)
 }
@@ -179,6 +186,17 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                     panic_app(&format!("Failed to open search window: {e}"));
                 }
             });
+        }
+        "pause" => {
+            let config = app.state::<ConfigMutex>();
+            let mut config = config.config.lock().await;
+            config.pause_monitoring = !config.pause_monitoring;
+            drop(config);
+            let event_sender = app.state::<EventSender>();
+            let res = event_sender.tx.send(CopyClipEvent::RebuildTrayMenuEvent).await;
+            if let Err(err) = res {
+                warn!("Failed to send event, error: {}", err);
+            }
         }
         _ => {
             if id.starts_with("tray_clip_") {

@@ -102,9 +102,15 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 // get the number of pinned clips
                 let pinned_clips = app.state::<ClipData>();
                 let pinned_clips = pinned_clips.clips.lock().await.pinned_clips.len();
-                let res = app
-                    .tray_handle()
-                    .set_menu(create_tray_menu(page_len, pinned_clips as i64));
+                // get paused state
+                let paused = app.state::<ConfigMutex>();
+                let paused = paused.config.lock().await.pause_monitoring;
+
+                let res = app.tray_handle().set_menu(create_tray_menu(
+                    page_len,
+                    pinned_clips as i64,
+                    paused,
+                ));
                 if res.is_err() {
                     panic_app(&format!(
                         "Failed to set tray menu, error: {}",
@@ -136,13 +142,18 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
             }
             // clipboard change event
             CopyClipEvent::ClipboardChangeEvent => {
-                let clip_data = app.state::<ClipData>();
-                let res = clip_data.update_clipboard(app).await;
-                if let Err(err) = res {
-                    panic_app(&format!(
-                        "Failed to update clipboard, error: {}",
-                        err.message()
-                    ));
+                let config = app.state::<ConfigMutex>();
+                let config = config.config.lock().await;
+                if !config.pause_monitoring {
+                    drop(config);
+                    let clip_data = app.state::<ClipData>();
+                    let res = clip_data.update_clipboard(app).await;
+                    if let Err(err) = res {
+                        panic_app(&format!(
+                            "Failed to update clipboard, error: {}",
+                            err.message()
+                        ));
+                    }
                 }
             }
             // tray menu item click event

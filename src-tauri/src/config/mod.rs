@@ -33,6 +33,9 @@ pub struct Config {
     pub language: String,
     /// enable the feature to auto delete duplicate clips when insert new clip
     pub auto_delete_duplicate_clip: bool,
+    /// Whether the monitoring of the clipboard is paused.
+    /// Allow user to pause monitoring without exiting the app.
+    pub pause_monitoring: bool,
 }
 
 /// load the config from app data folder
@@ -190,6 +193,7 @@ impl Config {
         self.search_page_clip_max_show_length = config.search_page_clip_max_show_length;
         self.language = config.language;
         self.auto_delete_duplicate_clip = config.auto_delete_duplicate_clip;
+        self.pause_monitoring = config.pause_monitoring;
     }
 }
 
@@ -205,6 +209,7 @@ impl Default for Config {
             search_page_clip_max_show_length: 500,
             language: "en-GB".to_string(),
             auto_delete_duplicate_clip: false,
+            pause_monitoring: false,
         }
     }
 }

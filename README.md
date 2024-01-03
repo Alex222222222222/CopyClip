@@ -43,7 +43,7 @@ This is some explanation for configurations in the app.
 
 | name | default value | description |
 | ---- | ------------- | ----------- |
-| clips per page | 20 | this define how much clips to show in one page in the tray |
+| clips per page | 20 | This define how much clips to show in one page in the tray, the maximum value is 50. As if the value is too big, the system tray menu will overflow. |
 | max clip length | 50 | when a clip is too long, we cut it to under max-clip-length to fit it into the tray |
 | log level filter | info | the log level of the app. `trace`, `info`, `debug`, `warn`, `error`, `off` from most detailed to less |
 | dark mode | off | switch the dark mode on and off |
@@ -57,6 +57,8 @@ More configurations is on the way.
 
 The app supports MacOS, Windows and Ubuntu.
 For other Linux distributions, you can [build](#build) the app from source.
+
+Pre-built binaries can be found in [releases](https://github.com/Alex222222222222/CopyClip/releases).
 
 ### MacOS
 
