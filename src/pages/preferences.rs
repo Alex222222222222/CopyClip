@@ -35,13 +35,6 @@ pub fn preferences() -> Html {
                 <ExportButton></ExportButton>
             </div>
 
-            <h2 class="text-center text-4xl m-0">{ t!("preferences.pinned_clips") }</h2>
-            <div class="mx-5 my-2">
-                <AddPinnedClips></AddPinnedClips>
-                <br />
-                <RemovePinnedClips></RemovePinnedClips>
-            </div>
-
             <h2 class="text-center text-4xl m-0">{ t!("preferences.advanced_title") }</h2>
             <div class="mx-5 my-2">
                 <LogLevelFilterConfig></LogLevelFilterConfig>
