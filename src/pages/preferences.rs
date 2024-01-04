@@ -4,14 +4,10 @@ use crate::components::{
     head_bar::HeadBar,
     preferences::{
         clips_per_page_config::ClipsPerPageConfig,
-        clips_search_per_batch::SearchClipPerBatchConfig,
-        dark_mode_switch::DarkModeSwitch,
-        export_button::ExportButton,
-        language_config::LanguagesConfig,
-        log_level_filter_config::LogLevelFilterConfig,
-        max_clip_len_config::MaxClipLenConfig,
+        clips_search_per_batch::SearchClipPerBatchConfig, dark_mode_switch::DarkModeSwitch,
+        export_button::ExportButton, language_config::LanguagesConfig,
+        log_level_filter_config::LogLevelFilterConfig, max_clip_len_config::MaxClipLenConfig,
         set_auto_delete_duplications::AutoDeleteDuplications,
-        switch_pinned_status::{AddPinnedClips, RemovePinnedClips},
     },
 };
 
