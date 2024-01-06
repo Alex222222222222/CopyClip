@@ -66,7 +66,6 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     use_effect_with((), move |_| {
         spawn_local(async move {
             let args = to_value(&()).unwrap();
-            gloo_console::log!("get_value_invoke: {}", get_value_invoke.clone());
             let res = invoke(&get_value_invoke, args).await;
             let res = res.as_f64().unwrap();
             let res = res as i64;

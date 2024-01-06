@@ -76,7 +76,6 @@ pub fn pin_clip_button(props: &PinClipButtonProps) -> Html {
             let res = invoke("id_is_pinned", args).await;
             let res = serde_wasm_bindgen::from_value::<bool>(res);
             let res = res.unwrap();
-            gloo_console::log!("res: {}", res);
             if res {
                 dispatch1.reduce_mut(|state| {
                     state.pinned.insert(id);
@@ -112,12 +111,6 @@ pub fn pin_clip_button(props: &PinClipButtonProps) -> Html {
     });
 
     let pinned_1 = pinned_statue.pinned.contains(&id);
-    gloo_console::log!(
-        "id: {}, pinned: {}",
-        id,
-        pinned_1,
-        pinned_statue.pinned.len()
-    );
 
     let mut icon = IconId::BootstrapPinAngleFill;
     if !pinned_1 {

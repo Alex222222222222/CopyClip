@@ -3,6 +3,7 @@ use std::rc::Rc;
 use serde::Deserialize;
 use serde::Serialize;
 use yew::platform::spawn_local;
+use yew::use_effect_with;
 use yew::{function_component, html, Callback, Html, TargetCast};
 
 use web_sys::{Event, HtmlInputElement};
@@ -13,7 +14,6 @@ use crate::{
     components::head_bar::HeadBar,
     pages::search::{
         clip::SearchRes,
-        favourite_button::FavouriteFilter,
         order::OrderOrder,
         search_clip::search_clips,
         search_state::{SearchState, SearchStateHtml},
@@ -25,6 +25,7 @@ use self::order::OrderMethod;
 mod clip;
 mod copy_clip_button;
 mod favourite_button;
+mod favourite_clip_filter;
 mod fuzzy_search_text;
 mod order;
 mod pin_clip_button;
@@ -69,7 +70,7 @@ pub struct SearchFullArgs {
     pub search_data: Rc<String>,
     pub order_by: OrderMethod,
     pub order_order: OrderOrder,
-    pub favourite_filter: FavouriteFilter,
+    pub favourite_filter: bool,
     pub total_search_res_limit: usize,
     pub user_id_limit: UserIdLimit,
 }
@@ -88,7 +89,7 @@ impl Default for SearchFullArgs {
             search_data: Rc::new("".to_string()),
             order_by: OrderMethod::Time,
             order_order: OrderOrder::Desc,
-            favourite_filter: FavouriteFilter::default(),
+            favourite_filter: bool::default(),
             total_search_res_limit: 100,
             user_id_limit: UserIdLimit::default(),
         }
@@ -134,18 +135,6 @@ pub fn search() -> Html {
             }
         });
 
-    let favourite_filter_on_change =
-        search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
-            let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            if value == "all" {
-                state.favourite_filter = FavouriteFilter::All;
-            } else if value == "favourite" {
-                state.favourite_filter = FavouriteFilter::Favourite;
-            } else {
-                state.favourite_filter = FavouriteFilter::NotFavourite;
-            }
-        });
-
     let search_res_dispatch_1 = search_res_dispatch.clone();
     let search_args_dispatch_1 = search_args_dispatch.clone();
     let search_args_1 = search_args.clone();
@@ -157,7 +146,11 @@ pub fn search() -> Html {
             state.search_state = SearchState::Searching;
         });
         spawn_local(async move {
-            let res = search_clips(search_res_dispatch, search_args.self_copy());
+            let res = search_clips(
+                search_res_dispatch,
+                search_args.self_copy(),
+                search_args.favourite_filter,
+            );
             let res = res.await;
             if let Err(err) = res {
                 search_args_dispatch.reduce_mut(|state| {
@@ -205,6 +198,17 @@ pub fn search() -> Html {
             }
             state.user_id_limit = state.user_id_limit.new_max(res.unwrap());
         });
+
+    let search_args_dispatch_1 = search_args_dispatch.clone();
+    use_effect_with((), move |_| {
+        search_args_dispatch.reduce_mut(|state| {
+            state.favourite_filter = false;
+            gloo_console::log!(
+                "cliked favourite filter, set default to ",
+                state.favourite_filter
+            );
+        });
+    });
 
     html! {
         <div class="flex min-h-screen flex-col">
@@ -271,21 +275,6 @@ pub fn search() -> Html {
                         </div>
                     </div>
 
-                    <div class="flex flex-row my-2 justify-between">
-                        // favourite filter
-                        <label htmlFor="search-page-favourite-filter-input-box" class=" text-xl">
-                            {"Favourite filter"}
-                        </label>
-                        <select
-                            class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
-                            onchange={favourite_filter_on_change}
-                        >
-                            <option value="all" selected={FavouriteFilter::All == search_args.favourite_filter}>{"All"}</option>
-                            <option value="favourite" selected={FavouriteFilter::Favourite == search_args.favourite_filter}>{"Favourite"}</option>
-                            <option value="not_favourite" selected={FavouriteFilter::NotFavourite == search_args.favourite_filter}>{"NotFavourite"}</option>
-                        </select>
-                    </div>
-
                     // total search res num limit
                     <div class="flex flex-row my-2 justify-between">
                         <label htmlFor="search-page-search-total-res-limit-input-box" class="text-xl py-1">
@@ -343,6 +332,7 @@ pub fn search() -> Html {
                         search_args={search_args}
                         search_res={search_res}
                         search_res_dispatch={search_res_dispatch}
+                        favourite_filter_dispatch={search_args_dispatch_1}
                     ></SearchResTable>
                 </div>
             </div>

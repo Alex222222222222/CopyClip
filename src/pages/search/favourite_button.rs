@@ -23,16 +23,6 @@ impl Default for FavouriteFilter {
     }
 }
 
-impl FavouriteFilter {
-    pub fn to_int(&self) -> i64 {
-        match self {
-            Self::All => -1,
-            Self::Favourite => 1,
-            Self::NotFavourite => 0,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Properties)]
 pub struct FavouriteClipButtonProps {
     pub id: i64,
