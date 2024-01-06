@@ -21,7 +21,7 @@ struct SearchArgs {
     /// fuzzy, fast, normal
     pub searchmethod: String,
     /// favourite filter
-    pub favourite: i64,
+    pub favourite: bool,
 }
 
 /// search for a clip in the database
@@ -34,6 +34,7 @@ struct SearchArgs {
 pub async fn search_clips(
     search_res_dispatch: yewdux::dispatch::Dispatch<SearchRes>,
     search_full_args: SearchFullArgs,
+    favourite_filter: bool,
 ) -> Result<(), String> {
     search_res_dispatch.reduce_mut(|state| {
         state.rebuild_num += 1;
@@ -48,6 +49,8 @@ pub async fn search_clips(
     }
     let mut total_len = 0;
 
+    gloo_console::log!(favourite_filter);
+
     while max_id > search_full_args.user_id_limit.min
         && total_len < search_full_args.total_search_res_limit
     {
@@ -59,7 +62,7 @@ pub async fn search_clips(
             minid: -1,
             maxid: max_id,
             searchmethod: search_full_args.search_method.clone().to_string(),
-            favourite: search_full_args.favourite_filter.to_int(),
+            favourite: favourite_filter,
         })
         .unwrap();
 
