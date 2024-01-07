@@ -26,7 +26,7 @@ directories = "5.0.0"
 base64 = "0.21.5"
 flate2 = "1.0"
 chrono = "0.4.24"
-clipboard-master = "3.1.3"
+clipboard-master = { git = "https://github.com/Alex222222222222/clipboard-master.git" }
 fern = "0.6"
 log = "0.4"
 moka = { version = "0.10.2", features = ["future"] }
