@@ -45,7 +45,7 @@ pub fn create_tray_menu(
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
     let notice_select = CustomMenuItem::new(
         "notice_select".to_string(),
-        "Select the clip you want to add to your clipboard.",
+        "Select the clip you want to paste.",
     )
     .disabled();
 
