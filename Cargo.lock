@@ -762,7 +762,7 @@ version = "0.3.8"
 dependencies = [
  "chrono",
  "futures",
- "gloo-console 0.2.3",
+ "gloo-console 0.3.0",
  "js-sys",
  "once_cell",
  "regex",
