@@ -25,6 +25,8 @@ pub struct Clips {
     pub tray_ids_map: Vec<i64>,
     /// the pinned clips
     pub pinned_clips: Vec<i64>,
+    /// the favourite clips
+    pub favourite_clips: Vec<i64>,
 }
 
 /// The clip data to be shared between threads
@@ -73,6 +75,7 @@ impl ClipData {
     /// change the clip favourite state to the target state
     ///     - change the clip in the cache
     ///     - change the clip in the database
+    ///     - edit the clips.favourite_clips to add or remove the id
     ///
     /// Will try lock `database_connection`.
     pub async fn change_clip_favourite_status(&self, id: i64, target: bool) -> Result<(), Error> {
@@ -99,6 +102,27 @@ impl ClipData {
                 ),
                 err.to_string(),
             ));
+        }
+
+        // edit the favourite clips slot in the tray
+        if target {
+            // decide whether the id is in the favourite_clips vector list
+            let mut clips = self.clips.lock().await;
+            let res = clips.favourite_clips.binary_search(&id);
+            if res.is_err() {
+                // if the id is not in the favourite_clips vector list, then add it to the list
+                clips.favourite_clips.push(id);
+                // sort
+                clips.favourite_clips.sort();
+            }
+        } else {
+            // decide whether the id is in the favourite_clips vector list
+            let mut clips = self.clips.lock().await;
+            let res = clips.favourite_clips.binary_search(&id);
+            if let Ok(pos) = res {
+                // if the id is in the favourite_clips vector list, then remove it from the list
+                clips.favourite_clips.remove(pos);
+            }
         }
 
         Ok(())
@@ -202,15 +226,21 @@ impl ClipData {
                 clips.current_clip = None;
             }
         }
-
         let whole_list_index = clips.whole_list_of_ids.binary_search(&id);
-        let pinned_list_index = clips.pinned_clips.binary_search(&id);
         if let Ok(whole_list_index) = whole_list_index {
             clips.whole_list_of_ids.remove(whole_list_index);
         }
 
+        // delete from the pinned_clips list
+        let pinned_list_index = clips.pinned_clips.binary_search(&id);
         if let Ok(pinned_list_index) = pinned_list_index {
             clips.pinned_clips.remove(pinned_list_index);
+        }
+
+        // delete from the favourite_clips list
+        let favourite_list_index = clips.favourite_clips.binary_search(&id);
+        if let Ok(favourite_list_index) = favourite_list_index {
+            clips.favourite_clips.remove(favourite_list_index);
         }
 
         Ok(())
@@ -820,7 +850,50 @@ impl ClipData {
         Ok(())
     }
 
-    /// Update the tray with all the current clips and pinned clips, and other data
+    /// Update the favourite clips in the tray
+    ///
+    /// Only used in `self.update_tray()`
+    ///
+    /// Will try lock `app.state::<ConfigMutex>()` and `clips` and `database_connection`
+    async fn update_favourite_clips(
+        &self,
+        app: &AppHandle,
+        max_clip_length: i64,
+    ) -> Result<(), Error> {
+        let clips = self.clips.lock().await;
+        let favourite_clips_len = clips.favourite_clips.len();
+        drop(clips);
+        // update favourite clips in the tray
+        for i in 0..favourite_clips_len {
+            let clips = self.clips.lock().await;
+            let favourite_clip = clips.favourite_clips.get(i);
+            if favourite_clip.is_none() {
+                continue;
+            }
+            let favourite_clip = favourite_clip.unwrap();
+            let favourite_clip = *favourite_clip;
+            drop(clips);
+            let favourite_clip = self.get_clip(Some(favourite_clip)).await?;
+            if favourite_clip.is_none() {
+                continue;
+            }
+            let favourite_clip = favourite_clip.unwrap();
+            let favourite_clip_text = favourite_clip.text.clone();
+            let favourite_clip_text = trim_clip_text(favourite_clip_text, max_clip_length);
+            let favourite_clip_id = "favourite_clip_".to_string() + &i.to_string();
+            let favourite_clip_item: tauri::SystemTrayMenuItemHandle =
+                app.tray_handle().get_item(&favourite_clip_id);
+            let res = favourite_clip_item.set_title(favourite_clip_text);
+            if res.is_err() {
+                return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Update the tray with all the current clips, the pinned clips, the favourite clips,
+    /// and other data
     ///
     /// Will try lock `app.state::<ConfigMutex>()` and `clips` and `database_connection`
     #[warn(unused_must_use)]
@@ -871,10 +944,12 @@ impl ClipData {
             max_clip_length,
             current_page as i64,
         );
+        let update_favourite_res = self.update_favourite_clips(app, max_clip_length);
 
         update_page_info_res.await?;
         update_pinned_res.await?;
         update_normal_res.await?;
+        update_favourite_res.await?;
 
         Ok(())
     }

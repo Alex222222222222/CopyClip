@@ -1,7 +1,7 @@
-use log::{info, warn};
+use log::{debug, info, warn};
 use tauri::{
     AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
-    SystemTrayMenuItem,
+    SystemTrayMenuItem, SystemTraySubmenu,
 };
 
 use crate::{
@@ -12,8 +12,13 @@ use crate::{
 };
 
 /// create the tray
-pub fn create_tray(page_len: i64, pinned_clips_num: i64, paused: bool) -> SystemTray {
-    let tray_menu = create_tray_menu(page_len, pinned_clips_num, paused);
+pub fn create_tray(
+    page_len: i64,
+    pinned_clips_num: i64,
+    favourite_clips_num: i64,
+    paused: bool,
+) -> SystemTray {
+    let tray_menu = create_tray_menu(page_len, pinned_clips_num, favourite_clips_num, paused);
 
     SystemTray::new().with_menu(tray_menu)
 }
@@ -31,7 +36,12 @@ pub fn create_tray(page_len: i64, pinned_clips_num: i64, paused: bool) -> System
 /// - preferences
 /// - search
 /// - quit
-pub fn create_tray_menu(page_len: i64, pinned_clips_num: i64, paused: bool) -> SystemTrayMenu {
+pub fn create_tray_menu(
+    page_len: i64,
+    pinned_clips_num: i64,
+    favourite_clips_num: i64,
+    paused: bool,
+) -> SystemTrayMenu {
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
     let notice_select = CustomMenuItem::new(
         "notice_select".to_string(),
@@ -65,6 +75,19 @@ pub fn create_tray_menu(page_len: i64, pinned_clips_num: i64, paused: bool) -> S
         let clip = CustomMenuItem::new("pinned_clip_".to_string() + &i.to_string(), "");
         tray_menu = tray_menu.add_item(clip);
     }
+    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
+
+    // add the label submenus
+    //    -default label: favorites
+    let mut favourite_menu = SystemTrayMenu::new();
+    debug!("Adding favourite clips: {}", favourite_clips_num);
+    for i in 0..favourite_clips_num {
+        debug!("Adding favourite clip: {}", i);
+        let clip = CustomMenuItem::new("favourite_clip_".to_string() + &i.to_string(), "");
+        favourite_menu = favourite_menu.add_item(clip);
+    }
+    let favourite = SystemTraySubmenu::new("favourites".to_string(), favourite_menu);
+    tray_menu = tray_menu.add_submenu(favourite);
     tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
 
     // add the clips slot
@@ -241,6 +264,35 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 if item_id.is_none() {
                     warn!(
                         "Failed to get the item id for the pinned clip id: {}",
+                        index
+                    );
+                    drop(clips);
+                    return;
+                }
+                let item_id = item_id.unwrap();
+                let id = *item_id;
+                drop(clips);
+
+                let clips = app_handle.state::<ClipData>();
+                let res = clips.select_clip(app, Some(id)).await;
+                if res.is_err() {
+                    warn!("Failed to select the clip: {}", res.err().unwrap());
+                    return;
+                }
+            } else if id.starts_with("favourite_clip_") {
+                // test if the id is a favourite_clip
+
+                let app_handle = app.app_handle();
+                // get the index of the clip
+                let index = id.replace("favourite_clip_", "").parse::<i64>().unwrap();
+
+                // select the index
+                let clips = app_handle.state::<ClipData>();
+                let clips = clips.clips.lock().await;
+                let item_id = clips.favourite_clips.get(index as usize);
+                if item_id.is_none() {
+                    warn!(
+                        "Failed to get the item id for the favourite clip id: {}",
                         index
                     );
                     drop(clips);

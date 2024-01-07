@@ -90,6 +90,8 @@ pub enum Error {
     CreatePinnedClipsTableErr(String),
     /// failed to get pinned clips from the database
     GetPinnedClipsErr(String),
+    /// failed to get favourite clips from the database
+    GetFavouriteClipsErr(String),
 }
 
 impl Error {
@@ -124,6 +126,7 @@ impl Error {
             Error::ExportError(err) => format!("error occurred when exporting data, error message: {err}"),
             Error::CreatePinnedClipsTableErr(err) => format!("create pinned clips table failed, error message: {err}"),
             Error::GetPinnedClipsErr(err) => format!("failed to get pinned clips from the database, error message: {err}"),
+            Error::GetFavouriteClipsErr(err) => format!("failed to get favourite clips from the database, error message: {err}"),
         }
     }
 
