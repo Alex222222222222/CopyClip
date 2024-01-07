@@ -16,7 +16,7 @@ version = "0.3.8"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.2", features = [] }
+tauri-build = { version = "1.5", features = [] }
 
 [dependencies]
 futures = "0.3"
