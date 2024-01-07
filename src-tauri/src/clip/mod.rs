@@ -30,28 +30,6 @@ pub async fn id_is_pinned(clip_data: tauri::State<'_, ClipData>, id: i64) -> Res
 }
 
 #[tauri::command]
-pub async fn switch_pinned_status(
-    event_sender: tauri::State<'_, EventSender>,
-    clip_data: tauri::State<'_, ClipData>,
-    id: i64,
-    pinned: bool,
-) -> Result<(), String> {
-    let res = clip_data.change_clip_pinned_status(id, !pinned).await;
-    if let Err(err) = res {
-        return Err(err.message());
-    }
-
-    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
-    event_sender
-        .send(CopyClipEvent::SendNotificationEvent(
-            "Clip pinned to tray.".to_string(),
-        ))
-        .await;
-
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn copy_clip_to_clipboard(
     app: tauri::AppHandle,
     event_sender: tauri::State<'_, EventSender>,
@@ -120,6 +98,28 @@ pub async fn change_favourite_clip(
     event_sender
         .send(CopyClipEvent::SendNotificationEvent(
             "Clip favourite status changed.".to_string(),
+        ))
+        .await;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn switch_pinned_status(
+    event_sender: tauri::State<'_, EventSender>,
+    clip_data: tauri::State<'_, ClipData>,
+    id: i64,
+    pinned: bool,
+) -> Result<(), String> {
+    let res = clip_data.change_clip_pinned_status(id, !pinned).await;
+    if let Err(err) = res {
+        return Err(err.message());
+    }
+
+    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
+    event_sender
+        .send(CopyClipEvent::SendNotificationEvent(
+            "Clip pinned to tray.".to_string(),
         ))
         .await;
 

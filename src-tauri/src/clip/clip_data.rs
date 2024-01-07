@@ -416,14 +416,16 @@ impl ClipData {
         let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
         let db_connection = db_connection_mutex.clone().unwrap();
         drop(db_connection_mutex);
-        let res =
-            sqlx::query("INSERT INTO clips (id, text, timestamp, favourite) VALUES (?, ?, ?, ?)")
-                .bind(id)
-                .bind(&(*text))
-                .bind(timestamp)
-                .bind(0)
-                .fetch_optional(db_connection.as_ref())
-                .await;
+        let res = sqlx::query(
+            "INSERT INTO clips (id, text, timestamp, favourite, pinned) VALUES (?, ?, ?, ?)",
+        )
+        .bind(id)
+        .bind(&(*text))
+        .bind(timestamp)
+        .bind(0)
+        .bind(0)
+        .fetch_optional(db_connection.as_ref())
+        .await;
         if let Err(err) = res {
             return Err(Error::InsertClipIntoDatabaseErr(
                 (*text).clone(),
