@@ -29,6 +29,7 @@ mod favourite_clip_filter;
 mod fuzzy_search_text;
 mod order;
 mod pin_clip_button;
+mod pin_clip_filter;
 mod search_clip;
 mod search_method;
 mod search_res_table;
@@ -71,6 +72,7 @@ pub struct SearchFullArgs {
     pub order_by: OrderMethod,
     pub order_order: OrderOrder,
     pub favourite_filter: bool,
+    pub pin_filter: bool,
     pub total_search_res_limit: usize,
     pub user_id_limit: UserIdLimit,
 }
@@ -89,7 +91,8 @@ impl Default for SearchFullArgs {
             search_data: Rc::new("".to_string()),
             order_by: OrderMethod::Time,
             order_order: OrderOrder::Desc,
-            favourite_filter: bool::default(),
+            favourite_filter: false,
+            pin_filter: false,
             total_search_res_limit: 100,
             user_id_limit: UserIdLimit::default(),
         }
@@ -150,6 +153,7 @@ pub fn search() -> Html {
                 search_res_dispatch,
                 search_args.self_copy(),
                 search_args.favourite_filter,
+                search_args.pin_filter,
             );
             let res = res.await;
             if let Err(err) = res {
@@ -200,6 +204,7 @@ pub fn search() -> Html {
         });
 
     let search_args_dispatch_1 = search_args_dispatch.clone();
+    let search_args_dispatch_2 = search_args_dispatch.clone();
     use_effect_with((), move |_| {
         search_args_dispatch.reduce_mut(|state| {
             state.favourite_filter = false;
@@ -207,6 +212,14 @@ pub fn search() -> Html {
                 "cliked favourite filter, set default to ",
                 state.favourite_filter
             );
+        });
+    });
+
+    let search_args_dispatch_3 = search_args_dispatch_2.clone();
+    use_effect_with((), move |_| {
+        search_args_dispatch_2.reduce_mut(|state| {
+            state.pin_filter = false;
+            gloo_console::log!("cliked pin filter, set default to ", state.pin_filter);
         });
     });
 
@@ -333,6 +346,7 @@ pub fn search() -> Html {
                         search_res={search_res}
                         search_res_dispatch={search_res_dispatch}
                         favourite_filter_dispatch={search_args_dispatch_1}
+                        pin_filter_dispatch={search_args_dispatch_3}
                     ></SearchResTable>
                 </div>
             </div>

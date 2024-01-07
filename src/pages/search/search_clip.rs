@@ -22,6 +22,8 @@ struct SearchArgs {
     pub searchmethod: String,
     /// favourite filter
     pub favourite: bool,
+    /// pinned filter
+    pub pinned: bool,
 }
 
 /// search for a clip in the database
@@ -35,6 +37,7 @@ pub async fn search_clips(
     search_res_dispatch: yewdux::dispatch::Dispatch<SearchRes>,
     search_full_args: SearchFullArgs,
     favourite_filter: bool,
+    pinned_filter: bool,
 ) -> Result<(), String> {
     search_res_dispatch.reduce_mut(|state| {
         state.rebuild_num += 1;
@@ -63,6 +66,7 @@ pub async fn search_clips(
             maxid: max_id,
             searchmethod: search_full_args.search_method.clone().to_string(),
             favourite: favourite_filter,
+            pinned: pinned_filter,
         })
         .unwrap();
 

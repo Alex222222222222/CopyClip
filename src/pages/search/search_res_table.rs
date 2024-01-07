@@ -6,8 +6,8 @@ use yew_icons::{Icon, IconId};
 use crate::pages::search::{
     copy_clip_button::CopyClipButton, favourite_button::FavouriteClipButton,
     favourite_clip_filter::FavouriteClipFilter, fuzzy_search_text::SearchText,
-    order::sort_search_res, pin_clip_button::PinClipButton, time_display::TimeDisplay,
-    trash_clip_button::TrashClipButton,
+    order::sort_search_res, pin_clip_button::PinClipButton, pin_clip_filter::PinClipFilter,
+    time_display::TimeDisplay, trash_clip_button::TrashClipButton,
 };
 
 use super::{clip::SearchRes, SearchFullArgs};
@@ -19,6 +19,7 @@ pub struct SearchResTableProps {
     pub search_res: Rc<SearchRes>,
     pub search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
     pub favourite_filter_dispatch: yewdux::prelude::Dispatch<SearchFullArgs>,
+    pub pin_filter_dispatch: yewdux::prelude::Dispatch<SearchFullArgs>,
 }
 
 #[function_component(SearchResTable)]
@@ -56,7 +57,11 @@ pub fn search_res_table_html(props: &SearchResTableProps) -> Html {
                         <th class="border border-gray-200">{ "Score" }</th>
                         // pin the clip button icon
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::BootstrapPinAngleFill} class="mx-auto mt-0.5"/>
+                            <PinClipFilter
+                            pin_filter_dispatch={props.pin_filter_dispatch.clone()}
+                            search_args={props.search_args.clone()}
+                            search_res_dispatch={props.search_res_dispatch.clone()}
+                            ></PinClipFilter>
                         </th>
                         // copy the clip button icon
                         <th class="border border-gray-200">
