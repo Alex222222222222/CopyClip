@@ -41,7 +41,7 @@ search:
   press_to_search: Press To Search
 
 export:
-  export_button: Press To Export Your Data to ~/Downloads
+  export_button: Press To Export Data to ~/Downloads
 
 log_level:
   trace: Trace

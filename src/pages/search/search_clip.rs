@@ -83,12 +83,22 @@ pub async fn search_clips(
                     max_id = id;
                 }
 
-                search_res_dispatch.reduce_mut(|state| {
-                    state.res.lock().unwrap().push(Clip::from_clip_res(
-                        search_full_args.search_data.to_string(),
-                        clip,
-                    ));
-                });
+                // if the clip is not the duplication of the last clip, then push it
+                if total_len > 0 {
+                    search_res_dispatch.reduce_mut(|state| {
+                        let mut state = state.res.lock().unwrap();
+                        let last_clip_id = state.last();
+                        if let Some(last_clip_id) = last_clip_id {
+                            if last_clip_id.id == id {
+                                return;
+                            }
+                        }
+                        state.push(Clip::from_clip_res(
+                            search_full_args.search_data.to_string(),
+                            clip,
+                        ));
+                    });
+                }
                 total_len += 1;
             }
 
