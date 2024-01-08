@@ -120,7 +120,12 @@ jobs:
           npx tailwindcss --help
 
       - name: Create empty 'dist' directory
+        continue-on-error: true
         run: mkdir dist
+
+      - name: Create 'public' directory
+        continue-on-error: true
+        run: mkdir public
 
       - name: Build the app
         run: |
