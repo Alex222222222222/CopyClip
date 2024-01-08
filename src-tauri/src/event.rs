@@ -102,6 +102,9 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 // get the number of pinned clips
                 let pinned_clips = app.state::<ClipData>();
                 let pinned_clips = pinned_clips.clips.lock().await.pinned_clips.len();
+                // get the number of favourite clips
+                let favourite_clips = app.state::<ClipData>();
+                let favourite_clips = favourite_clips.clips.lock().await.favourite_clips.len();
                 // get paused state
                 let paused = app.state::<ConfigMutex>();
                 let paused = paused.config.lock().await.pause_monitoring;
@@ -109,6 +112,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 let res = app.tray_handle().set_menu(create_tray_menu(
                     page_len,
                     pinned_clips as i64,
+                    favourite_clips as i64,
                     paused,
                 ));
                 if res.is_err() {

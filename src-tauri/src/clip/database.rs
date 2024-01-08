@@ -320,6 +320,9 @@ async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(),
     // init pinned clips
     init_pinned_clips(app).await?;
 
+    // init favourite clips
+    init_favourite_clips(app).await?;
+
     future1.await
 }
 
@@ -388,6 +391,39 @@ async fn init_pinned_clips(app: &AppHandle) -> Result<(), Error> {
         let clips = app.state::<ClipData>();
         let mut clips = clips.clips.lock().await;
         clips.pinned_clips.push(id.unwrap());
+    }
+    Ok(())
+}
+
+/// init the favourite clips
+///
+/// this function will
+///    - get the favourite clips from the database
+///   - fill the favourite clips into the clips mutex
+///  - the order is based on the timestamp
+async fn init_favourite_clips(app: &AppHandle) -> Result<(), Error> {
+    let db_connection_mutex = app.state::<ClipData>();
+    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
+    let db_connection = db_connection_mutex.clone().unwrap();
+    drop(db_connection_mutex);
+
+    // get the favourite clips from the database
+    let res = sqlx::query("SELECT id FROM clips WHERE favourite = 1 ORDER BY timestamp ASC")
+        .fetch_all(db_connection.as_ref())
+        .await;
+    if let Err(err) = res {
+        return Err(Error::GetFavouriteClipsErr(err.to_string()));
+    }
+    let res = res.unwrap();
+
+    for row in res {
+        let id = row.try_get::<i64, _>("id");
+        if let Err(err) = id {
+            return Err(Error::GetFavouriteClipsErr(err.to_string()));
+        }
+        let clips = app.state::<ClipData>();
+        let mut clips = clips.clips.lock().await;
+        clips.favourite_clips.push(id.unwrap());
     }
     Ok(())
 }
