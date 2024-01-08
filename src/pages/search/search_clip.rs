@@ -87,11 +87,9 @@ pub async fn search_clips(
                 if total_len > 0 {
                     search_res_dispatch.reduce_mut(|state| {
                         let mut state = state.res.lock().unwrap();
-                        let last_clip_id = state.last();
-                        if let Some(last_clip_id) = last_clip_id {
-                            if last_clip_id.id == id {
-                                return;
-                            }
+                        let last_clip_id = state.iter().find(|clip| clip.id == id);
+                        if last_clip_id.is_some() {
+                            return;
                         }
                         state.push(Clip::from_clip_res(
                             search_full_args.search_data.to_string(),
