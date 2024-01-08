@@ -23,8 +23,6 @@ GitHub Actions will automatically run the following test for you
 if you open a pull request,
 but if any test failed, we will not merge your pull request.
 ```bash
-# cargo test
-cargo test
 # cargo check
 cargo check
 # cargo clippy for frontend

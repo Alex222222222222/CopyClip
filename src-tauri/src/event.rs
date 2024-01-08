@@ -1,4 +1,4 @@
-use log::error;
+use log::{debug, error};
 use tauri::async_runtime::{Receiver, Sender};
 
 use tauri::{api::notification::Notification, AppHandle, Manager};
@@ -11,6 +11,7 @@ use crate::{
 };
 
 /// all the events that can be sent to the event daemon
+#[derive(Debug)]
 pub enum CopyClipEvent {
     /// update the clips in the tray menu
     TrayUpdateEvent,
@@ -82,6 +83,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
             continue;
         }
         let event = event.unwrap();
+        debug!("Get event: {:?}", event);
         match event {
             // update the clips in the tray menu
             CopyClipEvent::TrayUpdateEvent => {
@@ -146,6 +148,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
             }
             // clipboard change event
             CopyClipEvent::ClipboardChangeEvent => {
+                debug!("Clipboard change event");
                 let config = app.state::<ConfigMutex>();
                 let config = config.config.lock().await;
                 if !config.pause_monitoring {

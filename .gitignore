@@ -1,6 +1,7 @@
 /dist/
 /target/
 
+/tailwind.css
 tailwind.css
 
 .vscode
