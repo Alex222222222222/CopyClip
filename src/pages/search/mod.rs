@@ -226,12 +226,12 @@ pub fn search() -> Html {
     html! {
         <div class="flex min-h-screen flex-col">
             <HeadBar></HeadBar>
-            <h1 class="text-center text-6xl m-0">{ "Search" }</h1>
+            <h1 class="text-center text-6xl m-0">{ t!("search.title") }</h1>
             <div class="mx-5 my-2">
                 <div class="flex flex-col">
                     <div class="flex flex-row my-2 justify-between">
                         <label htmlFor="search-page-search-data-input-box" class="text-xl py-1">
-                            {"Type to search"}
+                            {t!("search.search_box")}
                         </label>
                         <input
                             id="search-data-text-input-box"
@@ -245,23 +245,23 @@ pub fn search() -> Html {
 
                     <div class="flex flex-row my-2 justify-between">
                         <label htmlFor="search-page-search-method-input-box" class="text-xl">
-                            {"Choose search method"}
+                            {t!("search.search_method")}
                         </label>
                         // search method drop list
                         <select
                             class="border border-gray-200 rounded-md p-2 text-lg dark:text-black"
                             onchange={search_method_on_change}
                         >
-                            <option value="fuzzy" selected={SearchMethod::Fuzzy == search_args.search_method}>{"Fuzzy"}</option>
-                            <option value="fast" selected={SearchMethod::Fast == search_args.search_method}>{"Fast"}</option>
-                            <option value="normal" selected={SearchMethod::Normal == search_args.search_method}>{"Normal"}</option>
-                            <option value="regexp" selected={SearchMethod::Regexp == search_args.search_method}>{"Regexp"}</option>
+                            <option value="fuzzy" selected={SearchMethod::Fuzzy == search_args.search_method}>{t!("search.fuzzy")}</option>
+                            <option value="fast" selected={SearchMethod::Fast == search_args.search_method}>{t!("search.fast")}</option>
+                            <option value="normal" selected={SearchMethod::Normal == search_args.search_method}>{t!("search.normal")}</option>
+                            <option value="regexp" selected={SearchMethod::Regexp == search_args.search_method}>{t!("search.regex")}</option>
                         </select>
                     </div>
 
                     <div class="flex flex-row my-2 justify-between">
                         <label htmlFor="search-page-order-method-input-box" class="text-xl">
-                            {"Choose order method"}
+                            {t!("search.order_by")}
                         </label>
                         // order method drop list
                         <div
@@ -271,19 +271,19 @@ pub fn search() -> Html {
                                 class="border border-gray-200 rounded-md p-2 mr-2 text-lg dark:text-black"
                                 onchange={order_method_on_change}
                             >
-                                <option value="time" selected={OrderMethod::Time == search_args.order_by}>{"Time"}</option>
-                                <option value="fuzzy_score" selected={OrderMethod::FuzzyScore == search_args.order_by}>{"Score"}</option>
-                                <option value="id" selected={OrderMethod::Id == search_args.order_by}>{"Id"}</option>
-                                <option value="text" selected={OrderMethod::Text == search_args.order_by}>{"Text"}</option>
-                                <option value="size" selected={OrderMethod::Size == search_args.order_by}>{"Length"}</option>
+                                <option value="time" selected={OrderMethod::Time == search_args.order_by}>{t!("search.time")}</option>
+                                <option value="fuzzy_score" selected={OrderMethod::FuzzyScore == search_args.order_by}>{t!("search.score")}</option>
+                                <option value="id" selected={OrderMethod::Id == search_args.order_by}>{t!("search.id")}</option>
+                                <option value="text" selected={OrderMethod::Text == search_args.order_by}>{t!("search.text")}</option>
+                                <option value="size" selected={OrderMethod::Size == search_args.order_by}>{t!("search.length")}</option>
                             </select>
                             // order order drop list
                             <select
                                 class="border border-gray-200 rounded-md p-2 ml-2 text-lg dark:text-black"
                                 onchange={order_order_on_change}
                             >
-                                <option value="desc" selected={OrderOrder::Desc == search_args.order_order}>{"Desc"}</option>
-                                <option value="asc" selected={OrderOrder::Asc == search_args.order_order}>{"Asc"}</option>
+                                <option value="desc" selected={OrderOrder::Desc == search_args.order_order}>{t!("search.desc")}</option>
+                                <option value="asc" selected={OrderOrder::Asc == search_args.order_order}>{t!("search.asc")}</option>
                             </select>
                         </div>
                     </div>
@@ -291,7 +291,7 @@ pub fn search() -> Html {
                     // total search res num limit
                     <div class="flex flex-row my-2 justify-between">
                         <label htmlFor="search-page-search-total-res-limit-input-box" class="text-xl py-1">
-                            {"Total search res num limit"}
+                            {t!("search.number_of_results")}
                         </label>
                         <input
                             id="totally-search-res-limit-input-box"
@@ -306,7 +306,7 @@ pub fn search() -> Html {
                     // total search res num limit
                     <div class="flex flex-row my-2 justify-between">
                         <label htmlFor="search-page-id-limit-min-input-box" class="text-xl py-1">
-                            {"Min ID"}
+                            {t!("search.min_id")}
                         </label>
                         <input
                             id="user-id-limit-min-input-box"
@@ -316,7 +316,7 @@ pub fn search() -> Html {
                             value={search_args.user_id_limit.min.to_string()}
                         />
                         <label htmlFor="search-page-id-limit-max-input-box" class="text-xl py-1 ml-5">
-                            {"Max ID"}
+                            {t!("search.max_id")}
                         </label>
                         <input
                             id="user-id-limit-max-input-box"
@@ -334,7 +334,7 @@ pub fn search() -> Html {
                     >
                         <span
                             class="dark:bg-white dark:text-black text-white"
-                        > {"Press To Search"} </span>
+                        > {t!("search.press_to_search")} </span>
                     </button>
 
                     // search state

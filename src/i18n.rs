@@ -7,6 +7,7 @@ pub static I18N: Lazy<HashMap<String, String>> = Lazy::new(|| {
     map.insert(Languages::EnGb.get_language(), Languages::EnGb.to_label());
     map.insert(Languages::En.get_language(), Languages::En.to_label());
     map.insert(Languages::ZhCn.get_language(), Languages::ZhCn.to_label());
+    map.insert(Languages::De.get_language(), Languages::De.to_label());
     map
 });
 
@@ -14,6 +15,7 @@ pub enum Languages {
     EnGb,
     En,
     ZhCn,
+    De,
 }
 
 impl Languages {
@@ -22,6 +24,7 @@ impl Languages {
             Languages::EnGb => "en-GB".to_string(),
             Languages::En => "en".to_string(),
             Languages::ZhCn => "zh-CN".to_string(),
+            Languages::De => "de".to_string(),
         }
     }
 
@@ -30,6 +33,7 @@ impl Languages {
             Languages::EnGb => "English (UK)".to_string(),
             Languages::En => "English".to_string(),
             Languages::ZhCn => "中文".to_string(),
+            Languages::De => "Deutsch".to_string(),
         }
     }
 }

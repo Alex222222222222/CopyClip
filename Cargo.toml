@@ -7,7 +7,7 @@ license = "MIT"
 [package.metadata.i18n]
 load-path = "locales"
 default-language = "en-GB"
-available-locales = ["en-GB", "zh-CN"]
+available-locales = ["en-GB", "zh-CN", "en", "de"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
