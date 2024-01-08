@@ -30,6 +30,16 @@ pub fn home() -> Html {
                         target="_blank"
                     >{"GitHub"}</a>
                     {"."}
+
+                    <br />
+
+                    {"Für weitere Informationen besuchen Sie bitte das Repo auf "}
+                    <a
+                        class="text-blue-500"
+                        href="https://github.com/Alex222222222222/CopyClip"
+                        target="_blank"
+                    >{"GitHub"}</a>
+                    {"."}
                 </div>
             </div>
         </div>

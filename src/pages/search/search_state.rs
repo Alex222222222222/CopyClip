@@ -44,7 +44,6 @@ impl SearchState {
         match self {
             SearchState::NotStarted => html! {
                 <>
-                    {"test"}
                 </>
             },
             SearchState::Searching => html! {
@@ -59,7 +58,6 @@ impl SearchState {
             },
             SearchState::Finished => html! {
                 <>
-                    {"test1"}
                 </>
             },
         }

@@ -1,0 +1,52 @@
+hello: Hallo Welt
+preferences:
+  title: Einstellungen
+  pinned_clips: Angeheftete Clips
+  pinned_clips_add: Hinzufügen
+  pinned_clips_remove: Entfernen
+  pinned_clips_description: Angeheftete Clips werden immer oben in der Liste angezeigt
+  advanced_title: Erweiterte Einstellungen
+  dark_mode: Cthulhu Modus
+  clips_per_page: Clips pro Seite
+  max_clip_len: Maximale Clip Länge
+  log_level_filter: Log Level
+  language: Sprache
+  search_clip_per_batch: Such Clips pro Batch
+  enable_auto_delete_duplications: Duplikate automatisch löschen
+
+head_bar:
+  preferences: Einstellungen
+  search: Suche
+  home: Startseite
+
+search:
+  title: Suche
+  search_box: Suchfeld
+  normal: Normal
+  regex: Regex
+  fuzzy: Fuzzy
+  fast: Schnell
+  search_method: Such Methode
+  order_by: Sortieren nach
+  time: Zeit
+  score: Score
+  id: Id
+  text: Text
+  length: Länge
+  desc: Absteigend
+  asc: Aufsteigend
+  number_of_results: Anzahl der Ergebnisse
+  min_id: Min Id
+  max_id: Max Id
+  press_to_search: Suche starten
+
+export:
+  export_button: Drücke um deine Daten nach ~/Downloads zu exportieren
+
+log_level:
+  trace: Trace
+  debug: Debug
+  warn: Warn
+  info: Info
+  off: Off
+  error: Error

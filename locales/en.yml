@@ -15,10 +15,10 @@ preferences:
   enable_auto_delete_duplications: Enable Auto Delete Duplications
 
 head_bar:
+  home: Home
   preferences: Preferences
   search: Search
-  home: Home
-
+  
 search:
   title: Search
   search_box: Search Box

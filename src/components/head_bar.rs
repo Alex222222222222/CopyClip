@@ -15,21 +15,21 @@ pub fn head_bar() -> Html {
                 <div class="mx-2 text-center">
                     <a class="head-bar-button">
                         <Link<Route> to={Route::Home}>
-                            {"Home"}
+                            {t!("head_bar.home")}
                         </Link<Route>>
                     </a>
                 </div>
                 <div class="mx-2 text-center">
                     <a class="head-bar-button">
                         <Link<Route> to={Route::Preferences}>
-                            {"Preferences"}
+                            {t!("head_bar.preferences")}
                         </Link<Route>>
                     </a>
                 </div>
                 <div class="mx-2 text-center">
                     <a class="head-bar-button">
                         <Link<Route> to={Route::Search}>
-                            {"Search"}
+                            {t!("head_bar.search")}
                         </Link<Route>>
                     </a>
                 </div>
