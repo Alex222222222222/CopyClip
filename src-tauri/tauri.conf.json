@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeDevCommand": "trunk serve",
+    "beforeDevCommand": "bash ./tailwindcss.sh && mkdir public && trunk serve",
     "beforeBuildCommand": "bash ./tailwindcss.sh && mkdir public && trunk build --release && bash ./wasm-opt.sh",
     "devPath": "http://localhost:1420",
     "distDir": "../dist",
