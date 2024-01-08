@@ -36,6 +36,7 @@ pub fn create_tray(
 /// - preferences
 /// - search
 /// - quit
+#[cfg(not(target_os = "windows"))]
 pub fn create_tray_menu(
     page_len: i64,
     pinned_clips_num: i64,
@@ -108,6 +109,84 @@ pub fn create_tray_menu(
         .add_item(pause)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit)
+}
+
+#[cfg(target_os = "windows")]
+pub fn create_tray_menu(
+    page_len: i64,
+    pinned_clips_num: i64,
+    favourite_clips_num: i64,
+    paused: bool,
+) -> SystemTrayMenu {
+    // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
+
+    let notice_select = CustomMenuItem::new(
+        "notice_select".to_string(),
+        "Select the clip you want to paste.",
+    )
+    .disabled();
+
+    let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
+    let prev_page = CustomMenuItem::new("prev_page".to_string(), "Previous page")
+        .accelerator("CommandOrControl+A");
+    let next_page =
+        CustomMenuItem::new("next_page".to_string(), "Next page").accelerator("CommandOrControl+D");
+    let first_page = CustomMenuItem::new("first_page".to_string(), "First page");
+
+    let preferences = CustomMenuItem::new("preferences".to_string(), "Preferences");
+    let search = CustomMenuItem::new("search".to_string(), "Search");
+    let text = if paused {
+        "Resume monitoring"
+    } else {
+        "Pause monitoring"
+    };
+    let pause = CustomMenuItem::new("pause".to_string(), text);
+
+    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
+    let mut tray_menu = SystemTrayMenu::new();
+    tray_menu = tray_menu
+        .add_item(quit)
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(pause)
+        .add_item(search)
+        .add_item(preferences)
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(first_page)
+        .add_item(next_page)
+        .add_item(prev_page)
+        .add_item(page_info)
+        .add_native_item(SystemTrayMenuItem::Separator);
+
+    // add the clips slot
+    for i in 0..page_len {
+        let clip = CustomMenuItem::new("tray_clip_".to_string() + &i.to_string(), "");
+        tray_menu = tray_menu.add_item(clip);
+    }
+    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
+
+    // add the label submenus
+    //    -default label: favorites
+    let mut favourite_menu = SystemTrayMenu::new();
+    debug!("Adding favourite clips: {}", favourite_clips_num);
+    for i in (0..favourite_clips_num).rev() {
+        debug!("Adding favourite clip: {}", i);
+        let clip = CustomMenuItem::new("favourite_clip_".to_string() + &i.to_string(), "");
+        favourite_menu = favourite_menu.add_item(clip);
+    }
+    let favourite = SystemTraySubmenu::new("favourites".to_string(), favourite_menu);
+
+    tray_menu = tray_menu
+        .add_submenu(favourite)
+        .add_native_item(SystemTrayMenuItem::Separator);
+
+    // add the pinned clips slot
+    for i in (0..pinned_clips_num).rev() {
+        let clip = CustomMenuItem::new("pinned_clip_".to_string() + &i.to_string(), "");
+        tray_menu = tray_menu.add_item(clip);
+    }
+    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
+
+    tray_menu.add_item(notice_select)
 }
 
 /// handle the tray event
