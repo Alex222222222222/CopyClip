@@ -248,21 +248,21 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 if let Err(e) = res {
                     panic_app(&format!("Failed to show preferences window: {e}"));
                 }
+            } else {
+                let app_handle = app.app_handle();
+                std::thread::spawn(move || {
+                    let preferences_window = tauri::WindowBuilder::new(
+                        &app_handle,
+                        "preferences",
+                        tauri::WindowUrl::App("preferences".into()),
+                    )
+                    .title("Copy Clip")
+                    .build();
+                    if let Err(e) = preferences_window {
+                        panic_app(&format!("Failed to open preferences window: {e}"));
+                    }
+                });
             }
-
-            let app_handle = app.app_handle();
-            std::thread::spawn(move || {
-                let preferences_window = tauri::WindowBuilder::new(
-                    &app_handle,
-                    "preferences",
-                    tauri::WindowUrl::App("preferences".into()),
-                )
-                .title("Copy Clip")
-                .build();
-                if let Err(e) = preferences_window {
-                    panic_app(&format!("Failed to open preferences window: {e}"));
-                }
-            });
         }
         "search" => {
             // open the preferences window
@@ -274,21 +274,21 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 if let Err(e) = res {
                     panic_app(&format!("Failed to show search window: {e}"));
                 }
+            } else {
+                let app_handle = app.app_handle();
+                std::thread::spawn(move || {
+                    let preferences_window = tauri::WindowBuilder::new(
+                        &app_handle,
+                        "search",
+                        tauri::WindowUrl::App("search".into()),
+                    )
+                    .title("Copy Clip")
+                    .build();
+                    if let Err(e) = preferences_window {
+                        panic_app(&format!("Failed to open search window: {e}"));
+                    }
+                });
             }
-
-            let app_handle = app.app_handle();
-            std::thread::spawn(move || {
-                let preferences_window = tauri::WindowBuilder::new(
-                    &app_handle,
-                    "search",
-                    tauri::WindowUrl::App("search".into()),
-                )
-                .title("Copy Clip")
-                .build();
-                if let Err(e) = preferences_window {
-                    panic_app(&format!("Failed to open search window: {e}"));
-                }
-            });
         }
         "pause" => {
             let config = app.state::<ConfigMutex>();
