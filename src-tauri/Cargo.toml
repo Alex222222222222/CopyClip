@@ -29,7 +29,7 @@ chrono = "0.4.24"
 clipboard-master = { git = "https://github.com/Alex222222222222/clipboard-master.git" }
 fern = "0.6"
 log = "0.4"
-moka = { version = "0.10.2", features = ["future"] }
+moka = { version = "0.12.2", features = ["future"] }
 once_cell = "1.17.1"
 regex = "1.10.2"
 serde = { version = "1.0", features = ["derive"] }

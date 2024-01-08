@@ -26,7 +26,7 @@ pub(super) static CACHED_CLIP: Lazy<ClipCache> = Lazy::new(|| {
 impl ClipCache {
     pub(super) async fn get(&self, id: i64) -> Option<Clip> {
         let cache = self.cache.lock().await;
-        cache.get(&id).clone()
+        cache.get(&id).await.clone()
     }
 
     pub(super) async fn insert(&self, id: i64, clip: Clip) {

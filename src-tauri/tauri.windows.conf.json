@@ -1,6 +1,6 @@
 {
   "build": {
-    "beforeDevCommand": "npx tailwindcss -o ./tailwind.css  && trunk serve",
+    "beforeDevCommand": "npx tailwindcss -o ./tailwind.css && mkdir public && trunk serve",
     "beforeBuildCommand": "npx tailwindcss --minify -c ./tailwind.config.js -o ./tailwind.css && mkdir public && trunk build --release"
   }
 }
