@@ -434,6 +434,7 @@ impl ClipData {
     ///
     /// Will try lock the `clips` and `database_connection` and `app.state::<ConfigMutex>()`.
     pub async fn new_clip(&self, text: Arc<String>, app: &AppHandle) -> Result<i64, Error> {
+        debug!("Create a new clip");
         let id: i64 = if let Some(id) = self.get_latest_clip_id().await {
             id + 1
         } else {
@@ -447,7 +448,7 @@ impl ClipData {
         let db_connection = db_connection_mutex.clone().unwrap();
         drop(db_connection_mutex);
         let res = sqlx::query(
-            "INSERT INTO clips (id, text, timestamp, favourite, pinned) VALUES (?, ?, ?, ?)",
+            "INSERT INTO clips (id, text, timestamp, favourite, pinned) VALUES (?, ?, ?, ?, ?)",
         )
         .bind(id)
         .bind(&(*text))
@@ -631,6 +632,7 @@ impl ClipData {
     /// Will trigger a tray update event.
     #[warn(unused_must_use)]
     pub async fn update_clipboard(&self, app: &AppHandle) -> Result<(), Error> {
+        debug!("Clipboard changed");
         // get the current clip text
         let clipboard_clip_text = clip_data_from_system_clipboard(app)?;
         // if the current clip text is empty, then return
