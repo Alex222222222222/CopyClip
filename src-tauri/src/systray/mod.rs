@@ -158,7 +158,7 @@ pub fn create_tray_menu(
         .add_native_item(SystemTrayMenuItem::Separator);
 
     // add the clips slot
-    for i in 0..page_len {
+    for i in (0..page_len).rev() {
         let clip = CustomMenuItem::new("tray_clip_".to_string() + &i.to_string(), "");
         tray_menu = tray_menu.add_item(clip);
     }
