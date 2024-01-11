@@ -50,3 +50,17 @@ log_level:
   info: Info
   off: Off
   error: Error
+
+tray_menu:
+  notice_select: Select the clip you want to paste.
+  favourite: Favourite
+  pause_monitoring: Pause Monitoring
+  resume_monitoring: Resume Monitoring
+  prev_page: Previous Page
+  first_page: First Page
+  next_page: Next Page
+  preferences: Preferences
+  search: Search
+  quit: Quit
+  total_clips: Total Clips
+  current_page: Current Page

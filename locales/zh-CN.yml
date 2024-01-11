@@ -46,3 +46,17 @@ log_level:
   info: 信息
   off: 关闭
   error: 错误
+
+tray_menu:
+  notice_select: 选择您要粘贴的记录。
+  favourite: 收藏夹
+  pause_monitoring: 暂停记录
+  resume_monitoring: 恢复记录
+  prev_page: 上一页
+  first_page: 第一页
+  next_page: 下一页
+  preferences: 首选项
+  search: 搜索
+  quit: 退出
+  total_clips: 总历史记录
+  current_page: 当前页

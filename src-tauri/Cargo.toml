@@ -18,7 +18,13 @@ version = "0.3.8"
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 
+[package.metadata.i18n]
+load-path = "../locales"
+default-language = "en-GB"
+available-locales = ["en-GB", "zh-CN", "en", "de"]
+
 [dependencies]
+rust-i18n = "2.3.0"
 unicode-segmentation = "1.10.1"
 unicode-width = "0.1.11"
 directories = "5.0.0"

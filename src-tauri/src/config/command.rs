@@ -1,5 +1,6 @@
 #[cfg(debug_assertions)]
 use log::debug;
+use rust_i18n::set_locale;
 use tauri::{Manager, Runtime, State};
 
 use crate::{
@@ -215,8 +216,10 @@ pub async fn set_language(
     let mut config = config.config.lock().await;
     if config.language != data {
         config.language = data;
+        set_locale(&config.language);
         let event_sender = app.state::<EventSender>();
         event_sender.send(CopyClipEvent::SaveConfigEvent).await;
+        event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
     }
 
     Ok(())

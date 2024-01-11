@@ -797,8 +797,10 @@ impl ClipData {
     ) -> Result<(), Error> {
         let tray_page_info_item = app.tray_handle().get_item("page_info");
         let tray_page_info_title = format!(
-            "Total clips: {}, Current page: {}/{}",
+            "{}: {}, {}: {}/{}",
+            t!("tray_menu.total_clips"),
             whole_list_of_ids_len,
+            t!("tray_menu.current_page"),
             current_page + 1,
             whole_pages + 1
         );
