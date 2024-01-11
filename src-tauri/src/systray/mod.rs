@@ -1,4 +1,4 @@
-use log::{debug, info, warn};
+use log::{info, warn};
 use tauri::{
     AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
     SystemTrayMenuItem, SystemTraySubmenu,
@@ -44,29 +44,27 @@ pub fn create_tray_menu(
     paused: bool,
 ) -> SystemTrayMenu {
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
-    let notice_select = CustomMenuItem::new(
-        "notice_select".to_string(),
-        "Select the clip you want to paste.",
-    )
-    .disabled();
+
+    let notice_select =
+        CustomMenuItem::new("notice_select".to_string(), t!("tray_menu.notice_select")).disabled();
 
     let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
-    let prev_page = CustomMenuItem::new("prev_page".to_string(), "Previous page")
+    let prev_page = CustomMenuItem::new("prev_page".to_string(), t!("tray_menu.prev_page"))
         .accelerator("CommandOrControl+A");
-    let next_page =
-        CustomMenuItem::new("next_page".to_string(), "Next page").accelerator("CommandOrControl+D");
-    let first_page = CustomMenuItem::new("first_page".to_string(), "First page");
+    let next_page = CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page"))
+        .accelerator("CommandOrControl+D");
+    let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
 
-    let preferences = CustomMenuItem::new("preferences".to_string(), "Preferences");
-    let search = CustomMenuItem::new("search".to_string(), "Search");
+    let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
+    let search = CustomMenuItem::new("search".to_string(), t!("tray_menu.search"));
     let text = if paused {
-        "Resume monitoring"
+        t!("tray_menu.resume_monitoring")
     } else {
-        "Pause monitoring"
+        t!("tray_menu.pause_monitoring")
     };
     let pause = CustomMenuItem::new("pause".to_string(), text);
 
-    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
+    let quit = CustomMenuItem::new("quit".to_string(), t!("tray_menu.quit"));
     let mut tray_menu = SystemTrayMenu::new()
         .add_item(notice_select)
         .add_native_item(SystemTrayMenuItem::Separator);
@@ -79,15 +77,13 @@ pub fn create_tray_menu(
     tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
 
     // add the label submenus
-    //    -default label: favorites
+    //    -default label: favourites
     let mut favourite_menu = SystemTrayMenu::new();
-    debug!("Adding favourite clips: {}", favourite_clips_num);
     for i in 0..favourite_clips_num {
-        debug!("Adding favourite clip: {}", i);
         let clip = CustomMenuItem::new("favourite_clip_".to_string() + &i.to_string(), "");
         favourite_menu = favourite_menu.add_item(clip);
     }
-    let favourite = SystemTraySubmenu::new("favourites".to_string(), favourite_menu);
+    let favourite = SystemTraySubmenu::new(t!("tray_menu.favourite"), favourite_menu);
     tray_menu = tray_menu.add_submenu(favourite);
     tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
 
@@ -120,29 +116,26 @@ pub fn create_tray_menu(
 ) -> SystemTrayMenu {
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
 
-    let notice_select = CustomMenuItem::new(
-        "notice_select".to_string(),
-        "Select the clip you want to paste.",
-    )
-    .disabled();
+    let notice_select =
+        CustomMenuItem::new("notice_select".to_string(), t!("tray_menu.notice_select")).disabled();
 
     let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
-    let prev_page = CustomMenuItem::new("prev_page".to_string(), "Previous page")
+    let prev_page = CustomMenuItem::new("prev_page".to_string(), t!("tray_menu.prev_page"))
         .accelerator("CommandOrControl+A");
-    let next_page =
-        CustomMenuItem::new("next_page".to_string(), "Next page").accelerator("CommandOrControl+D");
-    let first_page = CustomMenuItem::new("first_page".to_string(), "First page");
+    let next_page = CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page"))
+        .accelerator("CommandOrControl+D");
+    let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
 
-    let preferences = CustomMenuItem::new("preferences".to_string(), "Preferences");
-    let search = CustomMenuItem::new("search".to_string(), "Search");
+    let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
+    let search = CustomMenuItem::new("search".to_string(), t!("tray_menu.search"));
     let text = if paused {
-        "Resume monitoring"
+        t!("tray_menu.resume_monitoring")
     } else {
-        "Pause monitoring"
+        t!("tray_menu.pause_monitoring")
     };
     let pause = CustomMenuItem::new("pause".to_string(), text);
 
-    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
+    let quit = CustomMenuItem::new("quit".to_string(), t!("tray_menu.quit"));
     let mut tray_menu = SystemTrayMenu::new();
     tray_menu = tray_menu
         .add_item(quit)
@@ -165,15 +158,13 @@ pub fn create_tray_menu(
     tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
 
     // add the label submenus
-    //    -default label: favorites
+    //    -default label: favourites
     let mut favourite_menu = SystemTrayMenu::new();
-    debug!("Adding favourite clips: {}", favourite_clips_num);
     for i in (0..favourite_clips_num).rev() {
-        debug!("Adding favourite clip: {}", i);
         let clip = CustomMenuItem::new("favourite_clip_".to_string() + &i.to_string(), "");
         favourite_menu = favourite_menu.add_item(clip);
     }
-    let favourite = SystemTraySubmenu::new("favourites".to_string(), favourite_menu);
+    let favourite = SystemTraySubmenu::new(t!("tray_menu.favourite"), favourite_menu);
 
     tray_menu = tray_menu
         .add_submenu(favourite)

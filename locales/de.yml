@@ -44,9 +44,23 @@ export:
   export_button: Drücke um deine Daten nach ~/Downloads zu exportieren
 
 log_level:
-  trace: Trace
-  debug: Debug
-  warn: Warn
-  info: Info
-  off: Off
-  error: Error
+  trace: Verfolgen
+  debug: Debuggen
+  warn: Warnen
+  info: Informationen
+  off: Aus
+  error: Fehler
+
+tray_menu:
+  notice_select: Wählen Sie den Clip aus, den Sie einfügen möchten.
+  favourite: Favorit
+  pause_monitoring: Überwachung pausieren
+  resume_monitoring: Überwachung fortsetzen
+  prev_page: Vorherige Seite
+  first_page: Erste Seite
+  next_page: Nächste Seite
+  preferences: Einstellungen
+  search: Suche
+  quit: Beenden
+  total_clips: Gesamtanzahl der Clips
+  current_page: Aktuelle Seite

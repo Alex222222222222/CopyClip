@@ -11,6 +11,7 @@ use copy_clip::{
     systray::handle_tray_event,
 };
 use log::info;
+use rust_i18n::set_locale;
 use tauri::{async_runtime::Mutex, Manager, SystemTray};
 
 const EVENT_CHANNEL_SIZE: usize = 1000;
@@ -66,6 +67,16 @@ fn main() {
                 tx.send(()).unwrap();
             });
             rx.recv().unwrap();
+
+            // set the i18n
+            let app_handle = app.handle();
+            tauri::async_runtime::spawn(async move {
+                let config_mutex = app_handle.state::<ConfigMutex>();
+                let config_mutex = config_mutex.config.lock().await;
+                let language = config_mutex.language.clone();
+                drop(config_mutex);
+                set_locale(&language);
+            });
 
             // set up event sender and receiver
             let app_handle = app.handle();
