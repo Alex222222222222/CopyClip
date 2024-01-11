@@ -21,6 +21,7 @@ use log::debug;
 /// the handler for the system clipboard change
 struct Handler<'a> {
     app: &'a AppHandle,
+    first_time: bool,
 }
 
 /// the handler for the app clips data change
@@ -31,7 +32,10 @@ impl ClipboardHandler for &mut Handler<'_> {
     fn on_clipboard_change(&mut self) -> CallbackResult {
         debug!("clipboard change");
         event_sender(self.app, CopyClipEvent::ClipboardChangeEvent);
-        event_sender(self.app, CopyClipEvent::ClipboardChangeEvent);
+        if self.first_time {
+            self.first_time = false;
+            event_sender(self.app, CopyClipEvent::ClipboardChangeEvent);
+        }
 
         CallbackResult::Next
     }
@@ -46,7 +50,10 @@ impl ClipboardHandler for &mut Handler<'_> {
 
 /// monitor the app clips data change, and trigger update of the tray
 pub async fn monitor_clip_board(app: &AppHandle) {
-    let mut handler = Handler { app };
+    let mut handler = Handler {
+        app,
+        first_time: true,
+    };
 
     let mut master = Master::new(&mut handler);
     master.run().unwrap();

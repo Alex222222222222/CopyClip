@@ -1,8 +1,8 @@
 use std::fs;
 
 use log::warn;
-use serde::{de, Deserialize, Serialize};
-use tauri::{async_runtime::Mutex, utils::config, AppHandle};
+use serde::{Deserialize, Serialize};
+use tauri::{async_runtime::Mutex, AppHandle};
 
 use crate::{error, log::LogLevelFilter};
 
