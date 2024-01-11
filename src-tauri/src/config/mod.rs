@@ -8,6 +8,31 @@ use crate::{error, log::LogLevelFilter};
 
 pub mod command;
 
+fn default_clip_per_page() -> i64 {
+    20
+}
+fn default_clip_max_show_length() -> i64 {
+    50
+}
+fn default_search_clip_per_batch() -> i64 {
+    2
+}
+fn default_log_level() -> LogLevelFilter {
+    LogLevelFilter::Info
+}
+fn default_dark_mode() -> bool {
+    false
+}
+fn default_language() -> String {
+    "en-GB".to_string()
+}
+fn default_auto_delete_duplicate_clip() -> bool {
+    true
+}
+fn default_pause_monitoring() -> bool {
+    false
+}
+
 /// the config struct
 pub struct ConfigMutex {
     pub config: Mutex<Config>,
@@ -17,25 +42,51 @@ pub struct ConfigMutex {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// the number of clips to show in the tray menu
+    #[serde(default = "default_clip_per_page")]
     pub clip_per_page: i64,
     /// the max length of a clip to show in the tray menu
+    #[serde(default = "default_clip_max_show_length")]
     pub clip_max_show_length: i64,
     /// clip max show length in search page
     /// default 500
+    #[serde(default = "default_search_clip_per_batch")]
     pub search_page_clip_max_show_length: i64,
     /// the number of clips to search in one batch
+    #[serde(default = "default_search_clip_per_batch")]
     pub search_clip_per_batch: i64,
     /// log level
+    #[serde(default = "default_log_level")]
     pub log_level: LogLevelFilter,
     /// dark mode
+    #[serde(default = "default_dark_mode")]
     pub dark_mode: bool,
     /// user defined language
+    #[serde(default = "default_language")]
     pub language: String,
     /// enable the feature to auto delete duplicate clips when insert new clip
+    #[serde(default = "default_auto_delete_duplicate_clip")]
     pub auto_delete_duplicate_clip: bool,
     /// Whether the monitoring of the clipboard is paused.
     /// Allow user to pause monitoring without exiting the app.
+    #[serde(default = "default_pause_monitoring")]
     pub pause_monitoring: bool,
+}
+
+/// the default config
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            clip_per_page: default_clip_per_page(),
+            clip_max_show_length: default_clip_max_show_length(),
+            search_clip_per_batch: default_search_clip_per_batch(),
+            log_level: default_log_level(),
+            dark_mode: default_dark_mode(),
+            search_page_clip_max_show_length: 500,
+            language: default_language(),
+            auto_delete_duplicate_clip: default_auto_delete_duplicate_clip(),
+            pause_monitoring: default_pause_monitoring(),
+        }
+    }
 }
 
 /// load the config from app data folder
@@ -50,23 +101,25 @@ pub fn load_config(app: &AppHandle) -> Config {
     // if config file exists, load it
 
     let data_dir = app.path_resolver().app_data_dir();
-    if data_dir.is_none() {
-        warn!("can not find app data dir");
-        return Config::default();
-    }
-
-    let data_dir = data_dir.unwrap();
+    let data_dir = match data_dir {
+        Some(d) => d,
+        None => {
+            warn!("can not find app data dir");
+            return Config::default();
+        }
+    };
     let mut config_file = data_dir.clone();
     config_file.push("config.json");
 
     // test if data_dir exist
     let data_dir_exist = data_dir.try_exists();
-    if data_dir_exist.is_err() {
-        warn!("can not verify existence of app data dir");
-        return Config::default();
-    }
-
-    let data_dir_exist = data_dir_exist.unwrap();
+    let data_dir_exist = match data_dir_exist {
+        Ok(d) => d,
+        Err(e) => {
+            warn!("can not verify existence of app data dir: {}", e);
+            return Config::default();
+        }
+    };
     if !data_dir_exist {
         // create the data_dir
         let create_data_dir = fs::create_dir(data_dir.as_path());
@@ -78,24 +131,23 @@ pub fn load_config(app: &AppHandle) -> Config {
 
     // test if config_file exist
     let config_file_exist = config_file.try_exists();
-    if config_file_exist.is_err() {
-        warn!("can not verify existence of config file");
-        return Config::default();
-    }
-
-    let config_file_exist = config_file_exist.unwrap();
-
+    let config_file_exist = match config_file_exist {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("can not verify existence of config file: {}", e);
+            return Config::default();
+        }
+    };
     if !config_file_exist {
         let c = Config::default();
         let c_json = serde_json::to_string(&c);
-
-        if c_json.is_err() {
-            warn!("can not serialize config to json");
-            return Config::default();
-        }
-
-        let c_json = c_json.unwrap();
-
+        let c_json = match c_json {
+            Ok(c) => c,
+            Err(e) => {
+                warn!("can not serialize config to json: {}", e);
+                return Config::default();
+            }
+        };
         let write_config_file = fs::write(config_file.as_path(), c_json);
         if write_config_file.is_err() {
             warn!("can not write config file");
@@ -200,22 +252,5 @@ impl Config {
         self.language = config.language;
         self.auto_delete_duplicate_clip = config.auto_delete_duplicate_clip;
         self.pause_monitoring = config.pause_monitoring;
-    }
-}
-
-/// the default config
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            clip_per_page: 20,
-            clip_max_show_length: 50,
-            search_clip_per_batch: 2,
-            log_level: LogLevelFilter::Info,
-            dark_mode: false,
-            search_page_clip_max_show_length: 500,
-            language: "en-GB".to_string(),
-            auto_delete_duplicate_clip: false,
-            pause_monitoring: false,
-        }
     }
 }

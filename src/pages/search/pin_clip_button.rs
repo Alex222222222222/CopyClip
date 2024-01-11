@@ -97,7 +97,6 @@ pub fn pin_clip_button(props: &PinClipButtonProps) -> Html {
             let res = serde_wasm_bindgen::from_value::<bool>(res);
             let res = res.unwrap();
 
-            gloo_console::log!("first load res: {}", res, id);
             if res {
                 dispatch1.reduce_mut(|state| {
                     state.pinned.insert(id);

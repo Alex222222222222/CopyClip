@@ -208,10 +208,6 @@ pub fn search() -> Html {
     use_effect_with((), move |_| {
         search_args_dispatch.reduce_mut(|state| {
             state.favourite_filter = false;
-            gloo_console::log!(
-                "cliked favourite filter, set default to ",
-                state.favourite_filter
-            );
         });
     });
 
@@ -219,7 +215,6 @@ pub fn search() -> Html {
     use_effect_with((), move |_| {
         search_args_dispatch_2.reduce_mut(|state| {
             state.pin_filter = false;
-            gloo_console::log!("cliked pin filter, set default to ", state.pin_filter);
         });
     });
 

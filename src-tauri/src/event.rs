@@ -84,20 +84,21 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
         }
         let event = event.unwrap();
         debug!("Get event: {:?}", event);
+        let app = app.app_handle();
         match event {
             // update the clips in the tray menu
-            CopyClipEvent::TrayUpdateEvent => {
+            CopyClipEvent::TrayUpdateEvent => tauri::async_runtime::spawn(async move {
                 let clip_data = app.state::<ClipData>();
-                let res = clip_data.update_tray(app).await;
+                let res = clip_data.update_tray(&app).await;
                 if let Err(err) = res {
                     panic_app(&format!(
                         "Failed to update tray menu, error: {}",
                         err.message()
                     ));
                 }
-            }
+            }),
             // rebuild the tray menu
-            CopyClipEvent::RebuildTrayMenuEvent => {
+            CopyClipEvent::RebuildTrayMenuEvent => tauri::async_runtime::spawn(async move {
                 // get number of clips to show from config
                 let page_len = app.state::<ConfigMutex>();
                 let page_len = page_len.config.lock().await.clip_per_page;
@@ -124,37 +125,37 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                     ));
                 }
                 // initial the tray
-                send_tray_update_event(app);
-            }
+                send_tray_update_event(&app);
+            }),
             // pinned clips changed event
-            CopyClipEvent::PinnedClipsChangedEvent => {
+            CopyClipEvent::PinnedClipsChangedEvent => tauri::async_runtime::spawn(async move {
                 // send rebuild tray menu event
                 let event = app.state::<EventSender>();
                 event.send(CopyClipEvent::RebuildTrayMenuEvent).await;
-            }
+            }),
             // save config event
-            CopyClipEvent::SaveConfigEvent => {
+            CopyClipEvent::SaveConfigEvent => tauri::async_runtime::spawn(async move {
                 let config = app.state::<ConfigMutex>();
                 let config = config.config.lock().await;
-                let res = config.save_config(app);
+                let res = config.save_config(&app);
                 drop(config);
                 if res.is_err() {
                     panic_app(&format!("Failed to {}", res.err().unwrap().message()));
                 }
-            }
+            }),
             // log
-            CopyClipEvent::LogEvent(level, msg) => {
+            CopyClipEvent::LogEvent(level, msg) => tauri::async_runtime::spawn(async move {
                 log::log!(log::Level::from(level), "{msg}");
-            }
+            }),
             // clipboard change event
-            CopyClipEvent::ClipboardChangeEvent => {
+            CopyClipEvent::ClipboardChangeEvent => tauri::async_runtime::spawn(async move {
                 debug!("Clipboard change event");
                 let config = app.state::<ConfigMutex>();
                 let config = config.config.lock().await;
                 if !config.pause_monitoring {
                     drop(config);
                     let clip_data = app.state::<ClipData>();
-                    let res = clip_data.update_clipboard(app).await;
+                    let res = clip_data.update_clipboard(&app).await;
                     if let Err(err) = res {
                         panic_app(&format!(
                             "Failed to update clipboard, error: {}",
@@ -162,26 +163,26 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                         ));
                     }
                 }
-            }
+            }),
             // tray menu item click event
-            CopyClipEvent::TrayMenuItemClickEvent(id) => {
-                handle_menu_item_click(app, id).await;
-            }
-            CopyClipEvent::SendNotificationEvent(msg) => {
+            CopyClipEvent::TrayMenuItemClickEvent(id) => tauri::async_runtime::spawn(async move {
+                handle_menu_item_click(&app, id).await;
+            }),
+            CopyClipEvent::SendNotificationEvent(msg) => tauri::async_runtime::spawn(async move {
                 #[cfg(debug_assertions)]
                 log::debug!("Notification: {}", msg);
 
                 let res = Notification::new(&app.config().tauri.bundle.identifier)
                     .title(msg)
                     .icon("icons/clip.png")
-                    .notify(app);
+                    .notify(&app);
                 if let Err(err) = res {
                     #[cfg(debug_assertions)]
                     println!("Error: {}", err);
 
                     log::error!("Error: {}", err);
                 }
-            }
-        }
+            }),
+        };
     }
 }
