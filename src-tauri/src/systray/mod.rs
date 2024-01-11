@@ -51,8 +51,8 @@ pub fn create_tray_menu(
     let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
     let prev_page = CustomMenuItem::new("prev_page".to_string(), t!("tray_menu.prev_page"))
         .accelerator("CommandOrControl+A");
-    let next_page =
-        CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page")).accelerator("CommandOrControl+D");
+    let next_page = CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page"))
+        .accelerator("CommandOrControl+D");
     let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
 
     let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
@@ -122,8 +122,8 @@ pub fn create_tray_menu(
     let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
     let prev_page = CustomMenuItem::new("prev_page".to_string(), t!("tray_menu.prev_page"))
         .accelerator("CommandOrControl+A");
-    let next_page =
-        CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page")).accelerator("CommandOrControl+D");
+    let next_page = CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page"))
+        .accelerator("CommandOrControl+D");
     let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
 
     let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));

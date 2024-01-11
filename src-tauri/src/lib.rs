@@ -7,7 +7,6 @@ pub mod export;
 pub mod log;
 pub mod systray;
 
-
 #[macro_use]
 extern crate rust_i18n;
 
