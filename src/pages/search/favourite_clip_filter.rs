@@ -31,10 +31,6 @@ pub fn favourite_clip_filter(props: &FavouriteClipFilterProps) -> Html {
             state.favourite_filter = !state.favourite_filter;
             state.search_state = SearchState::Searching;
         });
-        gloo_console::log!(
-            "cliked favourite filter, set default to ",
-            search_args.favourite_filter
-        );
         spawn_local(async move {
             let res = search_clips(
                 search_res_dispatch,

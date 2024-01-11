@@ -52,8 +52,6 @@ pub async fn search_clips(
     }
     let mut total_len = 0;
 
-    gloo_console::log!(favourite_filter);
-
     while max_id > search_full_args.user_id_limit.min
         && total_len < search_full_args.total_search_res_limit
     {
@@ -84,20 +82,18 @@ pub async fn search_clips(
                 }
 
                 // if the clip is not the duplication of the last clip, then push it
-                if total_len > 0 {
-                    search_res_dispatch.reduce_mut(|state| {
-                        let mut state = state.res.lock().unwrap();
-                        let last_clip_id = state.iter().find(|clip| clip.id == id);
-                        if last_clip_id.is_some() {
-                            return;
-                        }
-                        state.push(Clip::from_clip_res(
-                            search_full_args.search_data.to_string(),
-                            clip,
-                        ));
-                    });
-                }
-                total_len += 1;
+                search_res_dispatch.reduce_mut(|state| {
+                    let mut state = state.res.lock().unwrap();
+                    let last_clip_id = state.iter().find(|clip| clip.id == id);
+                    if last_clip_id.is_some() {
+                        return;
+                    }
+                    state.push(Clip::from_clip_res(
+                        search_full_args.search_data.to_string(),
+                        clip,
+                    ));
+                    total_len += 1;
+                });
             }
 
             search_res_dispatch.reduce_mut(|state| {
