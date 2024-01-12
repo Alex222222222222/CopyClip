@@ -210,14 +210,22 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
         }
         "next_page" => {
             let clips = app.state::<ClipData>();
-            clips.next_page(app).await;
+            let res = clips.next_page(app).await;
+            if let Err(e) = res {
+                warn!("Failed to get next page: {}", e);
+                return;
+            }
 
             // update the tray
             send_tray_update_event(app);
         }
         "prev_page" => {
             let clips = app.state::<ClipData>();
-            clips.prev_page(app).await;
+            let res = clips.prev_page(app).await;
+            if let Err(e) = res {
+                warn!("Failed to get prev page: {}", e);
+                return;
+            }
 
             // update the tray
             send_tray_update_event(app);

@@ -314,50 +314,11 @@ async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(),
     // drop otherwise deadlock
     drop(clip_data_connection);
 
-    // init the whole list of ids
-    let future1 = init_whole_list_of_ids(app);
-
     // init pinned clips
     init_pinned_clips(app).await?;
 
     // init favourite clips
     init_favourite_clips(app).await?;
-
-    future1.await
-}
-
-/// init the whole list of ids,
-///
-/// this function will
-///     - get the whole clips ids
-///     - fill the ids into the clips mutex
-async fn init_whole_list_of_ids(app: &AppHandle) -> Result<(), Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
-
-    // get the whole clips ids
-    let mut ids: Vec<i64> = Vec::new();
-    let res = sqlx::query("SELECT id FROM clips")
-        .fetch_all(db_connection.as_ref())
-        .await;
-    if let Err(err) = res {
-        return Err(Error::GetWholeIdsErr(err.to_string()));
-    }
-    let res = res.unwrap();
-
-    for row in res {
-        let id = row.try_get::<i64, _>("id");
-        if let Err(err) = id {
-            return Err(Error::GetWholeIdsErr(err.to_string()));
-        }
-        ids.push(id.unwrap());
-    }
-
-    let clips = app.state::<ClipData>();
-    let mut clips = clips.clips.lock().await;
-    clips.whole_list_of_ids = ids;
 
     Ok(())
 }
