@@ -6,7 +6,9 @@ use crate::{
 };
 use std::sync::Arc;
 
-use super::{cache::CACHED_CLIP, clip_struct::Clip};
+#[cfg(feature = "clip-cache")]
+use super::cache::CACHED_CLIP;
+use super::clip_struct::Clip;
 use log::debug;
 use once_cell::sync::Lazy;
 use sqlx::{Row, SqlitePool};
@@ -60,16 +62,34 @@ impl ClipData {
     /// If there is no clip, return None.
     ///
     /// Will try lock the `clips`
-    pub async fn get_latest_clip_id(&self) -> Option<i64> {
-        let clips = self.clips.lock().await;
-        if clips.whole_list_of_ids.is_empty() {
-            return None;
-        }
-        let id = *clips.whole_list_of_ids.last()?;
-        if id < 0 {
-            return None;
-        }
-        Some(id)
+    pub async fn get_latest_clip_id(&self) -> Result<Option<i64>, Error> {
+        let db_connection_mutex = self.database_connection.lock().await;
+        let db_connection = db_connection_mutex.clone().unwrap();
+
+        let res = sqlx::query("SELECT id FROM clips ORDER BY id DESC LIMIT 1")
+            .fetch_optional(db_connection.as_ref())
+            .await;
+        let res = match res {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+        let res = match res {
+            Some(res) => res,
+            None => {
+                return Ok(None);
+            }
+        };
+        let id = res.try_get::<i64, _>("id");
+        let id = match id {
+            Ok(id) => id,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        Ok(Some(id))
     }
 
     /// change the clip favourite state to the target state
@@ -81,6 +101,7 @@ impl ClipData {
     pub async fn change_clip_favourite_status(&self, id: i64, target: bool) -> Result<(), Error> {
         // change the clip in the cache
         // no need to wait for the result
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.update_favourite_state(id, target).await;
 
         // change the clip in the database
@@ -137,6 +158,7 @@ impl ClipData {
     pub async fn change_clip_pinned_status(&self, id: i64, target: bool) -> Result<(), Error> {
         // change the clip in the cache
         // no need to wait for the result
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.update_pinned_state(id, target).await;
 
         // change the clip in the database
@@ -193,7 +215,7 @@ impl ClipData {
     pub async fn delete_clip(&self, mut id: Option<i64>) -> Result<(), Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
-            id = self.get_latest_clip_id().await;
+            id = self.get_latest_clip_id().await?;
         }
         if id.is_none() {
             return Ok(());
@@ -202,6 +224,7 @@ impl ClipData {
 
         // delete in cache
         // no need to wait for the result
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.remove(id).await;
 
         // delete in database
@@ -266,7 +289,7 @@ impl ClipData {
     pub async fn get_clip(&self, mut id: Option<i64>) -> Result<Option<Clip>, Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
-            id = self.get_latest_clip_id().await;
+            id = self.get_latest_clip_id().await?;
         }
         if id.is_none() {
             return Ok(None);
@@ -274,9 +297,12 @@ impl ClipData {
         let id = id.unwrap();
 
         // if the clip is in the cache, return it
-        let clip = CACHED_CLIP.get(id).await;
-        if let Some(clip) = clip {
-            return Ok(Some(clip));
+        #[cfg(feature = "clip-cache")]
+        {
+            let clip = CACHED_CLIP.get(id).await;
+            if let Some(clip) = clip {
+                return Ok(Some(clip));
+            }
         }
 
         // if the clip is not in the cache, get it from the database
@@ -335,31 +361,10 @@ impl ClipData {
         };
 
         // add the clip to the cache
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.insert(id, clip.clone()).await;
 
         Ok(clip.into())
-    }
-
-    /// Get the position of the clip in the whole list of ids.
-    /// Only for normal clips.
-    ///
-    /// Return the most recent clip if the id is none or the clip is not in the list.
-    /// Return None if the list is empty.
-    ///
-    /// Will try lock `clips`.
-    pub async fn get_clip_pos(&self, id: Option<i64>) -> Option<usize> {
-        // get the position of the clip in the whole_list_of_ids
-        // if the id is not in the list, return the highest pos
-        let clip_pos = self.get_id_pos_in_whole_list_of_ids(id).await;
-        if clip_pos.is_none() {
-            let clips = self.clips.lock().await;
-            if clips.whole_list_of_ids.is_empty() {
-                return None;
-            }
-            return Some(clips.whole_list_of_ids.len() - 1);
-        }
-
-        Some(clip_pos.unwrap())
     }
 
     /// Get the clip data if current clip is not pinned clip,
@@ -386,7 +391,7 @@ impl ClipData {
 
         current?;
 
-        self.get_clip_pos(current).await
+        self.get_id_pos_in_whole_list_of_ids(current).await
     }
 
     /// Get the position of the id in the whole list of ids
@@ -435,7 +440,7 @@ impl ClipData {
     /// Will try lock the `clips` and `database_connection` and `app.state::<ConfigMutex>()`.
     pub async fn new_clip(&self, text: Arc<String>, app: &AppHandle) -> Result<i64, Error> {
         debug!("Create a new clip");
-        let id: i64 = if let Some(id) = self.get_latest_clip_id().await {
+        let id: i64 = if let Some(id) = self.get_latest_clip_id().await? {
             id + 1
         } else {
             1
@@ -465,16 +470,19 @@ impl ClipData {
         }
 
         let text1 = (*text).clone();
-        let clip = Clip {
-            text,
-            timestamp,
-            id,
-            favourite: false,
-            pinned: false,
-        };
+        #[cfg(feature = "clip-cache")]
+        {
+            let clip = Clip {
+                text,
+                timestamp,
+                id,
+                favourite: false,
+                pinned: false,
+            };
 
-        // add the clip to the cache
-        CACHED_CLIP.insert(id, clip).await;
+            // add the clip to the cache
+            CACHED_CLIP.insert(id, clip).await;
+        }
 
         let mut clips = self.clips.lock().await;
         clips.whole_list_of_ids.push(id);
