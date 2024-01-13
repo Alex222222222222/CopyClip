@@ -123,10 +123,6 @@ jobs:
         continue-on-error: true
         run: mkdir dist
 
-      - name: Create 'public' directory
-        continue-on-error: true
-        run: mkdir public
-
       - name: Build the app
         run: |
           cargo tauri build
