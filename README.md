@@ -229,6 +229,13 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
             <br />
             <sub><b>Chloe</b></sub>
         </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/LingkKang">
+            <img src="https://avatars.githubusercontent.com/u/104191582?v=4" width="100;" alt="LingkKang"/>
+            <br />
+            <sub><b>Lingkang</b></sub>
+        </a>
     </td></tr>
 </table>
 <!-- readme: contributors -end -->
