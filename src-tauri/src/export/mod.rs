@@ -108,12 +108,10 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
 
     // the clips
     let clip_data = app.state::<ClipData>();
-    let clips_len = clip_data.get_whole_list_of_ids_len().await;
+    let clips_len = clip_data.get_total_number_of_clip().await?;
     for i in 0..clips_len {
-        let clips = clip_data.clips.lock().await;
-        let id = clips.whole_list_of_ids[i];
-        drop(clips);
-        let clip = clip_data.get_clip(Some(id)).await?;
+        let id = clip_data.get_id_with_pos(i).await?;
+        let clip = clip_data.get_clip(id).await?;
         if clip.is_none() {
             continue;
         }

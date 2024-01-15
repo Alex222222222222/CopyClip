@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use yew::prelude::*;
 use yew_router::prelude::*;
-use yewdux::store::Store;
+use yewdux::{functional::use_store, store::Store};
 
 use crate::{
     components::preferences::language_config::LanguagesConfigState,
@@ -10,18 +10,24 @@ use crate::{
 };
 
 #[derive(Clone, Routable, PartialEq)]
+/// Routes for the app
 pub enum Route {
     #[at("/")]
+    /// Home page
     Home,
     #[at("/preferences")]
+    /// Preferences page
     Preferences,
     #[at("/search")]
+    /// Search page
     Search,
     #[not_found]
     #[at("/404")]
+    /// 404 page
     NotFound,
 }
 
+/// Renderer for the router
 fn switch(routes: Route) -> Html {
     match routes {
         Route::Home => html! {
@@ -39,7 +45,9 @@ fn switch(routes: Route) -> Html {
 
 #[derive(Clone, Debug, Store, PartialEq, Deserialize, Serialize, Default)]
 #[store(storage = "local")]
+/// Yewdux store for dark mode
 pub struct DarkModeConfig {
+    /// Whether dark mode is enabled
     pub is_dark: bool,
 }
 
@@ -49,14 +57,14 @@ pub fn app() -> Html {
     let document = window.document().unwrap();
     let element = document.document_element().unwrap();
     let class_list = element.class_list();
-    let (dark_mode_config, _) = yewdux::prelude::use_store::<DarkModeConfig>();
+    let (dark_mode_config, _) = use_store::<DarkModeConfig>();
     if dark_mode_config.is_dark {
         class_list.add_1("dark").unwrap();
     } else {
         class_list.remove_1("dark").unwrap();
     }
 
-    let (language_config, _) = yewdux::prelude::use_store::<LanguagesConfigState>();
+    let (language_config, _) = use_store::<LanguagesConfigState>();
     rust_i18n::set_locale(&language_config.config);
 
     html! {

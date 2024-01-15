@@ -1,10 +1,17 @@
 use std::{fmt::Display, fs, path::PathBuf};
 
-use log::error;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use log::warn;
+
+// remember to call `.manage(MyState::default())`
+#[tauri::command]
+pub async fn log_command(msg: String) -> Result<(), String> {
+    debug!("{}", msg);
+    Ok(())
+}
 
 /// the config struct that only load log_level
 #[derive(Debug, Clone, Serialize, Deserialize)]

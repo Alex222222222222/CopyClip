@@ -6,7 +6,9 @@ use crate::{
 };
 use std::sync::Arc;
 
-use super::{cache::CACHED_CLIP, clip_struct::Clip};
+#[cfg(feature = "clip-cache")]
+use super::cache::CACHED_CLIP;
+use super::clip_struct::Clip;
 use log::debug;
 use once_cell::sync::Lazy;
 use sqlx::{Row, SqlitePool};
@@ -19,8 +21,6 @@ pub struct Clips {
     pub current_clip: Option<i64>,
     /// the current page
     pub current_page: usize,
-    /// the ids of all the clips, well sorted               
-    pub whole_list_of_ids: Vec<i64>,
     /// the ids of the current displayed clips, the same order with the order displayed in the tray     
     pub tray_ids_map: Vec<i64>,
     /// the pinned clips
@@ -60,16 +60,35 @@ impl ClipData {
     /// If there is no clip, return None.
     ///
     /// Will try lock the `clips`
-    pub async fn get_latest_clip_id(&self) -> Option<i64> {
-        let clips = self.clips.lock().await;
-        if clips.whole_list_of_ids.is_empty() {
-            return None;
-        }
-        let id = *clips.whole_list_of_ids.last()?;
-        if id < 0 {
-            return None;
-        }
-        Some(id)
+    pub async fn get_latest_clip_id(&self) -> Result<Option<i64>, Error> {
+        let db_connection_mutex = self.database_connection.lock().await;
+        let db_connection = db_connection_mutex.clone().unwrap();
+        drop(db_connection_mutex);
+
+        let res = sqlx::query("SELECT id FROM clips ORDER BY id DESC LIMIT 1")
+            .fetch_optional(db_connection.as_ref())
+            .await;
+        let res = match res {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+        let res = match res {
+            Some(res) => res,
+            None => {
+                return Ok(None);
+            }
+        };
+        let id = res.try_get::<i64, _>("id");
+        let id = match id {
+            Ok(id) => id,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        Ok(Some(id))
     }
 
     /// change the clip favourite state to the target state
@@ -81,6 +100,7 @@ impl ClipData {
     pub async fn change_clip_favourite_status(&self, id: i64, target: bool) -> Result<(), Error> {
         // change the clip in the cache
         // no need to wait for the result
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.update_favourite_state(id, target).await;
 
         // change the clip in the database
@@ -137,6 +157,7 @@ impl ClipData {
     pub async fn change_clip_pinned_status(&self, id: i64, target: bool) -> Result<(), Error> {
         // change the clip in the cache
         // no need to wait for the result
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.update_pinned_state(id, target).await;
 
         // change the clip in the database
@@ -193,7 +214,7 @@ impl ClipData {
     pub async fn delete_clip(&self, mut id: Option<i64>) -> Result<(), Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
-            id = self.get_latest_clip_id().await;
+            id = self.get_latest_clip_id().await?;
         }
         if id.is_none() {
             return Ok(());
@@ -202,6 +223,7 @@ impl ClipData {
 
         // delete in cache
         // no need to wait for the result
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.remove(id).await;
 
         // delete in database
@@ -219,16 +241,11 @@ impl ClipData {
 
         // delete from the whole list of ids
         // get the position of the id in the whole list of ids
-        // return if current clip is pinned clip
         let mut clips = self.clips.lock().await;
         if let Some(id_c) = clips.current_clip {
             if id_c == id {
                 clips.current_clip = None;
             }
-        }
-        let whole_list_index = clips.whole_list_of_ids.binary_search(&id);
-        if let Ok(whole_list_index) = whole_list_index {
-            clips.whole_list_of_ids.remove(whole_list_index);
         }
 
         // delete from the pinned_clips list
@@ -266,7 +283,7 @@ impl ClipData {
     pub async fn get_clip(&self, mut id: Option<i64>) -> Result<Option<Clip>, Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
-            id = self.get_latest_clip_id().await;
+            id = self.get_latest_clip_id().await?;
         }
         if id.is_none() {
             return Ok(None);
@@ -274,9 +291,12 @@ impl ClipData {
         let id = id.unwrap();
 
         // if the clip is in the cache, return it
-        let clip = CACHED_CLIP.get(id).await;
-        if let Some(clip) = clip {
-            return Ok(Some(clip));
+        #[cfg(feature = "clip-cache")]
+        {
+            let clip = CACHED_CLIP.get(id).await;
+            if let Some(clip) = clip {
+                return Ok(Some(clip));
+            }
         }
 
         // if the clip is not in the cache, get it from the database
@@ -335,31 +355,10 @@ impl ClipData {
         };
 
         // add the clip to the cache
+        #[cfg(feature = "clip-cache")]
         CACHED_CLIP.insert(id, clip.clone()).await;
 
         Ok(clip.into())
-    }
-
-    /// Get the position of the clip in the whole list of ids.
-    /// Only for normal clips.
-    ///
-    /// Return the most recent clip if the id is none or the clip is not in the list.
-    /// Return None if the list is empty.
-    ///
-    /// Will try lock `clips`.
-    pub async fn get_clip_pos(&self, id: Option<i64>) -> Option<usize> {
-        // get the position of the clip in the whole_list_of_ids
-        // if the id is not in the list, return the highest pos
-        let clip_pos = self.get_id_pos_in_whole_list_of_ids(id).await;
-        if clip_pos.is_none() {
-            let clips = self.clips.lock().await;
-            if clips.whole_list_of_ids.is_empty() {
-                return None;
-            }
-            return Some(clips.whole_list_of_ids.len() - 1);
-        }
-
-        Some(clip_pos.unwrap())
     }
 
     /// Get the clip data if current clip is not pinned clip,
@@ -372,46 +371,70 @@ impl ClipData {
         self.get_clip(current).await
     }
 
-    /// Get the pos of the current clip if the current clip is not pinned clip.
+    /// Get the pos of the current clip.
     ///
-    /// None if current clip is pinned clip.
     /// None if the current clip is a normal clip and is not in the list
     /// or the list is empty.
     ///
-    /// Will try lock `clips`.
-    pub async fn get_current_clip_pos(&self) -> Option<usize> {
+    /// Will try lock `database_connection`.
+    pub async fn get_current_clip_pos(&self) -> Result<Option<usize>, Error> {
         let clips = self.clips.lock().await;
         let current = clips.current_clip;
         drop(clips);
 
-        current?;
-
-        self.get_clip_pos(current).await
+        self.get_id_pos_in_whole_list_of_ids(current).await
     }
 
-    /// Get the position of the id in the whole list of ids
+    /// Get the position of the id in the database counting from the lower id to the higher id.
+    /// The lowest id will return 0.
     ///
     /// If the id is not in the list, return None.
     /// If the id is none, return None.
     ///
-    /// Will try lock `clips`.
-    pub async fn get_id_pos_in_whole_list_of_ids(&self, id: Option<i64>) -> Option<usize> {
-        let id = id?;
+    /// Will try lock `database_connection`.
+    pub async fn get_id_pos_in_whole_list_of_ids(
+        &self,
+        id: Option<i64>,
+    ) -> Result<Option<usize>, Error> {
+        let id = match id {
+            Some(id) => id,
+            None => {
+                return Ok(None);
+            }
+        };
 
-        let clips = self.clips.lock().await;
-        let pos = clips.whole_list_of_ids.binary_search(&id);
-        if pos.is_err() {
-            return None;
-        }
+        let db_connection_mutex = self.database_connection.lock().await;
+        let db_connection = db_connection_mutex.clone().unwrap();
+        drop(db_connection_mutex);
 
-        Some(pos.unwrap())
+        let res = sqlx::query("SELECT COUNT(rowid) as num FROM clips WHERE id <= ?")
+            .bind(id)
+            .fetch_one(db_connection.as_ref())
+            .await;
+
+        let res = match res {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        let num = res.try_get::<i64, _>("num");
+        let num = match num {
+            Ok(num) => num,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        Ok(Some(num as usize - 1))
     }
 
     /// Get the maximum page number depend on
     /// the number of clips and the number of clips per page
     ///
-    /// Will try lock `app.state::<ConfigMutex>()` and `clips`.
-    pub async fn get_max_page(&self, app: &AppHandle) -> usize {
+    /// Will try lock `app.state::<ConfigMutex>()` and `database_connection`.
+    pub async fn get_max_page(&self, app: &AppHandle) -> Result<usize, Error> {
         // get the max page number
         // if there is no limit, return -1
 
@@ -419,15 +442,15 @@ impl ClipData {
         let config = config.config.lock().await;
         let clip_per_page = config.clip_per_page;
         drop(config);
-        let clips = self.clips.lock().await;
-        if clips.whole_list_of_ids.is_empty() {
-            return 0;
+        let len = self.get_total_number_of_clip().await?;
+        if len == 0 {
+            return Ok(0);
         }
-        let max_page = clips.whole_list_of_ids.len() / clip_per_page as usize;
-        if max_page * clip_per_page as usize == clips.whole_list_of_ids.len() {
-            return max_page - 1;
+        let max_page = len / clip_per_page as usize;
+        if max_page * clip_per_page as usize == len {
+            return Ok(max_page - 1);
         }
-        max_page
+        Ok(max_page)
     }
 
     /// Create a new clip in the database and return the id of the new clip
@@ -435,7 +458,7 @@ impl ClipData {
     /// Will try lock the `clips` and `database_connection` and `app.state::<ConfigMutex>()`.
     pub async fn new_clip(&self, text: Arc<String>, app: &AppHandle) -> Result<i64, Error> {
         debug!("Create a new clip");
-        let id: i64 = if let Some(id) = self.get_latest_clip_id().await {
+        let id: i64 = if let Some(id) = self.get_latest_clip_id().await? {
             id + 1
         } else {
             1
@@ -465,19 +488,21 @@ impl ClipData {
         }
 
         let text1 = (*text).clone();
-        let clip = Clip {
-            text,
-            timestamp,
-            id,
-            favourite: false,
-            pinned: false,
-        };
+        #[cfg(feature = "clip-cache")]
+        {
+            let clip = Clip {
+                text,
+                timestamp,
+                id,
+                favourite: false,
+                pinned: false,
+            };
 
-        // add the clip to the cache
-        CACHED_CLIP.insert(id, clip).await;
+            // add the clip to the cache
+            CACHED_CLIP.insert(id, clip).await;
+        }
 
         let mut clips = self.clips.lock().await;
-        clips.whole_list_of_ids.push(id);
 
         // change the current clip to the last one
         clips.current_clip = Some(id);
@@ -547,12 +572,14 @@ impl ClipData {
     /// Will try lock `app.state::<ConfigMutex>()` and `clips`.
     ///
     /// Will not trigger a tray update event.
-    pub async fn next_page(&self, app: &AppHandle) {
+    pub async fn next_page(&self, app: &AppHandle) -> Result<(), Error> {
         // switch to the next page
         // if max_page is -1, it means there is no limit
 
-        let max_page = self.get_max_page(app).await;
+        let max_page = self.get_max_page(app).await?;
         self.switch_page(1, max_page).await;
+
+        Ok(())
     }
 
     /// Jump to the previous page in the tray
@@ -560,12 +587,14 @@ impl ClipData {
     /// Will try lock `app.state::<ConfigMutex>()` and `clips`.
     ///
     /// Will not trigger a tray update event.
-    pub async fn prev_page(&self, app: &AppHandle) {
+    pub async fn prev_page(&self, app: &AppHandle) -> Result<(), Error> {
         // switch to the previous page
         // if max_page is -1, it means there is no limit
 
-        let max_page = self.get_max_page(app).await;
+        let max_page = self.get_max_page(app).await?;
         self.switch_page(-1, max_page).await;
+
+        Ok(())
     }
 
     /// Change the clipboard to the selected clip,
@@ -701,10 +730,72 @@ impl ClipData {
 
     /// Get the len of whole_list_of_ids
     ///
-    /// Will try lock `clips`.
-    pub async fn get_whole_list_of_ids_len(&self) -> usize {
-        let clips = self.clips.lock().await;
-        clips.whole_list_of_ids.len()
+    /// Will try lock `database_connection`.
+    pub async fn get_total_number_of_clip(&self) -> Result<usize, Error> {
+        let db_connection_mutex = self.database_connection.lock().await;
+        let db_connection = db_connection_mutex.clone().unwrap();
+        drop(db_connection_mutex);
+
+        let res = sqlx::query("SELECT COUNT(rowid) as num FROM clips")
+            .fetch_one(db_connection.as_ref())
+            .await;
+
+        let res = match res {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        let num = res.try_get::<i64, _>("num");
+        let num = match num {
+            Ok(num) => num,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        Ok(num as usize)
+    }
+
+    /// Get the id of a clip in the database by the position counting from the lower id to the higher id.
+    /// 0 will return the lowest id.
+    /// 1 will return the second lowest id.
+    ///
+    /// If the position is out of range, return None.
+    pub async fn get_id_with_pos(&self, pos: usize) -> Result<Option<i64>, Error> {
+        let db_connection_mutex = self.database_connection.lock().await;
+        let db_connection = db_connection_mutex.clone().unwrap();
+        drop(db_connection_mutex);
+
+        let res = sqlx::query("SELECT id FROM clips ORDER BY id ASC LIMIT 1 OFFSET ?")
+            .bind(pos as i64)
+            .fetch_optional(db_connection.as_ref())
+            .await;
+
+        let res = match res {
+            Ok(res) => res,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        let res = match res {
+            Some(res) => res,
+            None => {
+                return Ok(None);
+            }
+        };
+
+        let id = res.try_get::<i64, _>("id");
+        let id = match id {
+            Ok(id) => id,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+            }
+        };
+
+        Ok(Some(id))
     }
 
     /// Update the normal clip tray
@@ -727,13 +818,14 @@ impl ClipData {
             if pos < 0 {
                 break;
             }
-            let clips = self.clips.lock().await;
-            let clip_id = clips.whole_list_of_ids.get(pos as usize);
-            if clip_id.is_none() {
-                break;
-            }
-            let clip_id: i64 = *clip_id.unwrap();
-            drop(clips);
+            let clip_id = self.get_id_with_pos(pos as usize).await?;
+            let clip_id = match clip_id {
+                Some(clip_id) => clip_id,
+                None => {
+                    break;
+                }
+            };
+
             let clip = self.get_clip(Some(clip_id)).await?;
             if clip.is_none() {
                 break;
@@ -911,12 +1003,12 @@ impl ClipData {
 
         // get the current page
         let mut current_page = self.get_current_page().await;
-        let whole_pages = self.get_max_page(app).await;
-        let whole_list_of_ids_len = self.get_whole_list_of_ids_len().await;
+        let whole_pages = self.get_max_page(app).await?;
+        let whole_list_of_ids_len = self.get_total_number_of_clip().await?;
         // if the current page bigger than the whole pages, then calculate the current page, regarding to current_clip_pos
         if current_page > whole_pages {
             // get the current clip pos
-            let current_clip_pos = self.get_current_clip_pos().await;
+            let current_clip_pos = self.get_current_clip_pos().await?;
             let current_clip_pos = if let Some(current_clip_pos) = current_clip_pos {
                 current_clip_pos
             } else if whole_list_of_ids_len == 0 {

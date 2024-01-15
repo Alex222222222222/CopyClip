@@ -128,6 +128,7 @@ fn main() {
             clip::search::search_clips,
             clip::search::get_max_id,
             clip::id_is_pinned,
+            copy_clip::log::log_command,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

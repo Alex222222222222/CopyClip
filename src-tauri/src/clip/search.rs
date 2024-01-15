@@ -505,7 +505,7 @@ async fn empty_search(
 /// if no clip in the database, return 0
 #[tauri::command]
 pub async fn get_max_id(clip_data: tauri::State<'_, ClipData>) -> Result<i64, error::Error> {
-    let res = clip_data.get_latest_clip_id().await;
+    let res = clip_data.get_latest_clip_id().await?;
     if res.is_none() {
         return Ok(0);
     }

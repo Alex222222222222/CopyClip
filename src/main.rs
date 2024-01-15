@@ -1,7 +1,19 @@
+/*
+#![warn(
+    clippy::all,
+    clippy::restriction,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::cargo
+)]
+#![allow(clippy::single_call_fn, clippy::str_to_string)]
+*/
+
 mod components;
 mod i18n;
 mod invoke;
 mod pages;
+/// Route table for the app
 mod route;
 
 // Load I18n macro, for allow you use `t!` macro in anywhere.
