@@ -597,13 +597,12 @@ dependencies = [
 
 [[package]]
 name = "clipboard-master"
-version = "3.1.3"
-source = "git+https://github.com/Alex222222222222/clipboard-master.git#0a4c9dc4f10e6a596812da79721518ea4ce973ca"
+version = "4.0.0-beta.3"
+source = "git+https://github.com/DoumanAsh/clipboard-master.git#ca78c3be791cfb83f260b00b6c8a2ae40d2083a8"
 dependencies = [
  "objc",
  "objc-foundation",
  "objc_id",
- "winapi",
  "windows-win",
  "x11-clipboard",
 ]
@@ -614,7 +613,7 @@ version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7191c27c2357d9b7ef96baac1773290d4ca63b24205b82a3fd8a0637afcf0362"
 dependencies = [
- "error-code",
+ "error-code 2.3.1",
  "str-buf",
  "winapi",
 ]
@@ -1157,6 +1156,12 @@ dependencies = [
  "libc",
  "str-buf",
 ]
+
+[[package]]
+name = "error-code"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "281e452d3bad4005426416cdba5ccfd4f5c1280e10099e21db27f7c1c28347fc"
 
 [[package]]
 name = "etcetera"
@@ -6101,11 +6106,11 @@ dependencies = [
 
 [[package]]
 name = "windows-win"
-version = "2.4.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d4243ec23afe4e9b4e668b3c0a0e973f1b8265f6a46223cfcbc16fd267480c0"
+checksum = "58e23e33622b3b52f948049acbec9bcc34bf6e26d74176b88941f213c75cf2dc"
 dependencies = [
- "winapi",
+ "error-code 3.0.0",
 ]
 
 [[package]]

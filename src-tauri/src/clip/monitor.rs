@@ -55,6 +55,16 @@ pub async fn monitor_clip_board(app: &AppHandle) {
         first_time: true,
     };
 
-    let mut master = Master::new(&mut handler);
-    master.run().unwrap();
+    let master = Master::new(&mut handler);
+    let mut master = match master {
+        Ok(master) => master,
+        Err(err) => {
+            panic_app(&format!("error creating clipboard master: {}", err));
+            return;
+        }
+    };
+    let res = master.run();
+    if let Err(err) = res {
+        panic_app(&format!("error running clipboard master: {}", err));
+    }
 }
