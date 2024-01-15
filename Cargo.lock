@@ -598,7 +598,7 @@ dependencies = [
 [[package]]
 name = "clipboard-master"
 version = "3.1.3"
-source = "git+https://github.com/Alex222222222222/clipboard-master.git#0a4c9dc4f10e6a596812da79721518ea4ce973ca"
+source = "git+https://github.com/Alex222222222222/clipboard-master.git#b7b1a9e6ea42a43ba50da68f23265d9105b48ae3"
 dependencies = [
  "objc",
  "objc-foundation",
