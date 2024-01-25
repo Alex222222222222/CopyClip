@@ -3436,22 +3436,23 @@ dependencies = [
 
 [[package]]
 name = "rust-i18n"
-version = "2.3.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0689038d25403d8f4437ef84070cacf8c438a9f66fa27402ffaa5d426c6c1019"
+checksum = "a6abbdc814f0f4346da52a5039e2a46015fa84357788956bb500be2a56bf453e"
 dependencies = [
  "globwalk",
  "once_cell",
  "regex",
  "rust-i18n-macro",
  "rust-i18n-support",
+ "smallvec",
 ]
 
 [[package]]
 name = "rust-i18n-macro"
-version = "2.3.1"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8531ce329f57af4dc91cb56f22e17eeb6507f7e80d09c24073fc2c9d334624f1"
+checksum = "355763801dcf287e777e42def7c578410783477b804b1107852119e0b2518396"
 dependencies = [
  "glob",
  "once_cell",
@@ -3466,9 +3467,9 @@ dependencies = [
 
 [[package]]
 name = "rust-i18n-support"
-version = "2.3.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "151a35407f48bac5521e9c9813d1ec97289a36aca4ad6444ab9430fd76835b71"
+checksum = "c473e9fdd5cf78f114df7b8287b15e4007725bb32cd7cd01b28dfc19226fe2ac"
 dependencies = [
  "globwalk",
  "lazy_static",
@@ -3857,9 +3858,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.10.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
+checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
 name = "socket2"
