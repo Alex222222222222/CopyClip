@@ -17,7 +17,7 @@ futures = "0.3"
 # for logging
 gloo-console = "0.3.0"
 js-sys = "0.3.47"
-regex = "1.10.2"
+regex = "1.10.3"
 serde = { version = "1.0.158", features = ["derive"] }
 serde-wasm-bindgen = "0.6.3"
 sublime_fuzzy = "0.7.0"
