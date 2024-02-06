@@ -3442,9 +3442,9 @@ dependencies = [
 
 [[package]]
 name = "rust-i18n"
-version = "3.0.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6abbdc814f0f4346da52a5039e2a46015fa84357788956bb500be2a56bf453e"
+checksum = "9dcd94370631e5658a0a23635f7f47e43d06a00ad948e0bb5de79b00d85b880c"
 dependencies = [
  "globwalk",
  "once_cell",
