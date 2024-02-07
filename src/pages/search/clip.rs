@@ -71,18 +71,18 @@ pub struct SearchRes {
     pub res: std::rc::Rc<Mutex<Vec<Clip>>>,
 }
 
-impl PartialEq for SearchRes {
-    fn eq(&self, other: &Self) -> bool {
-        self.rebuild_num == other.rebuild_num
-    }
-}
-
 impl yewdux::store::Store for SearchRes {
-    fn new() -> Self {
+    fn new(_: &yewdux::Context) -> Self {
         Self::default()
     }
 
     fn should_notify(&self, old: &Self) -> bool {
         self.rebuild_num != old.rebuild_num
+    }
+}
+
+impl PartialEq for SearchRes {
+    fn eq(&self, other: &Self) -> bool {
+        self.rebuild_num == other.rebuild_num
     }
 }
