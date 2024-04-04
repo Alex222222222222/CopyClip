@@ -22,7 +22,7 @@ RUN apt-get update
 
 # Install Tailwind CSS
 RUN https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.3/tailwindcss-linux-x64 -o /usr/local/bin/tailwindcss \
-    && chmod +x /usr/local/bin/tailwindcss
+    && chmod +x /usr/local/bin/tailwindcss \
     && echo 'export PATH="$PATH:/usr/local/bin"' >> $HOME/.bashrc
 
 # Get Rust
