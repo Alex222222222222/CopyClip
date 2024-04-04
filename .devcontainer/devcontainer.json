@@ -14,8 +14,16 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-vscode.cpptools",
-        "streetsidesoftware.code-spell-checker"
+        "Gruntfuggly.todo-tree",
+        "streetsidesoftware.code-spell-checker",
+        "GitHub.copilot-chat",
+        "GitHub.copilot",
+        "tauri-apps.tauri-vscode",
+        "bradlc.vscode-tailwindcss",
+        "rust-lang.rust-analyzer",
+        "yzhang.markdown-all-in-one",
+        "oderwat.indent-rainbow",
+        "GitHub.vscode-github-actions"
       ]
     }
   }
