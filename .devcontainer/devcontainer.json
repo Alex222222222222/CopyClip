@@ -1,16 +1,5 @@
 {
-  "image": "mcr.microsoft.com/vscode/devcontainers/base:bullseye",
-  "remoteEnv": {
-    "PATH": "${containerEnv:PATH}:/usr/local/lib/wasi-sdk-17.0/bin"
-  },
-  "features": {
-    "devwasm.azurecr.io/dev-wasm/dev-wasm-feature/wasmtime-wasi:0.0.4": {
-        "version": "17"
-    },
-    "ghcr.io/devcontainers/features/rust": {},
-    "devwasm.azurecr.io/dev-wasm/dev-wasm-feature/rust-wasi:0.0.1": {},
-    "ghcr.io/r3dpoint/devcontainer-features/tailwindcss-standalone-cli:1": {}
-  },
+  "build": { "dockerfile": "Dockerfile" },
   "customizations": {
     "vscode": {
       "extensions": [
