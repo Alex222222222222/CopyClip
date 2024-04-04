@@ -1,9 +1,9 @@
 FROM mcr.microsoft.com/vscode/devcontainers/base:bullseye
 
 # Update default packages
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive
+RUN apt update && export DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get install -y \
+RUN apt install -y \
     build-essential \
     curl \
     wget \
@@ -12,7 +12,7 @@ RUN apt-get install -y \
     sudo
 
 # Install build dependencies
-RUN apt install libdbus-1-dev libwebkit2gtk-4.0-dev build-essential \
+RUN apt install -y libdbus-1-dev libwebkit2gtk-4.0-dev build-essential \
     curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev \
     librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev \
     libxcb-shape0-dev libxcb-xkb-dev libxcb-xfixes0-dev
