@@ -1,7 +1,7 @@
 {
   "build": {
-    "beforeDevCommand": "bash ./tailwindcss.sh && trunk serve",
-    "beforeBuildCommand": "bash ./tailwindcss.sh && trunk build --release && bash ./wasm-opt.sh",
+    "beforeDevCommand": "bash ./scripts/tailwindcss.sh && trunk serve",
+    "beforeBuildCommand": "bash ./scripts/tailwindcss.sh && trunk build --release && bash ./scripts/wasm-opt.sh",
     "devPath": "http://localhost:1420",
     "distDir": "../dist",
     "withGlobalTauri": true
