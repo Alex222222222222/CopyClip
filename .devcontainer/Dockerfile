@@ -1,7 +1,9 @@
 FROM mcr.microsoft.com/vscode/devcontainers/base:bullseye
 
 # Update default packages
-RUN apt update && export DEBIAN_FRONTEND=noninteractive
+RUN apt update \
+    && apt upgrade -y \
+    && export DEBIAN_FRONTEND=noninteractive
 
 RUN apt install -y \
     build-essential \
@@ -17,12 +19,10 @@ RUN apt install -y libdbus-1-dev libwebkit2gtk-4.0-dev build-essential \
     librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev \
     libxcb-shape0-dev libxcb-xkb-dev libxcb-xfixes0-dev
 
-# Update new packages
-RUN apt-get update
-
 # Install Tailwind CSS
-RUN curl -s https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.3/tailwindcss-linux-x64 -o /usr/local/bin/tailwindcss \
-    && chmod +x /usr/local/bin/tailwindcss
+RUN apt-get update \
+    && apt install nodejs npm -y \
+    && npm install -D tailwindcss
 
 # Create new user and update ~/.bashrc
 USER vscode
