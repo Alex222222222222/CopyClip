@@ -30,7 +30,6 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
 
 # Create new user and update ~/.bashrc
-RUN useradd -ms /bin/bash vscode
 USER vscode
 WORKDIR /home/vscode
 RUN echo 'export PATH="$PATH:/usr/local/bin"' >> $HOME/.bashrc \
