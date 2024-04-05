@@ -30,9 +30,9 @@ WORKDIR /home/vscode
 
 # Get Rust
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y \
-    && rustup target add wasm32-unknown-unknown \
-    && rustup component add rust-src clippy rustfmt \
-    && cargo install tauri-cli trunk wasm-opt \
     && echo 'export PATH="$PATH:/usr/local/bin"' >> $HOME/.bashrc \
     && echo '. "$HOME/.cargo/env"' >> $HOME/.bashrc \
     && echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
+RUN rustup target add wasm32-unknown-unknown \
+    && rustup component add rust-src clippy rustfmt \
+    && cargo install tauri-cli trunk wasm-opt
