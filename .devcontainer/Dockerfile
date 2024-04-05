@@ -22,16 +22,17 @@ RUN apt-get update
 
 # Install Tailwind CSS
 RUN curl -s https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.3/tailwindcss-linux-x64 -o /usr/local/bin/tailwindcss \
-    && chmod +x /usr/local/bin/tailwindcss \
-    && echo 'export PATH="$PATH:/usr/local/bin"' >> $HOME/.bashrc
-
-# Get Rust
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
-RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
+    && chmod +x /usr/local/bin/tailwindcss
 
 # Create new user and update ~/.bashrc
 USER vscode
 WORKDIR /home/vscode
-RUN echo 'export PATH="$PATH:/usr/local/bin"' >> $HOME/.bashrc \
+
+# Get Rust
+RUN curl https://sh.rustup.rs -sSf | bash -s -- -y \
+    && rustup target add wasm32-unknown-unknown \
+    && rustup component add rust-src clippy rustfmt \
+    && cargo install tauri-cli trunk wasm-opt \
+    && echo 'export PATH="$PATH:/usr/local/bin"' >> $HOME/.bashrc \
     && echo '. "$HOME/.cargo/env"' >> $HOME/.bashrc \
     && echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
