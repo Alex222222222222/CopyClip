@@ -716,7 +716,7 @@ dependencies = [
  "moka",
  "once_cell",
  "regex",
- "rust-i18n 3.0.1",
+ "rust-i18n",
  "serde",
  "serde_json",
  "sqlx",
@@ -737,7 +737,7 @@ dependencies = [
  "js-sys",
  "once_cell",
  "regex",
- "rust-i18n 2.3.1",
+ "rust-i18n",
  "serde",
  "serde-wasm-bindgen 0.6.3",
  "sublime_fuzzy",
@@ -4060,19 +4060,6 @@ dependencies = [
 
 [[package]]
 name = "rust-i18n"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0689038d25403d8f4437ef84070cacf8c438a9f66fa27402ffaa5d426c6c1019"
-dependencies = [
- "globwalk",
- "once_cell",
- "regex",
- "rust-i18n-macro 2.3.0",
- "rust-i18n-support 2.3.0",
-]
-
-[[package]]
-name = "rust-i18n"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9dcd94370631e5658a0a23635f7f47e43d06a00ad948e0bb5de79b00d85b880c"
@@ -4080,26 +4067,9 @@ dependencies = [
  "globwalk",
  "once_cell",
  "regex",
- "rust-i18n-macro 3.0.0",
- "rust-i18n-support 3.0.1",
+ "rust-i18n-macro",
+ "rust-i18n-support",
  "smallvec",
-]
-
-[[package]]
-name = "rust-i18n-macro"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8f6a692df009c442deb45dee393bdc741f8b23992472980b249abad9f99e5e2"
-dependencies = [
- "glob",
- "once_cell",
- "proc-macro2",
- "quote",
- "rust-i18n-support 2.3.0",
- "serde",
- "serde_json",
- "serde_yaml",
- "syn 2.0.48",
 ]
 
 [[package]]
@@ -4112,29 +4082,11 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "rust-i18n-support 3.0.1",
+ "rust-i18n-support",
  "serde",
  "serde_json",
  "serde_yaml",
  "syn 2.0.48",
-]
-
-[[package]]
-name = "rust-i18n-support"
-version = "2.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "151a35407f48bac5521e9c9813d1ec97289a36aca4ad6444ab9430fd76835b71"
-dependencies = [
- "globwalk",
- "lazy_static",
- "normpath",
- "once_cell",
- "proc-macro2",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "toml 0.7.8",
 ]
 
 [[package]]
