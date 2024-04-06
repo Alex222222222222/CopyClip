@@ -9,7 +9,8 @@ name: Devcontainer Docker Hub
 on:
   push:
     branches:
-      - main
+      - master
+      - Alex222222222222-devcontainer-dockerhub
     paths:
       - .devcontainer/Dockerfile
 
