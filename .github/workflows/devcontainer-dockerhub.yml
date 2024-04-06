@@ -7,10 +7,12 @@
 name: Devcontainer Docker Hub
 
 on:
+  pull_request:
+    branches: [ "master", "Alex222222222222-devcontainer-dockerhub" ]
+    paths:
+      - .devcontainer/Dockerfile
   push:
-    branches:
-      - master
-      - Alex222222222222-devcontainer-dockerhub
+    branches: [ "master", "Alex222222222222-devcontainer-dockerhub" ]
     paths:
       - .devcontainer/Dockerfile
 
