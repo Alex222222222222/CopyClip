@@ -13,11 +13,15 @@ RUN apt install -y \
     wget \
     unzip \
     git \
-    sudo \
-    nodejs \
-    libdbus-1-dev libwebkit2gtk-4.0-dev build-essential \
-    curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev \
-    librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev \
+    sudo
+RUN apt install -y nodejs
+RUN apt install -y \
+    libdbus-1-dev libwebkit2gtk-4.0-dev build-essential
+RUN apt install -y \
+    libssl-dev libgtk-3-dev libayatana-appindicator3-dev
+RUN apt install -y \
+    librsvg2-dev xcb libxcb-randr0-dev libxcb-xtest0-dev libxcb-xinerama0-dev
+RUN apt install -y \
     libxcb-shape0-dev libxcb-xkb-dev libxcb-xfixes0-dev
 
 # Create new user and update ~/.bashrc
