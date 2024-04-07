@@ -5,13 +5,14 @@ pub struct TimeDisplayProps {
     pub time: i64, // unix time epoch in seconds
 }
 
+/// Convert to a formatted string
 pub fn time_display(props: &TimeDisplayProps) -> String {
-    let time = chrono::NaiveDateTime::from_timestamp_opt(props.time, 0).unwrap();
-    let time = chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(time, chrono::Utc);
+    let time = chrono::DateTime::from_timestamp(props.time, 0).unwrap();
     let time = time.with_timezone(&chrono::Local);
     time.format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
+/// Used to display the clip added time in the search page
 #[function_component(TimeDisplay)]
 pub fn time_display_html(props: &TimeDisplayProps) -> Html {
     let time = time_display(props);
