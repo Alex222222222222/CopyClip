@@ -12,10 +12,12 @@ on:
       - closed
     paths:
       - .devcontainer/Dockerfile
+      - .github/workflows/devcontainer-dockerhub.yml
   push:
     branches: [ "master", "Alex222222222222-devcontainer-dockerhub" ]
     paths:
       - .devcontainer/Dockerfile
+      - .github/workflows/devcontainer-dockerhub.yml
 
 jobs:
   push_to_registry:
