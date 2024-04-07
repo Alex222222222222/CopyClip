@@ -42,7 +42,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .devcontainer
-          file: ./Dockerfile
+          context: .
+          file: .devcontainer/Dockerfile
           push: true
           tags: alex222222222222/devcontainers:copyclip
