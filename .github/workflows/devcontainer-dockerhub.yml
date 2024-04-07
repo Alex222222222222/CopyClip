@@ -46,3 +46,5 @@ jobs:
           file: .devcontainer/Dockerfile
           push: true
           tags: alex222222222222/devcontainers:copyclip
+          cache-from: type=registry,ref=alex222222222222/devcontainers:copyclip
+          cache-to: type=inline
