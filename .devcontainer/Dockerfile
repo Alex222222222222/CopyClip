@@ -38,4 +38,5 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y \
     && echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
 RUN $HOME/.cargo/bin/rustup target add wasm32-unknown-unknown \
     && $HOME/.cargo/bin/rustup component add rust-src clippy rustfmt \
-    && $HOME/.cargo/bin/cargo install tauri-cli trunk wasm-opt
+    && $HOME/.cargo/bin/cargo install tauri-cli trunk wasm-opt cargo-cache \
+    && $HOME/.cargo/bin/cargo cache -a

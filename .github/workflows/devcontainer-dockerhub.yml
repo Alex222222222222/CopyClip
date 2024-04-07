@@ -12,10 +12,12 @@ on:
       - closed
     paths:
       - .devcontainer/Dockerfile
+      - .github/workflows/devcontainer-dockerhub.yml
   push:
     branches: [ "master", "Alex222222222222-devcontainer-dockerhub" ]
     paths:
       - .devcontainer/Dockerfile
+      - .github/workflows/devcontainer-dockerhub.yml
 
 jobs:
   push_to_registry:
@@ -28,19 +30,21 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       
-      # - name: Set up Docker Buildx
-      #   uses: docker/setup-buildx-action@v3
-      # 
-      # - name: Log in to Docker Hub
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKER_USERNAME }}
-      #     password: ${{ secrets.DOCKER_TOKEN }}
-      # 
-      # - name: Build and push Docker image
-      #   uses: docker/build-push-action
-      #   with:
-      #     context: .devcontainer
-      #     file: ./Dockerfile
-      #     push: true
-      #     tags: alex222222222222/devcontainers:copyclip
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: .devcontainer/Dockerfile
+          push: true
+          tags: alex222222222222/devcontainers:copyclip
+          cache-from: type=registry,ref=alex222222222222/devcontainers:copyclip-build-cache
+          cache-to: type=registry,ref=alex222222222222/devcontainers:copyclip-build-cache,mode=max

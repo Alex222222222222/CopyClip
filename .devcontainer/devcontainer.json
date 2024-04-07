@@ -1,22 +1,21 @@
 {
-  "build": { "dockerfile": "Dockerfile" },
+  "image": "alex222222222222/devcontainers:copyclip",
   "customizations": {
     "vscode": {
-			// Set *default* container specific settings.json values on container create.
-			"settings": { 
-				"lldb.executable": "/usr/bin/lldb",
-				// VS Code don't watch files under ./target
-				"files.watcherExclude": {
-					"**/target/**": true
-				},
-				"rust-analyzer.checkOnSave.command": "clippy"
-			},
-
+      // Set *default* container specific settings.json values on container create.
+      "settings": {
+        "lldb.executable": "/usr/bin/lldb",
+        // VS Code don't watch files under ./target
+        "files.watcherExclude": {
+          "**/target/**": true
+        },
+        "rust-analyzer.checkOnSave.command": "clippy"
+      },
       "extensions": [
         "vadimcn.vscode-lldb",
-				"mutantdino.resourcemonitor",
-				"tamasfe.even-better-toml",
-				"serayuzgur.crates",
+        "mutantdino.resourcemonitor",
+        "tamasfe.even-better-toml",
+        "serayuzgur.crates",
         "Gruntfuggly.todo-tree",
         "streetsidesoftware.code-spell-checker",
         "GitHub.copilot-chat",
@@ -30,7 +29,6 @@
       ]
     }
   },
-
   // Comment out to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-	"remoteUser": "vscode"
+  "remoteUser": "vscode"
 }
