@@ -28,7 +28,7 @@ rust-i18n = "3.0.1"
 unicode-segmentation = "1.11.0"
 unicode-width = "0.1.11"
 directories = "5.0.0"
-base64 = "0.21.7"
+base64 = "0.22.0"
 flate2 = "1.0"
 chrono = "0.4.37"
 clipboard-master = { git = "https://github.com/DoumanAsh/clipboard-master.git" }
