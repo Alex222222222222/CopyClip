@@ -224,8 +224,8 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
         </a>
     </td>
     <td align="center">
-        <a href="https://github.com/Chloe1222">
-            <img src="https://avatars.githubusercontent.com/u/118044032?v=4" width="100;" alt="Chloe1222"/>
+        <a href="https://github.com/ChloeWKY">
+            <img src="https://avatars.githubusercontent.com/u/118044032?v=4" width="100;" alt="ChloeWKY"/>
             <br />
             <sub><b>Chloe</b></sub>
         </a>
