@@ -83,6 +83,16 @@ jobs:
             node_modules
           key: ${{ matrix.os }}-npm-${{ hashFiles('**/package-lock.json') }}
 
+      - name: Install nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'latest'
+
+      - name: Set up tailwindcss
+        run: |
+          npm install -D tailwindcss
+          npx tailwindcss --help
+
       - name: Install minimal stable with clippy and rustfmt
         uses: actions-rs/toolchain@v1
         with:
@@ -118,16 +128,6 @@ jobs:
 
       - name: rustup target add wasm32-unknown-unknown
         run: rustup target add wasm32-unknown-unknown
-      
-      - name: Install nodejs
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'latest'
-
-      - name: Set up tailwindcss
-        run: |
-          npm install
-          npx tailwindcss --help
 
       - name: Create empty 'dist' directory
         continue-on-error: true
