@@ -12,9 +12,9 @@ on:
       - "yarn.lock"
       - "pnpm-lock.yaml"
       - "README.md"
-      - ".devcontainer"
-      - ".github"
-      - "docs"
+      - ".devcontainer/**"
+      - ".github/**"
+      - "docs/**"
       - "CODE_OF_CONDUCT.md"
 
 jobs:
