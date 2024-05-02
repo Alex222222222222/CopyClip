@@ -31,6 +31,8 @@ cargo clippy --all-targets --all-features -- -D warnings
 cd src-tauri
 cargo clippy --all-targets --all-features -- -D warnings
 cd ..
+## #test the app in development mode
+## cargo tauri dev
 # try to build the app
 cargo tauri build
 # cargo fmt
