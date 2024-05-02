@@ -1,7 +1,7 @@
 [package]
 authors = [
     "Zifan Hua <zifan.hua@icloud.com>",
-    "Chloe1222 <chloekeyiw@gmail.com>",
+    "Chloe <chloekeyiw@gmail.com>",
 ]
 description = "A feature-rich clipboard manager for Windows, Linux and macOS."
 edition = "2021"

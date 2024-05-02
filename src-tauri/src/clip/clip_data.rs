@@ -663,7 +663,13 @@ impl ClipData {
     pub async fn update_clipboard(&self, app: &AppHandle) -> Result<(), Error> {
         debug!("Clipboard changed");
         // get the current clip text
-        let clipboard_clip_text = clip_data_from_system_clipboard(app)?;
+        let clipboard_clip_text = match clip_data_from_system_clipboard(app) {
+            Ok(clip_data) => clip_data,
+            Err(err) => {
+                log::error!("Failed to get clip data from system clipboard: {}", err);
+                return Ok(());
+            }
+        };
         // if the current clip text is empty, then return
         if clipboard_clip_text.is_empty() {
             debug!("The clipboard text is empty, do not create a new clip");
