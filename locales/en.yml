@@ -15,9 +15,9 @@ preferences:
   enable_auto_delete_duplications: Enable Auto Delete Duplications
 
 head_bar:
-  home: Home
   preferences: Preferences
   search: Search
+  help: Help
   
 search:
   title: Search
@@ -59,6 +59,7 @@ tray_menu:
   prev_page: Previous Page
   first_page: First Page
   next_page: Next Page
+  help: Help
   preferences: Preferences
   search: Search
   quit: Quit

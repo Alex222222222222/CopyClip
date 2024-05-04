@@ -204,8 +204,6 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
 - [x] Search Page
 - [x] Configuration Page
 - [ ] Explanation for configurations
-- [ ] i18n support
-  - [ ] Chinese
 - [ ] Sign the app for MacOS build
 - [ ] Change the icon of the app so it can be seen in the white background
 - [x] Export the history to a file

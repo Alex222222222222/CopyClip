@@ -33,6 +33,7 @@ pub fn create_tray(
 /// - prev page
 /// - next page
 /// - first page
+/// - help
 /// - preferences
 /// - search
 /// - quit
@@ -55,6 +56,7 @@ pub fn create_tray_menu(
         .accelerator("CommandOrControl+D");
     let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
 
+    let help = CustomMenuItem::new("help".to_string(), t!("tray_menu.help"));
     let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
     let search = CustomMenuItem::new("search".to_string(), t!("tray_menu.search"));
     let text = if paused {
@@ -100,6 +102,7 @@ pub fn create_tray_menu(
         .add_item(next_page)
         .add_item(first_page)
         .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(help)
         .add_item(preferences)
         .add_item(search)
         .add_item(pause)
@@ -126,8 +129,9 @@ pub fn create_tray_menu(
         .accelerator("CommandOrControl+D");
     let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
 
-    let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
     let search = CustomMenuItem::new("search".to_string(), t!("tray_menu.search"));
+    let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
+    let help = CustomMenuItem::new("help".to_string(), t!("tray_menu.help"));
     let text = if paused {
         t!("tray_menu.resume_monitoring")
     } else {
@@ -143,6 +147,7 @@ pub fn create_tray_menu(
         .add_item(pause)
         .add_item(search)
         .add_item(preferences)
+        .add_item(help)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(first_page)
         .add_item(next_page)
@@ -237,53 +242,79 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             // update the tray
             send_tray_update_event(app);
         }
+        "help" => {
+            // open the help window
+            // test if the window is already open
+            let windows = app.windows();
+            let window = windows.get("help");
+            if let Some(window) = window {
+                let res = window.show();
+                if let Err(e) = res {
+                    panic_app(&format!("Failed to show help window: {e}"));
+                }
+            } else {
+                let app_handle = app.app_handle();
+                std::thread::spawn(move || {
+                    let window = tauri::WindowBuilder::new(
+                        &app_handle,
+                        "help",
+                        tauri::WindowUrl::App("help".into()),
+                    )
+                    .title("Copy Clip")
+                    .build();
+                    if let Err(e) = window {
+                        panic_app(&format!("Failed to open help window: {e}"));
+                    }
+                });
+            }
+        }
         "preferences" => {
             // open the preferences window
             // test if the window is already open
             let windows = app.windows();
-            let preferences_window = windows.get("preferences");
-            if let Some(preferences_window) = preferences_window {
-                let res = preferences_window.show();
+            let window = windows.get("preferences");
+            if let Some(window) = window {
+                let res = window.show();
                 if let Err(e) = res {
                     panic_app(&format!("Failed to show preferences window: {e}"));
                 }
             } else {
                 let app_handle = app.app_handle();
                 std::thread::spawn(move || {
-                    let preferences_window = tauri::WindowBuilder::new(
+                    let window = tauri::WindowBuilder::new(
                         &app_handle,
                         "preferences",
                         tauri::WindowUrl::App("preferences".into()),
                     )
                     .title("Copy Clip")
                     .build();
-                    if let Err(e) = preferences_window {
+                    if let Err(e) = window {
                         panic_app(&format!("Failed to open preferences window: {e}"));
                     }
                 });
             }
         }
         "search" => {
-            // open the preferences window
+            // open the search window
             // test if the window is already open
             let windows = app.windows();
-            let preferences_window = windows.get("search");
-            if let Some(preferences_window) = preferences_window {
-                let res = preferences_window.show();
+            let window = windows.get("search");
+            if let Some(window) = window {
+                let res = window.show();
                 if let Err(e) = res {
                     panic_app(&format!("Failed to show search window: {e}"));
                 }
             } else {
                 let app_handle = app.app_handle();
                 std::thread::spawn(move || {
-                    let preferences_window = tauri::WindowBuilder::new(
+                    let window = tauri::WindowBuilder::new(
                         &app_handle,
                         "search",
                         tauri::WindowUrl::App("search".into()),
                     )
                     .title("Copy Clip")
                     .build();
-                    if let Err(e) = preferences_window {
+                    if let Err(e) = window {
                         panic_app(&format!("Failed to open search window: {e}"));
                     }
                 });
