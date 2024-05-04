@@ -17,7 +17,7 @@ preferences:
 head_bar:
   preferences: Einstellungen
   search: Suche
-  home: Startseite
+  help: Hilfe
 
 search:
   title: Suche
@@ -59,6 +59,7 @@ tray_menu:
   prev_page: Vorherige Seite
   first_page: Erste Seite
   next_page: Nächste Seite
+  help: Hilfe
   preferences: Einstellungen
   search: Suche
   quit: Beenden

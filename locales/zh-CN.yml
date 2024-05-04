@@ -11,9 +11,9 @@ preferences:
   enable_auto_delete_duplications: 自动删除重复记录
 
 head_bar:
-  home: 主页
   preferences: 设置
   search: 搜索
+  help: 帮助
 
 search:
   title: 搜索
@@ -55,6 +55,7 @@ tray_menu:
   prev_page: 上一页
   first_page: 第一页
   next_page: 下一页
+  help: 帮助
   preferences: 设置
   search: 搜索
   quit: 退出
