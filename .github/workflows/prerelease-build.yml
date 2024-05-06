@@ -106,10 +106,15 @@ jobs:
           cargo --version
           rustc --version
 
-      - name: Install tauri-cli, trunk
+      - name: Install tauri-cli
         continue-on-error: true
         run: |
-            cargo install tauri-cli trunk
+            cargo install tauri-cli
+
+      - name: Install trunk
+        continue-on-error: true
+        run: |
+            cargo install trunk
       
       - name: Verify tauri-cli, trunk installation
         run: |

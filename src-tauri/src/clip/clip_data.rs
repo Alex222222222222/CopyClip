@@ -12,7 +12,7 @@ use super::clip_struct::Clip;
 use log::debug;
 use once_cell::sync::Lazy;
 use sqlx::{Row, SqlitePool};
-use tauri::{async_runtime::Mutex, AppHandle, ClipboardManager, Manager};
+use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Default, Clone)]
@@ -1053,19 +1053,22 @@ impl ClipData {
 
 /// The current clip text in the system clipboard
 fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<Arc<String>, Error> {
-    let clipboard_manager = app.clipboard_manager();
-    let clip = clipboard_manager.read_text();
-    if let Err(err) = clip {
-        return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
-    }
-    let clip = clip.unwrap();
-    let clip = if let Some(res) = clip {
-        res
-    } else {
-        "".to_string()
+    let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
+    let has_text = match clipboard_manager.has_text() {
+        Ok(has_text) => has_text,
+        Err(err) => {
+            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
+        }
     };
+    if !has_text {
+        // TODO unimplemented for other types of clipboard
+        return Ok(Arc::new("".to_string()));
+    }
 
-    Ok(Arc::new(clip))
+    match clipboard_manager.read_text() {
+        Ok(clip) => Ok(Arc::new(clip)),
+        Err(err) => Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+    }
 }
 
 /// chars that consider as white space
