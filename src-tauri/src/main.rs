@@ -18,6 +18,7 @@ const EVENT_CHANNEL_SIZE: usize = 1000;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard::init())
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .manage(ConfigMutex {
             config: Mutex::<Config>::default(),
@@ -88,6 +89,7 @@ fn main() {
                 event_daemon(event_rx, &app_handle).await;
             });
 
+            // set up the clip board monitor daemon
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
                 // the daemon to monitor the system clip board change and trigger the tray update

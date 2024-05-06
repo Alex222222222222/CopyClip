@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, ClipboardManager};
+use tauri::{AppHandle, Manager};
 
 use crate::error::Error;
 
@@ -43,23 +43,21 @@ where
 impl Clip {
     /// copy the clip to the clipboard
     pub fn copy_clip_to_clipboard(&self, app: &AppHandle) -> Result<(), Error> {
-        let mut clipboard_manager = app.clipboard_manager();
-        let res = clipboard_manager.write_text((*self.text).clone());
-        if let Err(e) = res {
-            return Err(Error::WriteToSystemClipboardErr(
+        let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
+        match clipboard_manager.write_text((*self.text).clone()) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(Error::WriteToSystemClipboardErr(
                 (*self.text).clone(),
                 e.to_string(),
-            ));
+            )),
         }
-        Ok(())
     }
 
     /// convert to json format string
     pub fn to_json_string(&self) -> Result<String, Error> {
-        let res = serde_json::to_string(self);
-        if let Err(e) = res {
-            return Err(Error::ExportError(e.to_string()));
+        match serde_json::to_string(self) {
+            Ok(s) => Ok(s),
+            Err(e) => Err(Error::ExportError(e.to_string())),
         }
-        Ok(res.unwrap())
     }
 }
