@@ -5,7 +5,7 @@ use tauri::{
 };
 
 use crate::{
-    clip::clip_data::ClipData,
+    clip::clip_data::ClipStateMutex,
     config::ConfigMutex,
     event::{event_sender, CopyClipEvent, EventSender},
     log::panic_app,
@@ -209,8 +209,9 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             std::process::exit(0);
         }
         "next_page" => {
-            let clips = app.state::<ClipData>();
-            let res = clips.next_page(app).await;
+            let clip_data = app.state::<ClipStateMutex>();
+            let mut clip_data = clip_data.clip_state.lock().await;
+            let res = clip_data.next_page(app).await;
             if let Err(e) = res {
                 warn!("Failed to get next page: {}", e);
                 return;
@@ -220,8 +221,9 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             send_tray_update_event(app);
         }
         "prev_page" => {
-            let clips = app.state::<ClipData>();
-            let res = clips.prev_page(app).await;
+            let clip_data = app.state::<ClipStateMutex>();
+            let mut clip_data = clip_data.clip_state.lock().await;
+            let res = clip_data.prev_page(app).await;
             if let Err(e) = res {
                 warn!("Failed to get prev page: {}", e);
                 return;
@@ -231,8 +233,9 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             send_tray_update_event(app);
         }
         "first_page" => {
-            let clips = app.state::<ClipData>();
-            clips.first_page().await;
+            let clip_data = app.state::<ClipStateMutex>();
+            let mut clip_data = clip_data.clip_state.lock().await;
+            clip_data.first_page().await;
 
             // update the tray
             send_tray_update_event(app);
@@ -307,23 +310,21 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             if id.starts_with("tray_clip_") {
                 // test if the id is a tray_clip
 
-                let app_handle = app.app_handle();
                 // get the index of the clip
                 let index = id.replace("tray_clip_", "").parse::<i64>().unwrap();
 
                 // select the index
-                let clips = app_handle.state::<ClipData>();
-                let clips = clips.clips.lock().await;
-                let item_id = clips.tray_ids_map.get(index as usize);
+                let clip_data = app.state::<ClipStateMutex>();
+                let mut clip_data = clip_data.clip_state.lock().await;
+
+                let item_id = clip_data.tray_ids_map.get(index as usize);
                 if item_id.is_none() {
                     warn!("Failed to get the item id for the tray id: {}", index);
                     return;
                 }
                 let item_id = *item_id.unwrap();
-                drop(clips);
 
-                let clips = app_handle.state::<ClipData>();
-                let res = clips.select_clip(app, Some(item_id)).await;
+                let res = clip_data.select_clip(app, Some(item_id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;
@@ -331,28 +332,25 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             } else if id.starts_with("pinned_clip_") {
                 // test if the id is a pinned_clip
 
-                let app_handle = app.app_handle();
                 // get the index of the clip
                 let index = id.replace("pinned_clip_", "").parse::<i64>().unwrap();
 
                 // select the index
-                let clips = app_handle.state::<ClipData>();
-                let clips = clips.clips.lock().await;
-                let item_id = clips.pinned_clips.get(index as usize);
+                let clip_data = app.state::<ClipStateMutex>();
+                let mut clip_data = clip_data.clip_state.lock().await;
+
+                let item_id = clip_data.pinned_clips.get(index as usize);
                 if item_id.is_none() {
                     warn!(
                         "Failed to get the item id for the pinned clip id: {}",
                         index
                     );
-                    drop(clips);
                     return;
                 }
                 let item_id = item_id.unwrap();
                 let id = *item_id;
-                drop(clips);
 
-                let clips = app_handle.state::<ClipData>();
-                let res = clips.select_clip(app, Some(id)).await;
+                let res = clip_data.select_clip(app, Some(id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;
@@ -360,28 +358,25 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             } else if id.starts_with("favourite_clip_") {
                 // test if the id is a favourite_clip
 
-                let app_handle = app.app_handle();
                 // get the index of the clip
                 let index = id.replace("favourite_clip_", "").parse::<i64>().unwrap();
 
                 // select the index
-                let clips = app_handle.state::<ClipData>();
-                let clips = clips.clips.lock().await;
-                let item_id = clips.favourite_clips.get(index as usize);
+                let clip_data = app.state::<ClipStateMutex>();
+                let mut clip_data = clip_data.clip_state.lock().await;
+
+                let item_id = clip_data.favourite_clips.get(index as usize);
                 if item_id.is_none() {
                     warn!(
                         "Failed to get the item id for the favourite clip id: {}",
                         index
                     );
-                    drop(clips);
                     return;
                 }
                 let item_id = item_id.unwrap();
                 let id = *item_id;
-                drop(clips);
 
-                let clips = app_handle.state::<ClipData>();
-                let res = clips.select_clip(app, Some(id)).await;
+                let res = clip_data.select_clip(app, Some(id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;

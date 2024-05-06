@@ -10,7 +10,7 @@ use crate::{
     event::{CopyClipEvent, EventSender},
 };
 
-use self::clip_data::ClipData;
+use self::clip_data::ClipStateMutex;
 
 /// get the unix epoch timestamp in seconds
 pub fn get_system_timestamp() -> i64 {
@@ -35,8 +35,11 @@ pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(
 
 /// tell if the clip is pinned
 #[tauri::command]
-pub async fn id_is_pinned(clip_data: tauri::State<'_, ClipData>, id: i64) -> Result<bool, String> {
-    let clips = clip_data.clips.lock().await;
+pub async fn id_is_pinned(
+    clip_state: tauri::State<'_, ClipStateMutex>,
+    id: i64,
+) -> Result<bool, String> {
+    let clips = clip_state.clip_state.lock().await;
     let res = clips.pinned_clips.iter().find(|&&x| x == id);
     if res.is_none() {
         return Ok(false);
@@ -48,10 +51,12 @@ pub async fn id_is_pinned(clip_data: tauri::State<'_, ClipData>, id: i64) -> Res
 pub async fn copy_clip_to_clipboard(
     app: tauri::AppHandle,
     event_sender: tauri::State<'_, EventSender>,
-    clip_data: tauri::State<'_, ClipData>,
+    clip_state: tauri::State<'_, ClipStateMutex>,
     id: i64,
 ) -> Result<(), String> {
-    let clip_data = clip_data.get_clip(Some(id)).await;
+    let clip_data_mutex = clip_state.clip_state.lock().await;
+    let clip_data = clip_data_mutex.get_clip(&app, Some(id)).await;
+    drop(clip_data_mutex);
     if let Err(err) = clip_data {
         return Err(err.message());
     }
@@ -77,11 +82,14 @@ pub async fn copy_clip_to_clipboard(
 /// Delete a normal clip from the database
 #[tauri::command]
 pub async fn delete_clip_from_database(
-    clip_data: tauri::State<'_, ClipData>,
+    app: tauri::AppHandle,
+    clip_state: tauri::State<'_, ClipStateMutex>,
     event_sender: tauri::State<'_, EventSender>,
     id: i64,
 ) -> Result<(), String> {
-    let res = clip_data.delete_clip(Some(id)).await;
+    let mut clip_state_mutex = clip_state.clip_state.lock().await;
+    let res = clip_state_mutex.delete_clip(&app, Some(id)).await;
+    drop(clip_state_mutex);
 
     if let Err(err) = res {
         return Err(err.to_string());
@@ -99,12 +107,17 @@ pub async fn delete_clip_from_database(
 
 #[tauri::command]
 pub async fn change_favourite_clip(
-    clip_data: tauri::State<'_, ClipData>,
+    app: tauri::AppHandle,
+    clip_state: tauri::State<'_, ClipStateMutex>,
     event_sender: tauri::State<'_, EventSender>,
     id: i64,
     target: bool,
 ) -> Result<(), String> {
-    let res = clip_data.change_clip_favourite_status(id, target).await;
+    let mut clip_state_mutex = clip_state.clip_state.lock().await;
+    let res = clip_state_mutex
+        .change_clip_favourite_status(&app, id, target)
+        .await;
+    drop(clip_state_mutex);
 
     if let Err(err) = res {
         return Err(err.to_string());
@@ -121,12 +134,17 @@ pub async fn change_favourite_clip(
 
 #[tauri::command]
 pub async fn switch_pinned_status(
+    app: tauri::AppHandle,
     event_sender: tauri::State<'_, EventSender>,
-    clip_data: tauri::State<'_, ClipData>,
+    clip_state: tauri::State<'_, ClipStateMutex>,
     id: i64,
     pinned: bool,
 ) -> Result<(), String> {
-    let res = clip_data.change_clip_pinned_status(id, !pinned).await;
+    let mut clip_state_mutex = clip_state.clip_state.lock().await;
+    let res = clip_state_mutex
+        .change_clip_pinned_status(&app, id, !pinned)
+        .await;
+    drop(clip_state_mutex);
     if let Err(err) = res {
         return Err(err.message());
     }

@@ -9,14 +9,15 @@ use std::sync::Arc;
 use clip::{Clip, ClipType};
 use log::debug;
 use once_cell::sync::Lazy;
-use sqlx::{Row, SqlitePool};
+use sqlx::Row;
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::copy_clip_to_clipboard_in;
+use super::{copy_clip_to_clipboard_in, database::DatabaseStateMutex};
 
+/// The clip data to be shared between threads
 #[derive(Debug, Default, Clone)]
-pub struct Clips {
+pub struct ClipState {
     /// the id of the current clip
     pub current_clip: Option<i64>,
     /// the current page
@@ -27,43 +28,24 @@ pub struct Clips {
     pub pinned_clips: Vec<i64>,
     /// the favourite clips
     pub favourite_clips: Vec<i64>,
+    /// the last monitor clipboard text
+    pub clipboard_monitor_last_clip: Arc<String>,
 }
 
 /// The clip data to be shared between threads
-///
-/// The database connection could be get like this
-/// ```rust
-/// let db_connection_mutex = app.state::<ClipData>();
-/// let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-/// let db_connection = db_connection_mutex.clone().unwrap();
-/// // drop the mutex, to release the lock
-/// drop(db_connection_mutex);
-/// let res = sqlx::query("UPDATE clips SET favourite = ? WHERE id = ?")
-///     .bind(target)
-///     .bind(id)
-///     .fetch_optional(db_connection.as_ref())
-///     .await;
-/// ```
 #[derive(Debug, Default)]
-pub struct ClipData {
+pub struct ClipStateMutex {
     /// the clips data
-    pub clips: Mutex<Clips>,
-    /// monitor the clipboard
-    clipboard_monitor_last_clip: Mutex<Arc<String>>,
-    /// the database connection for the normal process
-    pub database_connection: Mutex<Option<Arc<SqlitePool>>>,
+    pub clip_state: Mutex<ClipState>,
 }
 
-impl ClipData {
+impl ClipState {
     /// Get the id of the latest clip,
     ///
     /// If there is no clip, return None.
-    ///
-    /// Will try lock the `clips`
-    pub async fn get_latest_clip_id(&self) -> Result<Option<i64>, Error> {
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+    pub async fn get_latest_clip_id(&self, app: &AppHandle) -> Result<Option<i64>, Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
 
         let res = sqlx::query("SELECT id FROM clips ORDER BY id DESC LIMIT 1")
             .fetch_optional(db_connection.as_ref())
@@ -95,14 +77,16 @@ impl ClipData {
     ///     - change the clip in the cache
     ///     - change the clip in the database
     ///     - edit the clips.favourite_clips to add or remove the id
-    ///
-    /// Will try lock `database_connection`.
-    pub async fn change_clip_favourite_status(&self, id: i64, target: bool) -> Result<(), Error> {
+    pub async fn change_clip_favourite_status(
+        &mut self,
+        app: &AppHandle,
+        id: i64,
+        target: bool,
+    ) -> Result<(), Error> {
         // change the clip in the database
         // wait for any error
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
         let res = sqlx::query("UPDATE clips SET favourite = ? WHERE id = ?")
             .bind(target)
             .bind(id)
@@ -122,21 +106,20 @@ impl ClipData {
         // edit the favourite clips slot in the tray
         if target {
             // decide whether the id is in the favourite_clips vector list
-            let mut clips = self.clips.lock().await;
-            let res = clips.favourite_clips.binary_search(&id);
+            let res = self.favourite_clips.binary_search(&id);
             if res.is_err() {
+                // TODO change this to a faster method
                 // if the id is not in the favourite_clips vector list, then add it to the list
-                clips.favourite_clips.push(id);
+                self.favourite_clips.push(id);
                 // sort
-                clips.favourite_clips.sort();
+                self.favourite_clips.sort();
             }
         } else {
             // decide whether the id is in the favourite_clips vector list
-            let mut clips = self.clips.lock().await;
-            let res = clips.favourite_clips.binary_search(&id);
+            let res = self.favourite_clips.binary_search(&id);
             if let Ok(pos) = res {
                 // if the id is in the favourite_clips vector list, then remove it from the list
-                clips.favourite_clips.remove(pos);
+                self.favourite_clips.remove(pos);
             }
         }
 
@@ -147,13 +130,16 @@ impl ClipData {
     ///     - change the clip in the cache
     ///     - change the clip in the database
     ///     - edit the clips.pinned_clips to add or remove the id
-    ///
-    /// Will try lock `database_connection` and `clips`.
-    pub async fn change_clip_pinned_status(&self, id: i64, target: bool) -> Result<(), Error> {
+    pub async fn change_clip_pinned_status(
+        &mut self,
+        app: &AppHandle,
+        id: i64,
+        target: bool,
+    ) -> Result<(), Error> {
         // change the clip in the database
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
+
         let res = sqlx::query("UPDATE clips SET pinned = ? WHERE id = ?")
             .bind(target)
             .bind(id)
@@ -172,21 +158,19 @@ impl ClipData {
         // edit the pinned clips slot in the tray
         if target {
             // decide whether the id is in the pinned_clips vector list
-            let mut clips = self.clips.lock().await;
-            let res = clips.pinned_clips.binary_search(&id);
+            let res = self.pinned_clips.binary_search(&id);
             if res.is_err() {
                 // if the id is not in the pinned_clips vector list, then add it to the list
-                clips.pinned_clips.push(id);
+                self.pinned_clips.push(id);
                 // sort
-                clips.pinned_clips.sort();
+                self.pinned_clips.sort();
             }
         } else {
             // decide whether the id is in the pinned_clips vector list
-            let mut clips = self.clips.lock().await;
-            let res = clips.pinned_clips.binary_search(&id);
+            let res = self.pinned_clips.binary_search(&id);
             if let Ok(pos) = res {
                 // if the id is in the pinned_clips vector list, then remove it from the list
-                clips.pinned_clips.remove(pos);
+                self.pinned_clips.remove(pos);
             }
         }
 
@@ -198,13 +182,11 @@ impl ClipData {
     ///
     /// None represent the latest clip.
     ///
-    /// Will try lock `database_connection` and `clips`.
-    ///
     /// Will not trigger a tray update event.
-    pub async fn delete_clip(&self, mut id: Option<i64>) -> Result<(), Error> {
+    pub async fn delete_clip(&mut self, app: &AppHandle, mut id: Option<i64>) -> Result<(), Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
-            id = self.get_latest_clip_id().await?;
+            id = self.get_latest_clip_id(app).await?;
         }
         if id.is_none() {
             return Ok(());
@@ -213,9 +195,8 @@ impl ClipData {
 
         // delete in database
         // wait for any error
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
         let res = sqlx::query("DELETE FROM clips WHERE id = ?")
             .bind(id)
             .fetch_optional(db_connection.as_ref())
@@ -226,23 +207,22 @@ impl ClipData {
 
         // delete from the whole list of ids
         // get the position of the id in the whole list of ids
-        let mut clips = self.clips.lock().await;
-        if let Some(id_c) = clips.current_clip {
+        if let Some(id_c) = self.current_clip {
             if id_c == id {
-                clips.current_clip = None;
+                self.current_clip = None;
             }
         }
 
         // delete from the pinned_clips list
-        let pinned_list_index = clips.pinned_clips.binary_search(&id);
+        let pinned_list_index = self.pinned_clips.binary_search(&id);
         if let Ok(pinned_list_index) = pinned_list_index {
-            clips.pinned_clips.remove(pinned_list_index);
+            self.pinned_clips.remove(pinned_list_index);
         }
 
         // delete from the favourite_clips list
-        let favourite_list_index = clips.favourite_clips.binary_search(&id);
+        let favourite_list_index = self.favourite_clips.binary_search(&id);
         if let Ok(favourite_list_index) = favourite_list_index {
-            clips.favourite_clips.remove(favourite_list_index);
+            self.favourite_clips.remove(favourite_list_index);
         }
 
         Ok(())
@@ -253,9 +233,8 @@ impl ClipData {
     /// Will try lock `clips`.
     ///
     /// Will not trigger a tray update event.
-    pub async fn first_page(&self) {
-        let mut clips = self.clips.lock().await;
-        clips.current_page = 0;
+    pub async fn first_page(&mut self) {
+        self.current_page = 0;
     }
 
     /// Get a clip by id from database
@@ -265,10 +244,14 @@ impl ClipData {
     ///
     /// Will try lock `database_connection` and `clips`.
     #[warn(unused_must_use)]
-    pub async fn get_clip(&self, mut id: Option<i64>) -> Result<Option<Clip>, Error> {
+    pub async fn get_clip(
+        &self,
+        app: &AppHandle,
+        mut id: Option<i64>,
+    ) -> Result<Option<Clip>, Error> {
         // if id is none, change it to the latest clip
         if id.is_none() {
-            id = self.get_latest_clip_id().await?;
+            id = self.get_latest_clip_id(app).await?;
         }
         if id.is_none() {
             return Ok(None);
@@ -277,9 +260,8 @@ impl ClipData {
 
         // if the clip is not in the cache, get it from the database
         // wait for the result
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
         let res = sqlx::query("SELECT * FROM clips WHERE id = ?")
             .bind(id)
             .fetch_optional(db_connection.as_ref())
@@ -335,27 +317,18 @@ impl ClipData {
     }
 
     /// Get the clip data if current clip is not pinned clip,
-    ///
-    /// Will try lock `database_connection` and `clips`.
-    pub async fn get_current_clip(&self) -> Result<Option<Clip>, Error> {
-        let clips = self.clips.lock().await;
-        let current = clips.current_clip;
-        drop(clips);
-        self.get_clip(current).await
+    pub async fn get_current_clip(&self, app: &AppHandle) -> Result<Option<Clip>, Error> {
+        let current = self.current_clip;
+        self.get_clip(app, current).await
     }
 
     /// Get the pos of the current clip.
     ///
     /// None if the current clip is a normal clip and is not in the list
     /// or the list is empty.
-    ///
-    /// Will try lock `database_connection`.
-    pub async fn get_current_clip_pos(&self) -> Result<Option<usize>, Error> {
-        let clips = self.clips.lock().await;
-        let current = clips.current_clip;
-        drop(clips);
-
-        self.get_id_pos_in_whole_list_of_ids(current).await
+    pub async fn get_current_clip_pos(&self, app: &AppHandle) -> Result<Option<usize>, Error> {
+        let current = self.current_clip;
+        self.get_id_pos_in_whole_list_of_ids(app, current).await
     }
 
     /// Get the position of the id in the database counting from the lower id to the higher id.
@@ -363,10 +336,9 @@ impl ClipData {
     ///
     /// If the id is not in the list, return None.
     /// If the id is none, return None.
-    ///
-    /// Will try lock `database_connection`.
     pub async fn get_id_pos_in_whole_list_of_ids(
         &self,
+        app: &AppHandle,
         id: Option<i64>,
     ) -> Result<Option<usize>, Error> {
         let id = match id {
@@ -376,9 +348,8 @@ impl ClipData {
             }
         };
 
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
 
         let res = sqlx::query("SELECT COUNT(rowid) as num FROM clips WHERE id <= ?")
             .bind(id)
@@ -415,7 +386,7 @@ impl ClipData {
         let config = config.config.lock().await;
         let clip_per_page = config.clip_per_page;
         drop(config);
-        let len = self.get_total_number_of_clip().await?;
+        let len = self.get_total_number_of_clip(app).await?;
         if len == 0 {
             return Ok(0);
         }
@@ -429,9 +400,9 @@ impl ClipData {
     /// Create a new clip in the database and return the id of the new clip
     ///
     /// Will try lock the `clips` and `database_connection` and `app.state::<ConfigMutex>()`.
-    pub async fn new_clip(&self, text: Arc<String>, app: &AppHandle) -> Result<i64, Error> {
+    pub async fn new_clip(&mut self, app: &AppHandle, text: Arc<String>) -> Result<i64, Error> {
         debug!("Create a new clip");
-        let id: i64 = if let Some(id) = self.get_latest_clip_id().await? {
+        let id: i64 = if let Some(id) = self.get_latest_clip_id(app).await? {
             id + 1
         } else {
             1
@@ -439,10 +410,9 @@ impl ClipData {
 
         let timestamp = get_system_timestamp();
 
-        let db_connection_mutex = app.state::<ClipData>();
-        let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
+
         let res = sqlx::query(
             "INSERT INTO clips (id, text, timestamp, favourite, pinned) VALUES (?, ?, ?, ?, ?)",
         )
@@ -462,10 +432,8 @@ impl ClipData {
 
         let text1 = (*text).clone();
 
-        let mut clips = self.clips.lock().await;
-
         // change the current clip to the last one
-        clips.current_clip = Some(id);
+        self.current_clip = Some(id);
 
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().await;
@@ -488,8 +456,8 @@ impl ClipData {
             return Ok(id);
         }
         let mut ids_to_delete: Vec<i64> = Vec::new();
-        let c = clips.current_clip;
-        drop(clips);
+        let c = self.current_clip;
+
         let mut is_favourite = false;
         let mut is_pinned = false;
         for row in res {
@@ -514,14 +482,14 @@ impl ClipData {
             }
         }
         if is_favourite {
-            self.change_clip_favourite_status(id, true).await?;
+            self.change_clip_favourite_status(app, id, true).await?;
         }
         if is_pinned {
-            self.change_clip_pinned_status(id, true).await?;
+            self.change_clip_pinned_status(app, id, true).await?;
         }
         for id in ids_to_delete {
             debug!("Delete duplicate clip id: {}", id);
-            self.delete_clip(Some(id)).await?;
+            self.delete_clip(app, Some(id)).await?;
         }
 
         Ok(id)
@@ -529,10 +497,8 @@ impl ClipData {
 
     /// Jump to the next page in the tray
     ///
-    /// Will try lock `app.state::<ConfigMutex>()` and `clips`.
-    ///
     /// Will not trigger a tray update event.
-    pub async fn next_page(&self, app: &AppHandle) -> Result<(), Error> {
+    pub async fn next_page(&mut self, app: &AppHandle) -> Result<(), Error> {
         // switch to the next page
         // if max_page is -1, it means there is no limit
 
@@ -544,10 +510,8 @@ impl ClipData {
 
     /// Jump to the previous page in the tray
     ///
-    /// Will try lock `app.state::<ConfigMutex>()` and `clips`.
-    ///
     /// Will not trigger a tray update event.
-    pub async fn prev_page(&self, app: &AppHandle) -> Result<(), Error> {
+    pub async fn prev_page(&mut self, app: &AppHandle) -> Result<(), Error> {
         // switch to the previous page
         // if max_page is -1, it means there is no limit
 
@@ -564,18 +528,16 @@ impl ClipData {
     ///
     /// Will try `lock database_connection` and `clips`.
     #[warn(unused_must_use)]
-    pub async fn select_clip(&self, app: &AppHandle, id: Option<i64>) -> Result<(), Error> {
+    pub async fn select_clip(&mut self, app: &AppHandle, id: Option<i64>) -> Result<(), Error> {
         // try get the clip
-        let c = self.get_clip(id).await?;
+        let c = self.get_clip(app, id).await?;
         if c.is_none() {
             debug!("The requested ClipID: {:?} is not found", id);
             return Ok(());
         }
         let c = c.unwrap();
 
-        let mut clips = self.clips.lock().await;
-        clips.current_clip = id;
-        drop(clips);
+        self.current_clip = id;
 
         // change the clipboard
         copy_clip_to_clipboard_in(&c, app)?;
@@ -590,22 +552,21 @@ impl ClipData {
     /// Will try lock `clips`.
     ///
     /// Will not trigger a tray update event.
-    pub async fn switch_page(&self, page: i64, max_page: usize) {
+    pub async fn switch_page(&mut self, page: i64, max_page: usize) {
         // switch to the page by the page number
         // if max_page is -1, it means there is no limit
 
-        let mut clips = self.clips.lock().await;
-        let target_page = clips.current_page as i64 + page;
+        let target_page = self.current_page as i64 + page;
         if target_page < 0 {
-            clips.current_page = 0;
+            self.current_page = 0;
             return;
         }
         if target_page > max_page as i64 {
-            clips.current_page = max_page;
+            self.current_page = max_page;
             return;
         }
 
-        clips.current_page = target_page as usize;
+        self.current_page = target_page as usize;
     }
 
     /// Handle the clip board change event
@@ -616,12 +577,9 @@ impl ClipData {
     /// then create a new clip.
     /// Insert the new clip to the database.
     ///
-    /// Will try lock `database_connection` and `clips` and `clipboard_monitor_last_clip`
-    /// and `app.state::<ConfigMutex>()`.
-    ///
     /// Will trigger a tray update event.
     #[warn(unused_must_use)]
-    pub async fn update_clipboard(&self, app: &AppHandle) -> Result<(), Error> {
+    pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), Error> {
         debug!("Clipboard changed");
         // get the current clip text
         let clipboard_clip_text = clip_data_from_system_clipboard(app)?;
@@ -632,7 +590,7 @@ impl ClipData {
         }
 
         // get the current clip text
-        let current_clip = self.get_current_clip().await?;
+        let current_clip = self.get_current_clip(app).await?;
         let current_clip_text = if let Some(current_clip_text) = current_clip {
             current_clip_text.text
         } else {
@@ -648,23 +606,15 @@ impl ClipData {
         }
 
         // if the current clip text is the same as the last clip text, then return
-        let last_clip_mutex = self.clipboard_monitor_last_clip.lock().await;
-        let last_clip = last_clip_mutex.clone();
-        drop(last_clip_mutex);
-        if *clipboard_clip_text == *last_clip {
+        if *clipboard_clip_text == *self.clipboard_monitor_last_clip {
             debug!(
                 "The clipboard text is the same as the last clip text, do not create a new clip"
             );
             return Ok(());
         }
 
-        let id = self.new_clip(clipboard_clip_text.clone(), app).await?;
-        let mut last_clip = self.clipboard_monitor_last_clip.lock().await;
-        *last_clip = clipboard_clip_text;
-        drop(last_clip);
-        let mut clips = self.clips.lock().await;
-        clips.current_clip = Some(id);
-        drop(clips);
+        let id = self.new_clip(app, clipboard_clip_text.clone()).await?;
+        self.current_clip = Some(id);
 
         // update the tray
         let event_sender = app.state::<EventSender>();
@@ -673,29 +623,12 @@ impl ClipData {
         Ok(())
     }
 
-    /// Get the current page
-    ///
-    /// Will try lock `clips`.
-    pub async fn get_current_page(&self) -> usize {
-        let clips = self.clips.lock().await;
-        clips.current_page
-    }
-
-    /// Set the current page
-    ///
-    /// Will try lock `clips`.
-    pub async fn set_current_page(&self, page: usize) {
-        let mut clips = self.clips.lock().await;
-        clips.current_page = page;
-    }
-
     /// Get the len of whole_list_of_ids
     ///
     /// Will try lock `database_connection`.
-    pub async fn get_total_number_of_clip(&self) -> Result<usize, Error> {
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+    pub async fn get_total_number_of_clip(&self, app: &AppHandle) -> Result<usize, Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
 
         let res = sqlx::query("SELECT COUNT(rowid) as num FROM clips")
             .fetch_one(db_connection.as_ref())
@@ -724,10 +657,9 @@ impl ClipData {
     /// 1 will return the second lowest id.
     ///
     /// If the position is out of range, return None.
-    pub async fn get_id_with_pos(&self, pos: usize) -> Result<Option<i64>, Error> {
-        let db_connection_mutex = self.database_connection.lock().await;
-        let db_connection = db_connection_mutex.clone().unwrap();
-        drop(db_connection_mutex);
+    pub async fn get_id_with_pos(&self, app: &AppHandle, pos: usize) -> Result<Option<i64>, Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.get_database_connection().await?;
 
         let res = sqlx::query("SELECT id FROM clips ORDER BY id ASC LIMIT 1 OFFSET ?")
             .bind(pos as i64)
@@ -765,7 +697,7 @@ impl ClipData {
     ///
     /// Will try lock `app.state::<ConfigMutex>()` and `clips` and `database_connection`
     async fn update_normal_clip_tray(
-        &self,
+        &mut self,
         app: &AppHandle,
         clips_per_page: i64,
         whole_list_of_ids_len: usize,
@@ -779,7 +711,7 @@ impl ClipData {
             if pos < 0 {
                 break;
             }
-            let clip_id = self.get_id_with_pos(pos as usize).await?;
+            let clip_id = self.get_id_with_pos(app, pos as usize).await?;
             let clip_id = match clip_id {
                 Some(clip_id) => clip_id,
                 None => {
@@ -787,7 +719,7 @@ impl ClipData {
                 }
             };
 
-            let clip = self.get_clip(Some(clip_id)).await?;
+            let clip = self.get_clip(app, Some(clip_id)).await?;
             if clip.is_none() {
                 break;
             }
@@ -796,9 +728,7 @@ impl ClipData {
 
         // put text in
         // empty the tray_ids_map
-        let mut clips = self.clips.lock().await;
-        clips.tray_ids_map.clear();
-        drop(clips);
+        self.tray_ids_map.clear();
         for i in 0..current_page_clips.len() {
             let tray_id = "tray_clip_".to_string() + &i.to_string();
             let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
@@ -815,9 +745,7 @@ impl ClipData {
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
-            let mut clips = self.clips.lock().await;
-            clips.tray_ids_map.push(c.id);
-            drop(clips);
+            self.tray_ids_map.push(c.id);
         }
 
         // clean out the rest of the tray
@@ -868,27 +796,21 @@ impl ClipData {
     /// Update the pinned clips in the tray
     ///
     /// Only used in `self.update_tray()`
-    ///
-    /// Will try lock `app.state::<ConfigMutex>()` and `clips` and `database_connection`
     async fn update_pinned_clips(
         &self,
         app: &AppHandle,
         max_clip_length: i64,
     ) -> Result<(), Error> {
-        let clips = self.clips.lock().await;
-        let pinned_clips_len = clips.pinned_clips.len();
-        drop(clips);
+        let pinned_clips_len = self.pinned_clips.len();
         // update pinned clips in the tray
         for i in 0..pinned_clips_len {
-            let clips = self.clips.lock().await;
-            let pinned_clip = clips.pinned_clips.get(i);
+            let pinned_clip = self.pinned_clips.get(i);
             if pinned_clip.is_none() {
                 continue;
             }
             let pinned_clip = pinned_clip.unwrap();
             let pinned_clip = *pinned_clip;
-            drop(clips);
-            let pinned_clip = self.get_clip(Some(pinned_clip)).await?;
+            let pinned_clip = self.get_clip(app, Some(pinned_clip)).await?;
             if pinned_clip.is_none() {
                 continue;
             }
@@ -910,27 +832,21 @@ impl ClipData {
     /// Update the favourite clips in the tray
     ///
     /// Only used in `self.update_tray()`
-    ///
-    /// Will try lock `app.state::<ConfigMutex>()` and `clips` and `database_connection`
     async fn update_favourite_clips(
         &self,
         app: &AppHandle,
         max_clip_length: i64,
     ) -> Result<(), Error> {
-        let clips = self.clips.lock().await;
-        let favourite_clips_len = clips.favourite_clips.len();
-        drop(clips);
+        let favourite_clips_len = self.favourite_clips.len();
         // update favourite clips in the tray
         for i in 0..favourite_clips_len {
-            let clips = self.clips.lock().await;
-            let favourite_clip = clips.favourite_clips.get(i);
+            let favourite_clip = self.favourite_clips.get(i);
             if favourite_clip.is_none() {
                 continue;
             }
             let favourite_clip = favourite_clip.unwrap();
             let favourite_clip = *favourite_clip;
-            drop(clips);
-            let favourite_clip = self.get_clip(Some(favourite_clip)).await?;
+            let favourite_clip = self.get_clip(app, Some(favourite_clip)).await?;
             if favourite_clip.is_none() {
                 continue;
             }
@@ -954,7 +870,7 @@ impl ClipData {
     ///
     /// Will try lock `app.state::<ConfigMutex>()` and `clips` and `database_connection`
     #[warn(unused_must_use)]
-    pub async fn update_tray(&self, app: &AppHandle) -> Result<(), Error> {
+    pub async fn update_tray(&mut self, app: &AppHandle) -> Result<(), Error> {
         // get the clips per page configuration
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().await;
@@ -963,13 +879,13 @@ impl ClipData {
         drop(config);
 
         // get the current page
-        let mut current_page = self.get_current_page().await;
+        let mut current_page = self.current_page;
         let whole_pages = self.get_max_page(app).await?;
-        let whole_list_of_ids_len = self.get_total_number_of_clip().await?;
+        let whole_list_of_ids_len = self.get_total_number_of_clip(app).await?;
         // if the current page bigger than the whole pages, then calculate the current page, regarding to current_clip_pos
         if current_page > whole_pages {
             // get the current clip pos
-            let current_clip_pos = self.get_current_clip_pos().await?;
+            let current_clip_pos = self.get_current_clip_pos(app).await?;
             let current_clip_pos = if let Some(current_clip_pos) = current_clip_pos {
                 current_clip_pos
             } else if whole_list_of_ids_len == 0 {
@@ -984,29 +900,21 @@ impl ClipData {
                 current_page =
                     (whole_list_of_ids_len - current_clip_pos - 1) / clips_per_page as usize;
             }
-            self.set_current_page(current_page).await;
+            self.current_page = current_page;
         }
 
-        let update_page_info_res = self.update_tray_page_info(
-            app,
-            whole_list_of_ids_len,
-            current_page as i64,
-            whole_pages,
-        );
-        let update_pinned_res = self.update_pinned_clips(app, max_clip_length);
-        let update_normal_res = self.update_normal_clip_tray(
+        self.update_tray_page_info(app, whole_list_of_ids_len, current_page as i64, whole_pages)
+            .await?;
+        self.update_pinned_clips(app, max_clip_length).await?;
+        self.update_normal_clip_tray(
             app,
             clips_per_page,
             whole_list_of_ids_len,
             max_clip_length,
             current_page as i64,
-        );
-        let update_favourite_res = self.update_favourite_clips(app, max_clip_length);
-
-        update_page_info_res.await?;
-        update_pinned_res.await?;
-        update_normal_res.await?;
-        update_favourite_res.await?;
+        )
+        .await?;
+        self.update_favourite_clips(app, max_clip_length).await?;
 
         Ok(())
     }

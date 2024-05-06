@@ -7,11 +7,11 @@ use tauri::{AppHandle, Manager};
 
 use crate::{config::ConfigMutex, error};
 
-use super::clip_data::ClipData;
-
 use clip::{Clip, ClipType};
 
 use sqlx::{sqlite::SqliteRow, Row};
+
+use super::{clip_data::ClipStateMutex, database::DatabaseStateMutex};
 
 /// search for a clip in the database
 /// SELECT * FROM clips WHERE content MATCH 'linux';
@@ -95,10 +95,8 @@ pub async fn fast_search(
     favourite: bool,
     pinned: bool,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
     let res = if !favourite && !pinned {
         sqlx::query(
             "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?",
@@ -181,10 +179,8 @@ pub async fn normal_search(
     favourite: bool,
     pinned: bool,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
     let res = if !favourite && !pinned {
         sqlx::query(
             "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
@@ -252,10 +248,8 @@ pub async fn fuzzy_search(
     favourite: bool, // true: filter-on, false: filter-off
     pinned: bool,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
 
     let mut max_id = max_id;
     let mut count = 0;
@@ -357,10 +351,8 @@ pub async fn regexp_search(
     }
     let re = re.unwrap();
 
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
 
     let mut max_id = max_id;
     let mut count = 0;
@@ -442,10 +434,8 @@ async fn empty_search(
     favourite: bool, // true: filter-on, false: filter-off
     pinned: bool,
 ) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
 
     let res = if !favourite && !pinned {
         sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT ?")
@@ -507,8 +497,12 @@ async fn empty_search(
 /// get the max id of the clip in the database,
 /// if no clip in the database, return 0
 #[tauri::command]
-pub async fn get_max_id(clip_data: tauri::State<'_, ClipData>) -> Result<i64, error::Error> {
-    let res = clip_data.get_latest_clip_id().await?;
+pub async fn get_max_id(
+    app: AppHandle,
+    clip_state: tauri::State<'_, ClipStateMutex>,
+) -> Result<i64, error::Error> {
+    let clip_data = clip_state.clip_state.lock().await;
+    let res = clip_data.get_latest_clip_id(&app).await?;
     if res.is_none() {
         return Ok(0);
     }

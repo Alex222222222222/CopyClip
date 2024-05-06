@@ -2,9 +2,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use copy_clip::{
-    clip::{self, clip_data::ClipData, database::init_database_connection},
-    config,
-    config::{Config, ConfigMutex},
+    clip::{
+        self,
+        clip_data::ClipStateMutex,
+        database::{init_database_connection, DatabaseStateMutex},
+    },
+    config::{self, Config, ConfigMutex},
     event::{event_daemon, event_sender, CopyClipEvent, EventSender},
     export,
     log::{panic_app, setup_logger},
@@ -23,7 +26,8 @@ fn main() {
         .manage(ConfigMutex {
             config: Mutex::<Config>::default(),
         })
-        .manage(ClipData::default())
+        .manage(ClipStateMutex::default())
+        .manage(DatabaseStateMutex::default())
         .setup(|app| {
             // tx and rx is used to wait until the prepare finished
 

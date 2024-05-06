@@ -3,8 +3,8 @@ use tauri::async_runtime::{Receiver, Sender};
 
 use tauri::{api::notification::Notification, AppHandle, Manager};
 
+use crate::clip::clip_data::ClipStateMutex;
 use crate::{
-    clip::clip_data::ClipData,
     config::ConfigMutex,
     log::{panic_app, LogLevel},
     systray::{create_tray_menu, handle_menu_item_click, send_tray_update_event},
@@ -88,7 +88,9 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
         match event {
             // update the clips in the tray menu
             CopyClipEvent::TrayUpdateEvent => tauri::async_runtime::spawn(async move {
-                let clip_data = app.state::<ClipData>();
+                let clip_data = app.state::<ClipStateMutex>();
+                let mut clip_data = clip_data.clip_state.lock().await;
+
                 let res = clip_data.update_tray(&app).await;
                 if let Err(err) = res {
                     panic_app(&format!(
@@ -103,14 +105,15 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 let page_len = app.state::<ConfigMutex>();
                 let page_len = page_len.config.lock().await.clip_per_page;
                 // get the number of pinned clips
-                let pinned_clips = app.state::<ClipData>();
-                let pinned_clips = pinned_clips.clips.lock().await.pinned_clips.len();
+                let clip_data = app.state::<ClipStateMutex>();
+                let clip_data = clip_data.clip_state.lock().await;
+                let pinned_clips = clip_data.pinned_clips.len();
                 // get the number of favourite clips
-                let favourite_clips = app.state::<ClipData>();
-                let favourite_clips = favourite_clips.clips.lock().await.favourite_clips.len();
+                let favourite_clips = clip_data.favourite_clips.len();
                 // get paused state
                 let paused = app.state::<ConfigMutex>();
                 let paused = paused.config.lock().await.pause_monitoring;
+                drop(clip_data);
 
                 let res = app.tray_handle().set_menu(create_tray_menu(
                     page_len,
@@ -152,10 +155,16 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 debug!("Clipboard change event");
                 let config = app.state::<ConfigMutex>();
                 let config = config.config.lock().await;
-                if !config.pause_monitoring {
-                    drop(config);
-                    let clip_data = app.state::<ClipData>();
+                let paused = config.pause_monitoring;
+                debug!("Paused: {}", paused);
+                drop(config);
+                if !paused {
+                    debug!("Clipboard change event, not paused");
+                    let clip_data = app.state::<ClipStateMutex>();
+                    let mut clip_data = clip_data.clip_state.lock().await;
+
                     let res = clip_data.update_clipboard(&app).await;
+                    debug!("Clipboard updated");
                     if let Err(err) = res {
                         panic_app(&format!(
                             "Failed to update clipboard, error: {}",

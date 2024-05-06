@@ -7,7 +7,42 @@ use tauri::{AppHandle, Manager};
 use crate::backward;
 use crate::error::Error;
 
-use super::clip_data::ClipData;
+use super::clip_data::ClipStateMutex;
+
+/// database state mutex
+pub struct DatabaseStateMutex {
+    database_connection: tauri::async_runtime::Mutex<DatabaseState>,
+}
+
+struct DatabaseState {
+    pub database_connection: Option<Arc<SqlitePool>>,
+}
+
+impl Default for DatabaseStateMutex {
+    fn default() -> Self {
+        Self {
+            database_connection: tauri::async_runtime::Mutex::new(DatabaseState {
+                database_connection: None,
+            }),
+        }
+    }
+}
+
+impl DatabaseStateMutex {
+    pub async fn get_database_connection(&self) -> Result<Arc<SqlitePool>, Error> {
+        let connection = self.database_connection.lock().await;
+        let connection = connection.database_connection.clone();
+        match connection {
+            Some(connection) => Ok(connection),
+            None => Err(Error::DatabaseConnectionErr),
+        }
+    }
+
+    pub async fn set_database_connection(&self, connection: Arc<SqlitePool>) {
+        let mut db_connection = self.database_connection.lock().await;
+        db_connection.database_connection = Some(connection);
+    }
+}
 
 /// init the database connection and create the table
 /// also init the clips mutex
@@ -308,11 +343,10 @@ async fn init_clips_table(connection: &SqlitePool) -> Result<(), Error> {
 ///     - init the whole list of ids
 async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(), Error> {
     // fill the connection into the clips mutex
-    let clip_data_connection = app.state::<ClipData>();
-    let mut clip_data_connection = clip_data_connection.database_connection.lock().await;
-    *clip_data_connection = Some(Arc::new(connection));
-    // drop otherwise deadlock
-    drop(clip_data_connection);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    db_connection
+        .set_database_connection(Arc::new(connection))
+        .await;
 
     // init pinned clips
     init_pinned_clips(app).await?;
@@ -330,10 +364,8 @@ async fn init_clips_mutex(connection: SqlitePool, app: &AppHandle) -> Result<(),
 ///     - fill the pinned clips into the clips mutex
 ///     - the order is based on the timestamp
 async fn init_pinned_clips(app: &AppHandle) -> Result<(), Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
 
     // get the pinned clips from the database
     let res = sqlx::query("SELECT id FROM clips WHERE pinned = 1 ORDER BY timestamp ASC")
@@ -349,8 +381,8 @@ async fn init_pinned_clips(app: &AppHandle) -> Result<(), Error> {
         if let Err(err) = id {
             return Err(Error::GetPinnedClipsErr(err.to_string()));
         }
-        let clips = app.state::<ClipData>();
-        let mut clips = clips.clips.lock().await;
+        let clips = app.state::<ClipStateMutex>();
+        let mut clips = clips.clip_state.lock().await;
         clips.pinned_clips.push(id.unwrap());
     }
     Ok(())
@@ -363,10 +395,8 @@ async fn init_pinned_clips(app: &AppHandle) -> Result<(), Error> {
 ///   - fill the favourite clips into the clips mutex
 ///  - the order is based on the timestamp
 async fn init_favourite_clips(app: &AppHandle) -> Result<(), Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
 
     // get the favourite clips from the database
     let res = sqlx::query("SELECT id FROM clips WHERE favourite = 1 ORDER BY timestamp ASC")
@@ -382,8 +412,8 @@ async fn init_favourite_clips(app: &AppHandle) -> Result<(), Error> {
         if let Err(err) = id {
             return Err(Error::GetFavouriteClipsErr(err.to_string()));
         }
-        let clips = app.state::<ClipData>();
-        let mut clips = clips.clips.lock().await;
+        let clips = app.state::<ClipStateMutex>();
+        let mut clips = clips.clip_state.lock().await;
         clips.favourite_clips.push(id.unwrap());
     }
     Ok(())
@@ -395,10 +425,8 @@ async fn init_favourite_clips(app: &AppHandle) -> Result<(), Error> {
 /// And should not be used to check the version of the database,
 /// when the app is launched.
 pub async fn get_all_versions(app: &AppHandle) -> Result<Vec<(i64, String)>, Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.get_database_connection().await?;
 
     let res = sqlx::query("SELECT * FROM version")
         .fetch_all(db_connection.as_ref())

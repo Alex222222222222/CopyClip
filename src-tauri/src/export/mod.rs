@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use crate::clip;
-use crate::clip::clip_data::ClipData;
+use crate::clip::clip_data::ClipStateMutex;
 use crate::config::ConfigMutex;
 
 use crate::error;
@@ -107,11 +107,12 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
     }
 
     // the clips
-    let clip_data = app.state::<ClipData>();
-    let clips_len = clip_data.get_total_number_of_clip().await?;
+    let clip_data = app.state::<ClipStateMutex>();
+    let clip_data = clip_data.clip_state.lock().await;
+    let clips_len = clip_data.get_total_number_of_clip(app).await?;
     for i in 0..clips_len {
-        let id = clip_data.get_id_with_pos(i).await?;
-        let clip = clip_data.get_clip(id).await?;
+        let id = clip_data.get_id_with_pos(app, i).await?;
+        let clip = clip_data.get_clip(app, id).await?;
         if clip.is_none() {
             continue;
         }
@@ -131,6 +132,7 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
             return Err(error::Error::ExportError(e.to_string()));
         }
     }
+    drop(clip_data);
 
     let res = e.finish();
     if let Err(e) = res {
