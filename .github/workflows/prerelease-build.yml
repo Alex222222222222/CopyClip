@@ -111,14 +111,17 @@ jobs:
         run: |
             cargo install tauri-cli
 
+      - name: Verify tauri-cli installation
+        run: |
+          cargo tauri --version
+
       - name: Install trunk
         continue-on-error: true
         run: |
             cargo install trunk
       
-      - name: Verify tauri-cli, trunk installation
+      - name: Verify trunk installation
         run: |
-          cargo tauri --version
           trunk --version
       
       - name: Install wasm-opt for ubuntu and macos
