@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
 
-use crate::error::Error;
-
-use super::clip_type::ClipType;
+use crate::ClipType;
 
 /// a single clip
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -45,23 +42,11 @@ where
 }
 
 impl Clip {
-    /// copy the clip to the clipboard
-    pub fn copy_clip_to_clipboard(&self, app: &AppHandle) -> Result<(), Error> {
-        let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
-        match clipboard_manager.write_text((*self.text).clone()) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(Error::WriteToSystemClipboardErr(
-                (*self.text).clone(),
-                e.to_string(),
-            )),
-        }
-    }
-
     /// convert to json format string
-    pub fn to_json_string(&self) -> Result<String, Error> {
+    pub fn to_json_string(&self) -> Result<String, String> {
         match serde_json::to_string(self) {
             Ok(s) => Ok(s),
-            Err(e) => Err(Error::ExportError(e.to_string())),
+            Err(e) => Err(e.to_string()),
         }
     }
 }

@@ -6,12 +6,14 @@ use crate::{
 };
 use std::sync::Arc;
 
-use super::{clip_struct::Clip, clip_type::ClipType};
+use clip::{Clip, ClipType};
 use log::debug;
 use once_cell::sync::Lazy;
 use sqlx::{Row, SqlitePool};
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use unicode_segmentation::UnicodeSegmentation;
+
+use super::copy_clip_to_clipboard_in;
 
 #[derive(Debug, Default, Clone)]
 pub struct Clips {
@@ -96,11 +98,6 @@ impl ClipData {
     ///
     /// Will try lock `database_connection`.
     pub async fn change_clip_favourite_status(&self, id: i64, target: bool) -> Result<(), Error> {
-        // change the clip in the cache
-        // no need to wait for the result
-        #[cfg(feature = "clip-cache")]
-        CACHED_CLIP.update_favourite_state(id, target).await;
-
         // change the clip in the database
         // wait for any error
         let db_connection_mutex = self.database_connection.lock().await;
@@ -153,11 +150,6 @@ impl ClipData {
     ///
     /// Will try lock `database_connection` and `clips`.
     pub async fn change_clip_pinned_status(&self, id: i64, target: bool) -> Result<(), Error> {
-        // change the clip in the cache
-        // no need to wait for the result
-        #[cfg(feature = "clip-cache")]
-        CACHED_CLIP.update_pinned_state(id, target).await;
-
         // change the clip in the database
         let db_connection_mutex = self.database_connection.lock().await;
         let db_connection = db_connection_mutex.clone().unwrap();
@@ -218,11 +210,6 @@ impl ClipData {
             return Ok(());
         }
         let id = id.unwrap();
-
-        // delete in cache
-        // no need to wait for the result
-        #[cfg(feature = "clip-cache")]
-        CACHED_CLIP.remove(id).await;
 
         // delete in database
         // wait for any error
@@ -288,15 +275,6 @@ impl ClipData {
         }
         let id = id.unwrap();
 
-        // if the clip is in the cache, return it
-        #[cfg(feature = "clip-cache")]
-        {
-            let clip = CACHED_CLIP.get(id).await;
-            if let Some(clip) = clip {
-                return Ok(Some(clip));
-            }
-        }
-
         // if the clip is not in the cache, get it from the database
         // wait for the result
         let db_connection_mutex = self.database_connection.lock().await;
@@ -352,10 +330,6 @@ impl ClipData {
             pinned,
             clip_type: ClipType::Text,
         };
-
-        // add the clip to the cache
-        #[cfg(feature = "clip-cache")]
-        CACHED_CLIP.insert(id, clip.clone()).await;
 
         Ok(clip.into())
     }
@@ -603,7 +577,8 @@ impl ClipData {
         clips.current_clip = id;
         drop(clips);
 
-        c.copy_clip_to_clipboard(app)?;
+        // change the clipboard
+        copy_clip_to_clipboard_in(&c, app)?;
 
         Ok(())
     }

@@ -7,7 +7,9 @@ use tauri::{AppHandle, Manager};
 
 use crate::{config::ConfigMutex, error};
 
-use super::{clip_data::ClipData, clip_struct::Clip, clip_type::ClipType};
+use super::clip_data::ClipData;
+
+use clip::{Clip, ClipType};
 
 use sqlx::{sqlite::SqliteRow, Row};
 

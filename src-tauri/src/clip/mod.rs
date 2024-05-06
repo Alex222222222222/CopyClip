@@ -1,11 +1,14 @@
 pub mod clip_data;
-pub mod clip_struct;
-pub mod clip_type;
 pub mod database;
 pub mod monitor;
 pub mod search;
 
-use crate::event::{CopyClipEvent, EventSender};
+use tauri::{AppHandle, Manager};
+
+use crate::{
+    error::Error,
+    event::{CopyClipEvent, EventSender},
+};
 
 use self::clip_data::ClipData;
 
@@ -16,6 +19,18 @@ pub fn get_system_timestamp() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("Time went backwards");
     unix_epoch.as_secs() as i64
+}
+
+/// copy the clip to the clipboard
+pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(), Error> {
+    let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
+    match clipboard_manager.write_text((*clip.text).clone()) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(Error::WriteToSystemClipboardErr(
+            (*clip.text).clone(),
+            e.to_string(),
+        )),
+    }
 }
 
 /// tell if the clip is pinned
@@ -45,7 +60,7 @@ pub async fn copy_clip_to_clipboard(
         return Err("Clip not found.".to_string());
     }
     let clip_data = clip_data.unwrap();
-    let res = clip_data.copy_clip_to_clipboard(&app);
+    let res = copy_clip_to_clipboard_in(&clip_data, &app);
     if let Err(err) = res {
         return Err(err.message());
     }

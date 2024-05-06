@@ -60,4 +60,7 @@ opt-level = 'z'
 lto = true
 
 [workspace]
-members = ["src-tauri"]
+members = [
+  "src-tauri",
+  "src-clip"
+]
