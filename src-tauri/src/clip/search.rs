@@ -7,7 +7,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::{config::ConfigMutex, error};
 
-use super::{clip_data::ClipData, clip_struct::Clip};
+use super::{clip_data::ClipData, clip_struct::Clip, clip_type::ClipType};
 
 use sqlx::{sqlite::SqliteRow, Row};
 
@@ -71,6 +71,7 @@ fn clip_from_row(row: SqliteRow) -> Result<Clip, error::Error> {
         favourite,
         timestamp,
         pinned,
+        clip_type: ClipType::Text,
     };
 
     Ok(clip)

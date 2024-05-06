@@ -1,7 +1,6 @@
-#[cfg(feature = "clip-cache")]
-pub mod cache;
 pub mod clip_data;
 pub mod clip_struct;
+pub mod clip_type;
 pub mod database;
 pub mod monitor;
 pub mod search;

@@ -5,6 +5,8 @@ use tauri::{AppHandle, Manager};
 
 use crate::error::Error;
 
+use super::clip_type::ClipType;
+
 /// a single clip
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Clip {
@@ -15,6 +17,8 @@ pub struct Clip {
         serialize_with = "arc_string_serialize"
     )]
     pub text: Arc<String>,
+    /// The type of the clip
+    pub clip_type: ClipType,
     /// in seconds
     pub timestamp: i64,
     /// the id of the clip

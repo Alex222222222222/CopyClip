@@ -6,9 +6,7 @@ use crate::{
 };
 use std::sync::Arc;
 
-#[cfg(feature = "clip-cache")]
-use super::cache::CACHED_CLIP;
-use super::clip_struct::Clip;
+use super::{clip_struct::Clip, clip_type::ClipType};
 use log::debug;
 use once_cell::sync::Lazy;
 use sqlx::{Row, SqlitePool};
@@ -273,7 +271,7 @@ impl ClipData {
         clips.current_page = 0;
     }
 
-    /// Get a clip by id
+    /// Get a clip by id from database
     ///
     /// Get the latest clip if the id is none.
     /// None if the clip is not found.
@@ -352,6 +350,7 @@ impl ClipData {
             id,
             favourite,
             pinned,
+            clip_type: ClipType::Text,
         };
 
         // add the clip to the cache
@@ -488,19 +487,6 @@ impl ClipData {
         }
 
         let text1 = (*text).clone();
-        #[cfg(feature = "clip-cache")]
-        {
-            let clip = Clip {
-                text,
-                timestamp,
-                id,
-                favourite: false,
-                pinned: false,
-            };
-
-            // add the clip to the cache
-            CACHED_CLIP.insert(id, clip).await;
-        }
 
         let mut clips = self.clips.lock().await;
 
