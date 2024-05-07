@@ -3,8 +3,9 @@ use std::fs;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use tauri::{async_runtime::Mutex, AppHandle};
+use tauri_plugin_logging::LogLevelFilter;
 
-use crate::{error, log::LogLevelFilter};
+use crate::error;
 
 pub mod command;
 

@@ -8,13 +8,11 @@
 /// function "monitor_clip_board" monitor the system keyboard change
 use clipboard_master::{CallbackResult, ClipboardHandler, Master};
 use tauri::AppHandle;
+use tauri_plugin_logging::panic_app;
 
 use std::io;
 
-use crate::{
-    event::{event_sender, CopyClipEvent},
-    log::panic_app,
-};
+use crate::event::{event_sender, CopyClipEvent};
 
 use log::debug;
 

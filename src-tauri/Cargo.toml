@@ -32,8 +32,11 @@ base64 = "0.22.0"
 flate2 = "1.0"
 chrono = "0.4.37"
 clipboard-master = { git = "https://github.com/DoumanAsh/clipboard-master.git" }
-fern = "0.6"
+# for logging
 log = "0.4"
+tauri-plugin-logging = { path = "../tauri-plugin-logging", features = [
+    "tauri",
+] }
 once_cell = "1.19.0"
 regex = "1.10.3"
 serde = { version = "1.0", features = ["derive"] }

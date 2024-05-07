@@ -35,6 +35,10 @@ cd ..
 cd src-clip
 cargo clippy --all-targets --all-features -- -D warnings
 cd ..
+# cargo clippy for logging
+cd tauri-plugin-logging
+cargo clippy --all-targets --all-features -- -D warnings
+cd ..
 # try to build the app
 cargo tauri build
 # cargo fmt

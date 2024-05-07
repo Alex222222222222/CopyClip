@@ -43,8 +43,8 @@ pub fn languages_config() -> Html {
 
         let l = web_sys::window().unwrap().location();
         let res = l.reload();
-        if let Err(e) = res {
-            gloo_console::error!("Error reloading page: {}", e);
+        if res.is_err() {
+            tauri_plugin_logging::error("Error reloading page".to_string());
         }
 
         spawn_local(async move {

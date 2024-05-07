@@ -2,11 +2,11 @@ use log::{debug, error};
 use tauri::async_runtime::{Receiver, Sender};
 
 use tauri::{api::notification::Notification, AppHandle, Manager};
+use tauri_plugin_logging::panic_app;
 
 use crate::clip::clip_data::ClipStateMutex;
 use crate::{
     config::ConfigMutex,
-    log::{panic_app, LogLevel},
     systray::{create_tray_menu, handle_menu_item_click, send_tray_update_event},
 };
 
@@ -24,8 +24,6 @@ pub enum CopyClipEvent {
     /// tray menu item click event,
     /// the data is the id the tray item
     TrayMenuItemClickEvent(String),
-    /// log
-    LogEvent(LogLevel, String),
     /// send notification event
     /// the data is the notification message
     SendNotificationEvent(String),
@@ -145,10 +143,6 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 if res.is_err() {
                     panic_app(&format!("Failed to {}", res.err().unwrap().message()));
                 }
-            }),
-            // log
-            CopyClipEvent::LogEvent(level, msg) => tauri::async_runtime::spawn(async move {
-                log::log!(log::Level::from(level), "{msg}");
             }),
             // clipboard change event
             CopyClipEvent::ClipboardChangeEvent => tauri::async_runtime::spawn(async move {

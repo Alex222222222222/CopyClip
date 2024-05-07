@@ -2,11 +2,9 @@
 use log::debug;
 use rust_i18n::set_locale;
 use tauri::{Manager, Runtime, State};
+use tauri_plugin_logging::LogLevelFilter;
 
-use crate::{
-    event::{CopyClipEvent, EventSender},
-    log::LogLevelFilter,
-};
+use crate::event::{CopyClipEvent, EventSender};
 
 use super::ConfigMutex;
 

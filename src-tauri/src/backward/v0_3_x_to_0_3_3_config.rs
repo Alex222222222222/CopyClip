@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use tauri_plugin_logging::LogLevelFilter;
 
-use crate::{config::Config, error, log::LogLevelFilter};
+use crate::{config::Config, error};
 
 /// the config struct before version 0.3.3
 #[derive(Debug, Clone, Serialize, Deserialize)]

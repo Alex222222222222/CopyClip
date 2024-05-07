@@ -13,9 +13,6 @@ available-locales = ["en-GB", "zh-CN", "en", "de"]
 [dependencies]
 rust-i18n = "3.0.1"
 chrono = "0.4.37"
-futures = "0.3"
-# for logging
-gloo-console = "0.3.0"
 js-sys = "0.3.47"
 regex = "1.10.3"
 serde = { version = "1.0.200", features = ["derive"] }
@@ -46,6 +43,8 @@ yew_icons = { version = "0.8", features = [
   "BootstrapPinAngle",
   "BootstrapPinAngleFill"
 ] }
+# for logging
+tauri-plugin-logging = {path = "./tauri-plugin-logging", features = ["api"]}
 
 [profile.release]
 # less code to include into binary
@@ -56,11 +55,12 @@ codegen-units = 1
 opt-level = 'z'
 # optimization for size
 # opt-level = 's'
-# link time optimization using using whole-program analysis
+# link time optimization using whole-program analysis
 lto = true
 
 [workspace]
 members = [
   "src-tauri",
-  "src-clip"
+  "src-clip",
+  "tauri-plugin-logging"
 ]

@@ -3,12 +3,12 @@ use tauri::{
     AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
     SystemTrayMenuItem, SystemTraySubmenu,
 };
+use tauri_plugin_logging::panic_app;
 
 use crate::{
     clip::clip_data::ClipStateMutex,
     config::ConfigMutex,
     event::{event_sender, CopyClipEvent, EventSender},
-    log::panic_app,
 };
 
 /// create the tray

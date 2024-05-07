@@ -66,3 +66,11 @@ jobs:
       - name: Run clippy check and deny warnings
         run: cargo clippy --all-targets --all-features -- -D warnings
         working-directory: src-tauri
+
+      - name: Run clippy check and deny warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: src-clip
+
+      - name: Run clippy check and deny warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: tauri-plugin-logging
