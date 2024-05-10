@@ -7,12 +7,12 @@ use crate::invoke::invoke;
 
 #[derive(Debug, PartialEq, Properties)]
 pub struct CopyClipButtonProps {
-    pub id: i64,
+    pub id: u64,
 }
 
 #[derive(Debug, Serialize)]
 struct CopyClipToClipBoardArgs {
-    pub id: i64,
+    pub id: u64,
 }
 
 #[function_component(CopyClipButton)]

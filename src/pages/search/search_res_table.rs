@@ -80,15 +80,15 @@ pub fn search_res_table_html(props: &SearchResTableProps) -> Html {
                         res.iter().map(|clip| {
                             html! {
                                 <tr>
-                                    <td class="border border-gray-200 text-center">{clip.id}</td>
+                                    <td class="border border-gray-200 text-center">{clip.clip.id}</td>
                                     <td class="border border-gray-200 text-center">{clip.len}</td>
-                                    <TimeDisplay time={clip.timestamp}></TimeDisplay>
-                                    <FavouriteClipButton id={clip.id} is_favourite={clip.favourite}></FavouriteClipButton>
+                                    <TimeDisplay time={clip.clip.timestamp}></TimeDisplay>
+                                    <FavouriteClipButton id={clip.clip.id} is_favourite={clip.clip.labels.contains(&"favourite".to_string())}></FavouriteClipButton>
                                     <td class="border border-gray-200 text-center">{clip.score}</td>
-                                    <PinClipButton id={clip.id} pinned={clip.pinned}></PinClipButton>
-                                    <CopyClipButton id={clip.id}></CopyClipButton>
-                                    <SearchText text={clip.text.clone()} data={props.search_args.search_data.clone()} search_method={props.search_args.search_method.clone()}></SearchText>
-                                    <TrashClipButton id={clip.id} search_res_dispatch={props.search_res_dispatch.clone()}></TrashClipButton>
+                                    <PinClipButton id={clip.clip.id} pinned={clip.clip.labels.contains(&"pinned".to_string())}></PinClipButton>
+                                    <CopyClipButton id={clip.clip.id}></CopyClipButton>
+                                    <SearchText text={clip.clip.text.clone()} data={props.search_args.search_data.clone()} search_method={props.search_args.search_method.clone()}></SearchText>
+                                    <TrashClipButton id={clip.clip.id} search_res_dispatch={props.search_res_dispatch.clone()}></TrashClipButton>
                                 </tr>
                             }
                         }).collect::<Html>()

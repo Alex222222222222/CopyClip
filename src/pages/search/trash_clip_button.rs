@@ -10,13 +10,13 @@ use super::clip::SearchRes;
 
 #[derive(PartialEq, Properties)]
 pub struct TrashClipButtonProps {
-    pub id: i64,
+    pub id: u64,
     pub search_res_dispatch: yewdux::prelude::Dispatch<SearchRes>,
 }
 
 #[derive(Debug, Serialize)]
 struct TrashClipArgs {
-    pub id: i64,
+    pub id: u64,
 }
 
 #[function_component(TrashClipButton)]
@@ -32,7 +32,7 @@ pub fn trash_clip_button(props: &TrashClipButtonProps) -> Html {
             search_res_dispatch.reduce_mut(|state| {
                 // try find the pos of the clip
                 let mut res = state.res.lock().unwrap();
-                let pos = res.iter().position(|x| x.id == id);
+                let pos = res.iter().position(|x| x.clip.id == id);
                 if let Some(pos) = pos {
                     res.remove(pos);
                     state.rebuild_num += 1;

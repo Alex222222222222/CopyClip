@@ -1,5 +1,4 @@
 pub mod clip_data;
-pub mod database;
 pub mod monitor;
 pub mod search;
 
@@ -36,15 +35,17 @@ pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(
 /// tell if the clip is pinned
 #[tauri::command]
 pub async fn id_is_pinned(
+    app: AppHandle,
     clip_state: tauri::State<'_, ClipStateMutex>,
-    id: i64,
+    id: u64,
 ) -> Result<bool, String> {
     let clips = clip_state.clip_state.lock().await;
-    let res = clips.pinned_clips.iter().find(|&&x| x == id);
-    if res.is_none() {
-        return Ok(false);
+    let res = clips.clip_have_label(&app, id, "pinned").await;
+    drop(clips);
+    match res {
+        Ok(res) => Ok(res),
+        Err(err) => Err(err.to_string()),
     }
-    Ok(true)
 }
 
 #[tauri::command]
@@ -52,7 +53,7 @@ pub async fn copy_clip_to_clipboard(
     app: tauri::AppHandle,
     event_sender: tauri::State<'_, EventSender>,
     clip_state: tauri::State<'_, ClipStateMutex>,
-    id: i64,
+    id: u64,
 ) -> Result<(), String> {
     let clip_data_mutex = clip_state.clip_state.lock().await;
     let clip_data = clip_data_mutex.get_clip(&app, Some(id)).await;
@@ -85,7 +86,7 @@ pub async fn delete_clip_from_database(
     app: tauri::AppHandle,
     clip_state: tauri::State<'_, ClipStateMutex>,
     event_sender: tauri::State<'_, EventSender>,
-    id: i64,
+    id: u64,
 ) -> Result<(), String> {
     let mut clip_state_mutex = clip_state.clip_state.lock().await;
     let res = clip_state_mutex.delete_clip(&app, Some(id)).await;
@@ -95,7 +96,7 @@ pub async fn delete_clip_from_database(
         return Err(err.to_string());
     }
 
-    event_sender.send(CopyClipEvent::TrayUpdateEvent).await;
+    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
     event_sender
         .send(CopyClipEvent::SendNotificationEvent(
             "Clip deleted from database.".to_string(),
@@ -110,7 +111,7 @@ pub async fn change_favourite_clip(
     app: tauri::AppHandle,
     clip_state: tauri::State<'_, ClipStateMutex>,
     event_sender: tauri::State<'_, EventSender>,
-    id: i64,
+    id: u64,
     target: bool,
 ) -> Result<(), String> {
     let mut clip_state_mutex = clip_state.clip_state.lock().await;
@@ -137,7 +138,7 @@ pub async fn switch_pinned_status(
     app: tauri::AppHandle,
     event_sender: tauri::State<'_, EventSender>,
     clip_state: tauri::State<'_, ClipStateMutex>,
-    id: i64,
+    id: u64,
     pinned: bool,
 ) -> Result<(), String> {
     let mut clip_state_mutex = clip_state.clip_state.lock().await;

@@ -117,7 +117,9 @@ pub fn setup_logger(path_resolver: &PathResolver) -> Result<(), fern::InitError>
 
     let mut log = fern::Dispatch::new().format(|out, message, record| {
         out.finish(format_args!(
-            "[{} {} {}] {}",
+            "[{}:{}][{} {} {}] {}",
+            record.file().unwrap_or("unknown"),
+            record.line().unwrap_or(0),
             get_time(),
             record.level(),
             record.target(),

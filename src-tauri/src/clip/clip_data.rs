@@ -1,6 +1,7 @@
 use crate::{
     clip::get_system_timestamp,
     config::ConfigMutex,
+    database::{label_name_to_table_name, DatabaseStateMutex},
     error::Error,
     event::{CopyClipEvent, EventSender},
 };
@@ -9,27 +10,18 @@ use std::sync::Arc;
 use clip::{Clip, ClipType};
 use log::debug;
 use once_cell::sync::Lazy;
-use sqlx::Row;
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{copy_clip_to_clipboard_in, database::DatabaseStateMutex};
+use super::copy_clip_to_clipboard_in;
 
 /// The clip data to be shared between threads
 #[derive(Debug, Default, Clone)]
 pub struct ClipState {
     /// the id of the current clip
-    pub current_clip: Option<i64>,
+    pub current_clip: Option<u64>,
     /// the current page
-    pub current_page: usize,
-    /// the ids of the current displayed clips, the same order with the order displayed in the tray     
-    pub tray_ids_map: Vec<i64>,
-    /// the pinned clips
-    pub pinned_clips: Vec<i64>,
-    /// the favourite clips
-    pub favourite_clips: Vec<i64>,
-    /// the last monitor clipboard text
-    pub clipboard_monitor_last_clip: Arc<String>,
+    pub current_page: u64,
 }
 
 /// The clip data to be shared between threads
@@ -40,141 +32,233 @@ pub struct ClipStateMutex {
 }
 
 impl ClipState {
+    /// Trigger a tray update event
+    pub async fn trigger_tray_update_event(&self, app: &AppHandle) {
+        // trigger a tray update event
+        let event_sender = app.state::<EventSender>();
+        event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
+    }
+
+    /// Get the id of the clip with the position in current page
+    ///
+    /// If the position is out of range, return None.
+    /// If the position is None, return the current clip id.
+    pub async fn get_id_with_pos_in_current_page(
+        &self,
+        app: &AppHandle,
+        pos: Option<u64>,
+    ) -> Result<Option<u64>, Error> {
+        let current_page = self.current_page;
+
+        // get page_len from the configuration file
+        let config = app.state::<ConfigMutex>();
+        let config = config.config.lock().await;
+        let clip_per_page: i64 = config.clip_per_page as i64;
+        drop(config);
+
+        // get total number of clips
+        let total_number_of_clip: i64 = self.get_total_number_of_clip(app).await? as i64;
+
+        let pos = match pos {
+            Some(pos) => {
+                total_number_of_clip - (current_page as i64 * clip_per_page + pos as i64) - 1
+            }
+            None => match self.get_current_clip_pos(app).await? {
+                Some(pos) => pos as i64,
+                None => return Ok(None),
+            },
+        };
+
+        if pos < 0 || pos >= total_number_of_clip {
+            return Ok(None);
+        }
+        let pos = pos as u64;
+
+        self.get_id_with_pos(app, pos).await
+    }
+
+    /// Test if a clip have a label
+    ///   - return true if the clip have the label
+    ///   - otherwise return false
+    pub async fn clip_have_label(
+        &self,
+        app: &AppHandle,
+        id: u64,
+        label: &str,
+    ) -> Result<bool, Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+
+        match db_connection.query_row(
+            &format!(
+                "SELECT id FROM {} WHERE id = ?",
+                label_name_to_table_name(label)
+            ),
+            [id.to_string()],
+            |_| Ok(()),
+        ) {
+            Ok(_) => Ok(true),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(false),
+            Err(err) => Err(Error::GetClipDataFromDatabaseErr(id, err.to_string())),
+        }
+    }
+
     /// Get the id of the latest clip,
     ///
     /// If there is no clip, return None.
-    pub async fn get_latest_clip_id(&self, app: &AppHandle) -> Result<Option<i64>, Error> {
+    pub async fn get_latest_clip_id(&self, app: &AppHandle) -> Result<Option<u64>, Error> {
         let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
+        let db_connection = db_connection.database_connection.lock().await;
 
-        let res = sqlx::query("SELECT id FROM clips ORDER BY id DESC LIMIT 1")
-            .fetch_optional(db_connection.as_ref())
-            .await;
-        let res = match res {
+        match db_connection.query_row("SELECT id FROM clips ORDER BY id DESC LIMIT 1", [], |row| {
+            row.get(0)
+        }) {
+            Ok(res) => Ok(Some(res)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(err) => Err(Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+        }
+    }
+
+    /// get how many clips one label has
+    ///   - return the number of clips
+    ///   - return 0 if the label is not found
+    pub async fn get_label_clip_number(&self, app: &AppHandle, label: &str) -> Result<u64, Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+
+        let res = match db_connection.query_row(
+            &format!("SELECT COUNT(1) FROM {}", label_name_to_table_name(label)),
+            [],
+            |row| row.get(0),
+        ) {
             Ok(res) => res,
+            Err(rusqlite::Error::QueryReturnedNoRows) => 0,
             Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-            }
-        };
-        let res = match res {
-            Some(res) => res,
-            None => {
-                return Ok(None);
-            }
-        };
-        let id = res.try_get::<i64, _>("id");
-        let id = match id {
-            Ok(id) => id,
-            Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
+                return Err(Error::GetClipDataFromDatabaseErr(0, err.to_string()));
             }
         };
 
-        Ok(Some(id))
+        Ok(res)
+    }
+
+    /// get the clip with the label with the position of the clip in that label
+    ///   - return the clip id
+    ///   - return None if the clip is not found
+    ///   - count from the lower id to the higher id
+    ///   - for instance, label has 3 clips, then the first clip will have a position of 0
+    pub async fn get_label_clip_id_with_pos(
+        &self,
+        app: &AppHandle,
+        label: &str,
+        pos: u64,
+    ) -> Result<Option<u64>, Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+
+        let res = match db_connection.query_row(
+            &format!(
+                "SELECT id FROM {} ORDER BY id ASC LIMIT 1 OFFSET ?",
+                label_name_to_table_name(label)
+            ),
+            [pos.to_string()],
+            |row| row.get(0),
+        ) {
+            Ok(res) => res,
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(err) => {
+                return Err(Error::GetClipDataFromDatabaseErr(0, err.to_string()));
+            }
+        };
+
+        Ok(res)
+    }
+
+    /// add or delete a label to a clip
+    ///   - if target is true, add the label to the clip
+    ///   - if target is false, delete the label from the clip
+    ///   - trigger a tray update event
+    pub async fn change_clip_label(
+        &mut self,
+        app: &AppHandle,
+        id: u64,
+        label: &str,
+        target: bool,
+    ) -> Result<(), Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+
+        // change the clip in the database
+        // wait for any error
+        if target {
+            // add the label to the clip
+            match db_connection.execute(
+                &format!(
+                    "INSERT OR IGNORE INTO {} (id) VALUES (?)",
+                    label_name_to_table_name(label)
+                ),
+                [id.to_string()],
+            ) {
+                Ok(_) => (),
+                Err(err) => {
+                    return Err(Error::UpdateClipsInDatabaseErr(
+                        format!(
+                            "toggle clip label of id: {} to label:{} state:{}",
+                            id, label, target
+                        ),
+                        err.to_string(),
+                    ))
+                }
+            }
+        } else {
+            // remove the label from the clip
+            match db_connection.execute(
+                &format!(
+                    "DELETE FROM {} WHERE id = ?",
+                    label_name_to_table_name(label),
+                ),
+                [id.to_string()],
+            ) {
+                Ok(_) => (),
+                Err(err) => {
+                    return Err(Error::UpdateClipsInDatabaseErr(
+                        format!(
+                            "toggle clip label of id: {} to label:{} state:{}",
+                            id, label, target
+                        ),
+                        err.to_string(),
+                    ))
+                }
+            }
+        };
+
+        // trigger a tray update event
+        self.trigger_tray_update_event(app).await;
+
+        Ok(())
     }
 
     /// change the clip favourite state to the target state
-    ///     - change the clip in the cache
     ///     - change the clip in the database
-    ///     - edit the clips.favourite_clips to add or remove the id
+    ///     - trigger a tray update event
     pub async fn change_clip_favourite_status(
         &mut self,
         app: &AppHandle,
-        id: i64,
+        id: u64,
         target: bool,
     ) -> Result<(), Error> {
-        // change the clip in the database
-        // wait for any error
-        let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
-        let res = sqlx::query("UPDATE clips SET favourite = ? WHERE id = ?")
-            .bind(target)
-            .bind(id)
-            .fetch_optional(db_connection.as_ref())
-            .await;
-
-        if let Err(err) = res {
-            return Err(Error::UpdateClipsInDatabaseErr(
-                format!(
-                    "toggle clip favourite state of id: {} to favourite state:{}",
-                    id, target
-                ),
-                err.to_string(),
-            ));
-        }
-
-        // edit the favourite clips slot in the tray
-        if target {
-            // decide whether the id is in the favourite_clips vector list
-            let res = self.favourite_clips.binary_search(&id);
-            if res.is_err() {
-                // TODO change this to a faster method
-                // if the id is not in the favourite_clips vector list, then add it to the list
-                self.favourite_clips.push(id);
-                // sort
-                self.favourite_clips.sort();
-            }
-        } else {
-            // decide whether the id is in the favourite_clips vector list
-            let res = self.favourite_clips.binary_search(&id);
-            if let Ok(pos) = res {
-                // if the id is in the favourite_clips vector list, then remove it from the list
-                self.favourite_clips.remove(pos);
-            }
-        }
-
-        Ok(())
+        self.change_clip_label(app, id, "favourite", target).await
     }
 
     /// change the clip pinned state to the target state
     ///     - change the clip in the cache
     ///     - change the clip in the database
-    ///     - edit the clips.pinned_clips to add or remove the id
     pub async fn change_clip_pinned_status(
         &mut self,
         app: &AppHandle,
-        id: i64,
+        id: u64,
         target: bool,
     ) -> Result<(), Error> {
-        // change the clip in the database
-        let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
-
-        let res = sqlx::query("UPDATE clips SET pinned = ? WHERE id = ?")
-            .bind(target)
-            .bind(id)
-            .fetch_optional(db_connection.as_ref())
-            .await;
-        if let Err(err) = res {
-            return Err(Error::UpdateClipsInDatabaseErr(
-                format!(
-                    "toggle clip pinned state of id: {} to pinned state:{}",
-                    id, target
-                ),
-                err.to_string(),
-            ));
-        }
-
-        // edit the pinned clips slot in the tray
-        if target {
-            // decide whether the id is in the pinned_clips vector list
-            let res = self.pinned_clips.binary_search(&id);
-            if res.is_err() {
-                // if the id is not in the pinned_clips vector list, then add it to the list
-                self.pinned_clips.push(id);
-                // sort
-                self.pinned_clips.sort();
-            }
-        } else {
-            // decide whether the id is in the pinned_clips vector list
-            let res = self.pinned_clips.binary_search(&id);
-            if let Ok(pos) = res {
-                // if the id is in the pinned_clips vector list, then remove it from the list
-                self.pinned_clips.remove(pos);
-            }
-        }
-
-        Ok(())
+        self.change_clip_label(app, id, "pinned", target).await
     }
 
     /// Delete a clip from the database and the cache,
@@ -183,47 +267,26 @@ impl ClipState {
     /// None represent the latest clip.
     ///
     /// Will not trigger a tray update event.
-    pub async fn delete_clip(&mut self, app: &AppHandle, mut id: Option<i64>) -> Result<(), Error> {
+    pub async fn delete_clip(&mut self, app: &AppHandle, id: Option<u64>) -> Result<(), Error> {
         // if id is none, change it to the latest clip
-        if id.is_none() {
-            id = self.get_latest_clip_id(app).await?;
-        }
-        if id.is_none() {
-            return Ok(());
-        }
-        let id = id.unwrap();
+        let id = match id {
+            Some(id) => id,
+            None => match self.get_latest_clip_id(app).await? {
+                Some(id) => id,
+                None => return Ok(()),
+            },
+        };
 
         // delete in database
         // wait for any error
         let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
-        let res = sqlx::query("DELETE FROM clips WHERE id = ?")
-            .bind(id)
-            .fetch_optional(db_connection.as_ref())
-            .await;
-        if let Err(err) = res {
-            return Err(Error::DeleteClipFromDatabaseErr(id, err.to_string()));
-        }
+        let db_connection = db_connection.database_connection.lock().await;
+        match db_connection.execute("DELETE FROM clips WHERE id = ?", [id.to_string()]) {
+            Ok(_) => (),
+            Err(err) => return Err(Error::DeleteClipFromDatabaseErr(id, err.to_string())),
+        };
 
-        // delete from the whole list of ids
-        // get the position of the id in the whole list of ids
-        if let Some(id_c) = self.current_clip {
-            if id_c == id {
-                self.current_clip = None;
-            }
-        }
-
-        // delete from the pinned_clips list
-        let pinned_list_index = self.pinned_clips.binary_search(&id);
-        if let Ok(pinned_list_index) = pinned_list_index {
-            self.pinned_clips.remove(pinned_list_index);
-        }
-
-        // delete from the favourite_clips list
-        let favourite_list_index = self.favourite_clips.binary_search(&id);
-        if let Ok(favourite_list_index) = favourite_list_index {
-            self.favourite_clips.remove(favourite_list_index);
-        }
+        self.trigger_tray_update_event(app).await;
 
         Ok(())
     }
@@ -237,83 +300,114 @@ impl ClipState {
         self.current_page = 0;
     }
 
+    /// Get all labels from the database
+    ///   - return a vector of labels
+    pub async fn get_all_labels(&self, app: &AppHandle) -> Result<Vec<String>, Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+
+        // get all the labels from the labels table
+        let mut labels: Vec<String> = Vec::new();
+        let mut statement = match db_connection.prepare("SELECT name FROM labels") {
+            Ok(prepared_statement) => prepared_statement,
+            Err(err) => return Err(Error::DatabaseWriteErr(err.to_string())),
+        };
+        let statement = match statement.query_map([], |row| row.get(0)) {
+            Ok(statement) => statement,
+            Err(err) => return Err(Error::DatabaseWriteErr(err.to_string())),
+        };
+        for label in statement {
+            match label {
+                Ok(label) => labels.push(label),
+                Err(err) => return Err(Error::DatabaseWriteErr(err.to_string())),
+            }
+        }
+
+        Ok(labels)
+    }
+
+    /// Get all the labels for a clip in the database
+    ///   - return a vector of labels
+    ///   - return None if the clip is not found
+    pub async fn get_clip_labels(
+        &self,
+        app: &AppHandle,
+        id: u64,
+    ) -> Result<Option<Vec<String>>, Error> {
+        let all_labels = self.get_all_labels(app).await?;
+
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+
+        let mut labels: Vec<String> = Vec::new();
+        for label in all_labels {
+            let mut statement = match db_connection.prepare(&format!(
+                "SELECT * FROM {} WHERE id = ?",
+                label_name_to_table_name(&label)
+            )) {
+                Ok(prepared_statement) => prepared_statement,
+                Err(err) => return Err(Error::DatabaseWriteErr(err.to_string())),
+            };
+            match statement.query_row([id.to_string()], |_| Ok(())) {
+                Ok(_) => labels.push(label),
+                Err(rusqlite::Error::QueryReturnedNoRows) => (),
+                Err(err) => return Err(Error::DatabaseWriteErr(err.to_string())),
+            };
+        }
+
+        Ok(Some(labels))
+    }
+
     /// Get a clip by id from database
     ///
     /// Get the latest clip if the id is none.
     /// None if the clip is not found.
-    ///
-    /// Will try lock `database_connection` and `clips`.
     #[warn(unused_must_use)]
-    pub async fn get_clip(
-        &self,
-        app: &AppHandle,
-        mut id: Option<i64>,
-    ) -> Result<Option<Clip>, Error> {
+    pub async fn get_clip(&self, app: &AppHandle, id: Option<u64>) -> Result<Option<Clip>, Error> {
         // if id is none, change it to the latest clip
-        if id.is_none() {
-            id = self.get_latest_clip_id(app).await?;
-        }
-        if id.is_none() {
-            return Ok(None);
-        }
-        let id = id.unwrap();
-
-        // if the clip is not in the cache, get it from the database
-        // wait for the result
-        let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
-        let res = sqlx::query("SELECT * FROM clips WHERE id = ?")
-            .bind(id)
-            .fetch_optional(db_connection.as_ref())
-            .await;
-        if let Err(err) = res {
-            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
-        }
-        let res = res.unwrap();
-
-        if res.is_none() {
-            return Ok(None);
-        }
-        let res = res.unwrap();
-
-        let text = res.try_get::<String, _>("text");
-        if let Err(err) = text {
-            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
-        }
-
-        let timestamp = res.try_get::<i64, _>("timestamp");
-        if let Err(err) = timestamp {
-            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
-        }
-
-        let id_new = res.try_get::<i64, _>("id");
-        if let Err(err) = id_new {
-            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
-        }
-        let id = id_new.unwrap();
-
-        let favourite = res.try_get::<i64, _>("favourite");
-        if let Err(err) = favourite {
-            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
-        }
-        let favourite = favourite.unwrap() == 1;
-
-        let pinned = res.try_get::<i64, _>("pinned");
-        if let Err(err) = pinned {
-            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
-        }
-        let pinned = pinned.unwrap() == 1;
-
-        let clip = Clip {
-            text: Arc::new(text.unwrap()),
-            timestamp: timestamp.unwrap(),
-            id,
-            favourite,
-            pinned,
-            clip_type: ClipType::Text,
+        let id = match id {
+            Some(id) => id,
+            None => match self.get_latest_clip_id(app).await? {
+                Some(id) => id,
+                None => return Ok(None),
+            },
         };
 
-        Ok(clip.into())
+        // get the clip from the database
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+        fn get_clip_from_row(row: &rusqlite::Row) -> Result<Clip, rusqlite::Error> {
+            let id: u64 = row.get(0)?;
+            let clip_type: u8 = row.get(1)?;
+            let text: String = row.get(2)?;
+            let timestamp: i64 = row.get(3)?;
+            Ok(Clip {
+                id,
+                text: Arc::new(text),
+                timestamp,
+                clip_type: ClipType::from(clip_type),
+                labels: Vec::new(),
+            })
+        }
+        let mut res = match db_connection.query_row(
+            "SELECT id, type, text, timestamp FROM clips WHERE id = ?",
+            [id],
+            get_clip_from_row,
+        ) {
+            Ok(res) => res,
+            Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+            Err(err) => return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string())),
+        };
+        drop(db_connection);
+
+        let labels = match self.get_clip_labels(app, id).await? {
+            Some(labels) => labels,
+            None => Vec::new(),
+        };
+
+        res.labels = labels;
+
+        Ok(Some(res))
     }
 
     /// Get the clip data if current clip is not pinned clip,
@@ -326,59 +420,51 @@ impl ClipState {
     ///
     /// None if the current clip is a normal clip and is not in the list
     /// or the list is empty.
-    pub async fn get_current_clip_pos(&self, app: &AppHandle) -> Result<Option<usize>, Error> {
+    pub async fn get_current_clip_pos(&self, app: &AppHandle) -> Result<Option<u64>, Error> {
         let current = self.current_clip;
         self.get_id_pos_in_whole_list_of_ids(app, current).await
     }
 
     /// Get the position of the id in the database counting from the lower id to the higher id.
     /// The lowest id will return 0.
+    /// The highest id will return the length of the list - 1.
     ///
     /// If the id is not in the list, return None.
-    /// If the id is none, return None.
+    /// If the id is none, return the position of the latest clip.
     pub async fn get_id_pos_in_whole_list_of_ids(
         &self,
         app: &AppHandle,
-        id: Option<i64>,
-    ) -> Result<Option<usize>, Error> {
+        id: Option<u64>,
+    ) -> Result<Option<u64>, Error> {
         let id = match id {
             Some(id) => id,
-            None => {
-                return Ok(None);
-            }
+            None => match self.get_latest_clip_id(app).await? {
+                Some(id) => id,
+                None => return Ok(None),
+            },
         };
 
         let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
+        let db_connection = db_connection.database_connection.lock().await;
 
-        let res = sqlx::query("SELECT COUNT(rowid) as num FROM clips WHERE id <= ?")
-            .bind(id)
-            .fetch_one(db_connection.as_ref())
-            .await;
-
-        let res = match res {
+        let res: u64 = match db_connection.query_row(
+            "SELECT COUNT(1) FROM clips WHERE id <= ?",
+            [id.to_string()],
+            |row| row.get(0),
+        ) {
             Ok(res) => res,
-            Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
+            Err(err) => return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string())),
         };
 
-        let num = res.try_get::<i64, _>("num");
-        let num = match num {
-            Ok(num) => num,
-            Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-            }
-        };
-
-        Ok(Some(num as usize - 1))
+        Ok(Some(res - 1))
     }
 
     /// Get the maximum page number depend on
     /// the number of clips and the number of clips per page
     ///
     /// Will try lock `app.state::<ConfigMutex>()` and `database_connection`.
-    pub async fn get_max_page(&self, app: &AppHandle) -> Result<usize, Error> {
+    pub async fn get_max_page(&self, app: &AppHandle) -> Result<u64, Error> {
         // get the max page number
         // if there is no limit, return -1
 
@@ -390,19 +476,17 @@ impl ClipState {
         if len == 0 {
             return Ok(0);
         }
-        let max_page = len / clip_per_page as usize;
-        if max_page * clip_per_page as usize == len {
+        let max_page = len / clip_per_page;
+        if max_page * clip_per_page == len {
             return Ok(max_page - 1);
         }
         Ok(max_page)
     }
 
     /// Create a new clip in the database and return the id of the new clip
-    ///
-    /// Will try lock the `clips` and `database_connection` and `app.state::<ConfigMutex>()`.
-    pub async fn new_clip(&mut self, app: &AppHandle, text: Arc<String>) -> Result<i64, Error> {
+    pub async fn new_clip(&mut self, app: &AppHandle, text: Arc<String>) -> Result<u64, Error> {
         debug!("Create a new clip");
-        let id: i64 = if let Some(id) = self.get_latest_clip_id(app).await? {
+        let id: u64 = if let Some(id) = self.get_latest_clip_id(app).await? {
             id + 1
         } else {
             1
@@ -411,87 +495,49 @@ impl ClipState {
         let timestamp = get_system_timestamp();
 
         let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
+        let db_connection = db_connection.database_connection.lock().await;
 
-        let res = sqlx::query(
-            "INSERT INTO clips (id, text, timestamp, favourite, pinned) VALUES (?, ?, ?, ?, ?)",
-        )
-        .bind(id)
-        .bind(&(*text))
-        .bind(timestamp)
-        .bind(0)
-        .bind(0)
-        .fetch_optional(db_connection.as_ref())
-        .await;
-        if let Err(err) = res {
-            return Err(Error::InsertClipIntoDatabaseErr(
-                (*text).clone(),
-                err.to_string(),
-            ));
-        }
-
-        let text1 = (*text).clone();
+        let id: u64 = match db_connection.query_row(
+            "INSERT INTO clips (id, text, timestamp, type)
+            VALUES (?, ?, ?, 0)
+            RETURNING id",
+            [id.to_string(), text.to_string(), timestamp.to_string()],
+            |row| row.get(0),
+        ) {
+            Ok(id) => id,
+            Err(err) => {
+                return Err(Error::InsertClipIntoDatabaseErr(
+                    (*text).clone(),
+                    err.to_string(),
+                ));
+            }
+        };
 
         // change the current clip to the last one
         self.current_clip = Some(id);
 
+        // see if we need to auto delete duplicate clip
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().await;
         if !config.auto_delete_duplicate_clip {
             debug!("Auto delete duplicate clip is disabled");
+            self.trigger_tray_update_event(app).await;
             return Ok(id);
         }
         drop(config);
 
         debug!("Start auto delete duplicate clip");
-        let res = sqlx::query("SELECT id, favourite, pinned FROM clips WHERE text = ?")
-            .bind(&text1)
-            .fetch_all(db_connection.as_ref())
-            .await;
-        if let Err(err) = res {
-            return Err(Error::GetClipDataFromDatabaseErr(id, err.to_string()));
-        }
-        let res = res.unwrap();
-        if res.len() <= 1 {
-            return Ok(id);
-        }
-        let mut ids_to_delete: Vec<i64> = Vec::new();
-        let c = self.current_clip;
+        match db_connection.execute(
+            "DELETE FROM clips WHERE text = ? AND id != ?",
+            [text.to_string(), id.to_string()],
+        ) {
+            Ok(_) => (),
+            Err(err) => {
+                return Err(Error::DeleteClipFromDatabaseErr(id, err.to_string()));
+            }
+        };
 
-        let mut is_favourite = false;
-        let mut is_pinned = false;
-        for row in res {
-            let id = row.try_get("id");
-            if let Ok(id) = id {
-                if Some(id) == c {
-                    continue;
-                }
-                ids_to_delete.push(id);
-            }
-            let favourite: Result<i64, sqlx::Error> = row.try_get("favourite");
-            if let Ok(favourite) = favourite {
-                if favourite == 1 {
-                    is_favourite = true;
-                }
-            }
-            let pinned: Result<i64, sqlx::Error> = row.try_get("pinned");
-            if let Ok(pinned) = pinned {
-                if pinned == 1 {
-                    is_pinned = true;
-                }
-            }
-        }
-        if is_favourite {
-            self.change_clip_favourite_status(app, id, true).await?;
-        }
-        if is_pinned {
-            self.change_clip_pinned_status(app, id, true).await?;
-        }
-        for id in ids_to_delete {
-            debug!("Delete duplicate clip id: {}", id);
-            self.delete_clip(app, Some(id)).await?;
-        }
-
+        self.trigger_tray_update_event(app).await;
         Ok(id)
     }
 
@@ -503,7 +549,9 @@ impl ClipState {
         // if max_page is -1, it means there is no limit
 
         let max_page = self.get_max_page(app).await?;
-        self.switch_page(1, max_page).await;
+        self.switch_page(app, 1, max_page).await;
+
+        self.trigger_tray_update_event(app).await;
 
         Ok(())
     }
@@ -516,7 +564,7 @@ impl ClipState {
         // if max_page is -1, it means there is no limit
 
         let max_page = self.get_max_page(app).await?;
-        self.switch_page(-1, max_page).await;
+        self.switch_page(app, -1, max_page).await;
 
         Ok(())
     }
@@ -525,10 +573,8 @@ impl ClipState {
     /// and also change the current clip to the selected clip
     ///
     /// If id is None, then change to the latest clip.
-    ///
-    /// Will try `lock database_connection` and `clips`.
     #[warn(unused_must_use)]
-    pub async fn select_clip(&mut self, app: &AppHandle, id: Option<i64>) -> Result<(), Error> {
+    pub async fn select_clip(&mut self, app: &AppHandle, id: Option<u64>) -> Result<(), Error> {
         // try get the clip
         let c = self.get_clip(app, id).await?;
         if c.is_none() {
@@ -548,11 +594,7 @@ impl ClipState {
     /// Switch the tray to current_page + page,
     /// if the page is < 0, then switch to the first page,
     /// if the page is > max_page, then switch to the last page.
-    ///
-    /// Will try lock `clips`.
-    ///
-    /// Will not trigger a tray update event.
-    pub async fn switch_page(&mut self, page: i64, max_page: usize) {
+    pub async fn switch_page(&mut self, app: &AppHandle, page: i64, max_page: u64) {
         // switch to the page by the page number
         // if max_page is -1, it means there is no limit
 
@@ -566,7 +608,9 @@ impl ClipState {
             return;
         }
 
-        self.current_page = target_page as usize;
+        self.current_page = target_page as u64;
+
+        self.trigger_tray_update_event(app).await;
     }
 
     /// Handle the clip board change event
@@ -606,11 +650,19 @@ impl ClipState {
         }
 
         // if the current clip text is the same as the last clip text, then return
-        if *clipboard_clip_text == *self.clipboard_monitor_last_clip {
-            debug!(
+        let latest_clip_id = self.get_latest_clip_id(app).await?;
+        if self.current_clip != latest_clip_id {
+            let clip = match self.get_clip(app, latest_clip_id).await? {
+                Some(clip) => clip.text,
+                None => Arc::new("".to_string()),
+            };
+
+            if *clip == *clipboard_clip_text {
+                debug!(
                 "The clipboard text is the same as the last clip text, do not create a new clip"
             );
-            return Ok(());
+                return Ok(());
+            }
         }
 
         let id = self.new_clip(app, clipboard_clip_text.clone()).await?;
@@ -618,7 +670,7 @@ impl ClipState {
 
         // update the tray
         let event_sender = app.state::<EventSender>();
-        event_sender.send(CopyClipEvent::TrayUpdateEvent).await;
+        event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
 
         Ok(())
     }
@@ -626,30 +678,15 @@ impl ClipState {
     /// Get the len of whole_list_of_ids
     ///
     /// Will try lock `database_connection`.
-    pub async fn get_total_number_of_clip(&self, app: &AppHandle) -> Result<usize, Error> {
+    pub async fn get_total_number_of_clip(&self, app: &AppHandle) -> Result<u64, Error> {
         let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
+        let db_connection = db_connection.database_connection.lock().await;
 
-        let res = sqlx::query("SELECT COUNT(rowid) as num FROM clips")
-            .fetch_one(db_connection.as_ref())
-            .await;
-
-        let res = match res {
-            Ok(res) => res,
-            Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-            }
-        };
-
-        let num = res.try_get::<i64, _>("num");
-        let num = match num {
-            Ok(num) => num,
-            Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-            }
-        };
-
-        Ok(num as usize)
+        match db_connection.query_row("SELECT COUNT(1) FROM clips", [], |row| row.get(0)) {
+            Ok(res) => Ok(res),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(0),
+            Err(err) => Err(Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+        }
     }
 
     /// Get the id of a clip in the database by the position counting from the lower id to the higher id.
@@ -657,38 +694,19 @@ impl ClipState {
     /// 1 will return the second lowest id.
     ///
     /// If the position is out of range, return None.
-    pub async fn get_id_with_pos(&self, app: &AppHandle, pos: usize) -> Result<Option<i64>, Error> {
+    pub async fn get_id_with_pos(&self, app: &AppHandle, pos: u64) -> Result<Option<u64>, Error> {
         let db_connection = app.state::<DatabaseStateMutex>();
-        let db_connection = db_connection.get_database_connection().await?;
+        let db_connection = db_connection.database_connection.lock().await;
 
-        let res = sqlx::query("SELECT id FROM clips ORDER BY id ASC LIMIT 1 OFFSET ?")
-            .bind(pos as i64)
-            .fetch_optional(db_connection.as_ref())
-            .await;
-
-        let res = match res {
-            Ok(res) => res,
-            Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-            }
-        };
-
-        let res = match res {
-            Some(res) => res,
-            None => {
-                return Ok(None);
-            }
-        };
-
-        let id = res.try_get::<i64, _>("id");
-        let id = match id {
-            Ok(id) => id,
-            Err(err) => {
-                return Err(Error::GetClipDataFromDatabaseErr(-1, err.to_string()));
-            }
-        };
-
-        Ok(Some(id))
+        match db_connection.query_row(
+            "SELECT id FROM clips ORDER BY id ASC LIMIT 1 OFFSET ?",
+            [pos.to_string()],
+            |row| row.get(0),
+        ) {
+            Ok(id) => Ok(Some(id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(err) => Err(Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+        }
     }
 
     /// Update the normal clip tray
@@ -699,20 +717,20 @@ impl ClipState {
     async fn update_normal_clip_tray(
         &mut self,
         app: &AppHandle,
-        clips_per_page: i64,
-        whole_list_of_ids_len: usize,
-        max_clip_length: i64,
-        current_page: i64,
+        clips_per_page: u64,
+        whole_list_of_ids_len: u64,
+        max_clip_length: u64,
+        current_page: u64,
     ) -> Result<(), Error> {
         // get the current page clips
         let mut current_page_clips: Vec<Clip> = Vec::new();
         for i in 0..clips_per_page {
-            let pos = whole_list_of_ids_len as i64 - (current_page * clips_per_page + i + 1);
+            let pos = whole_list_of_ids_len as i64 - (current_page * clips_per_page + i + 1) as i64;
             if pos < 0 {
                 break;
             }
-            let clip_id = self.get_id_with_pos(app, pos as usize).await?;
-            let clip_id = match clip_id {
+            let pos = pos as u64;
+            let clip_id = match self.get_id_with_pos(app, pos).await? {
                 Some(clip_id) => clip_id,
                 None => {
                     break;
@@ -727,8 +745,6 @@ impl ClipState {
         }
 
         // put text in
-        // empty the tray_ids_map
-        self.tray_ids_map.clear();
         for i in 0..current_page_clips.len() {
             let tray_id = "tray_clip_".to_string() + &i.to_string();
             let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
@@ -745,7 +761,6 @@ impl ClipState {
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
-            self.tray_ids_map.push(c.id);
         }
 
         // clean out the rest of the tray
@@ -772,9 +787,9 @@ impl ClipState {
     async fn update_tray_page_info(
         &self,
         app: &AppHandle,
-        whole_list_of_ids_len: usize,
-        current_page: i64,
-        whole_pages: usize,
+        whole_list_of_ids_len: u64,
+        current_page: u64,
+        whole_pages: u64,
     ) -> Result<(), Error> {
         let tray_page_info_item = app.tray_handle().get_item("page_info");
         let tray_page_info_title = format!(
@@ -799,28 +814,32 @@ impl ClipState {
     async fn update_pinned_clips(
         &self,
         app: &AppHandle,
-        max_clip_length: i64,
+        max_clip_length: u64,
     ) -> Result<(), Error> {
-        let pinned_clips_len = self.pinned_clips.len();
         // update pinned clips in the tray
+        let pinned_clips_len = self.get_label_clip_number(app, "pinned").await?;
+        debug!("Pinned clips length: {}", pinned_clips_len);
         for i in 0..pinned_clips_len {
-            let pinned_clip = self.pinned_clips.get(i);
-            if pinned_clip.is_none() {
-                continue;
-            }
-            let pinned_clip = pinned_clip.unwrap();
-            let pinned_clip = *pinned_clip;
-            let pinned_clip = self.get_clip(app, Some(pinned_clip)).await?;
-            if pinned_clip.is_none() {
-                continue;
-            }
-            let pinned_clip = pinned_clip.unwrap();
-            let pinned_clip_text = pinned_clip.text.clone();
-            let pinned_clip_text = trim_clip_text(pinned_clip_text, max_clip_length);
-            let pinned_clip_id = "pinned_clip_".to_string() + &i.to_string();
+            debug!("Pinned clip: {}", i);
+            let pinned_clip = match self.get_label_clip_id_with_pos(app, "pinned", i).await? {
+                Some(pinned_clip) => pinned_clip,
+                None => {
+                    break;
+                }
+            };
+
+            let pinned_clip = match self.get_clip(app, Some(pinned_clip)).await? {
+                Some(pinned_clip) => pinned_clip,
+                None => {
+                    break;
+                }
+            };
+
+            let pinned_clip = pinned_clip.text;
+            let pinned_clip = trim_clip_text(pinned_clip, max_clip_length);
             let pinned_clip_item: tauri::SystemTrayMenuItemHandle =
-                app.tray_handle().get_item(&pinned_clip_id);
-            let res = pinned_clip_item.set_title(pinned_clip_text);
+                app.tray_handle().get_item(&format!("pinned_clip_{}", i));
+            let res = pinned_clip_item.set_title(pinned_clip);
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
@@ -835,22 +854,25 @@ impl ClipState {
     async fn update_favourite_clips(
         &self,
         app: &AppHandle,
-        max_clip_length: i64,
+        max_clip_length: u64,
     ) -> Result<(), Error> {
-        let favourite_clips_len = self.favourite_clips.len();
         // update favourite clips in the tray
+        let favourite_clips_len = self.get_label_clip_number(app, "favourite").await?;
         for i in 0..favourite_clips_len {
-            let favourite_clip = self.favourite_clips.get(i);
-            if favourite_clip.is_none() {
-                continue;
-            }
-            let favourite_clip = favourite_clip.unwrap();
-            let favourite_clip = *favourite_clip;
-            let favourite_clip = self.get_clip(app, Some(favourite_clip)).await?;
-            if favourite_clip.is_none() {
-                continue;
-            }
-            let favourite_clip = favourite_clip.unwrap();
+            let favourite_clip = match self.get_label_clip_id_with_pos(app, "favourite", i).await? {
+                Some(favourite_clip) => favourite_clip,
+                None => {
+                    break;
+                }
+            };
+
+            let favourite_clip = match self.get_clip(app, Some(favourite_clip)).await? {
+                Some(favourite_clip) => favourite_clip,
+                None => {
+                    break;
+                }
+            };
+
             let favourite_clip_text = favourite_clip.text.clone();
             let favourite_clip_text = trim_clip_text(favourite_clip_text, max_clip_length);
             let favourite_clip_id = "favourite_clip_".to_string() + &i.to_string();
@@ -871,6 +893,7 @@ impl ClipState {
     /// Will try lock `app.state::<ConfigMutex>()` and `clips` and `database_connection`
     #[warn(unused_must_use)]
     pub async fn update_tray(&mut self, app: &AppHandle) -> Result<(), Error> {
+        debug!("Starting to update the tray");
         // get the clips per page configuration
         let config = app.state::<ConfigMutex>();
         let config = config.config.lock().await;
@@ -879,6 +902,7 @@ impl ClipState {
         drop(config);
 
         // get the current page
+        debug!("Getting the current page number");
         let mut current_page = self.current_page;
         let whole_pages = self.get_max_page(app).await?;
         let whole_list_of_ids_len = self.get_total_number_of_clip(app).await?;
@@ -897,24 +921,29 @@ impl ClipState {
             if whole_list_of_ids_len == current_clip_pos {
                 current_page = 0;
             } else {
-                current_page =
-                    (whole_list_of_ids_len - current_clip_pos - 1) / clips_per_page as usize;
+                current_page = (whole_list_of_ids_len - current_clip_pos - 1) / clips_per_page;
             }
             self.current_page = current_page;
         }
 
-        self.update_tray_page_info(app, whole_list_of_ids_len, current_page as i64, whole_pages)
+        debug!("Updating the tray page info");
+        self.update_tray_page_info(app, whole_list_of_ids_len, current_page, whole_pages)
             .await?;
+        debug!("Updating the pinned clips");
         self.update_pinned_clips(app, max_clip_length).await?;
+        debug!("Updating the normal clips");
         self.update_normal_clip_tray(
             app,
             clips_per_page,
             whole_list_of_ids_len,
             max_clip_length,
-            current_page as i64,
+            current_page,
         )
         .await?;
+        debug!("Updating the favourite clips");
         self.update_favourite_clips(app, max_clip_length).await?;
+
+        debug!("Finish updating the tray");
 
         Ok(())
     }
@@ -949,7 +978,7 @@ static WHITE_SPACE: Lazy<Vec<&str>> = Lazy::new(|| vec![" ", "\t", "\n", "\r"]);
 /// Also take care of the width of a unicode character
 ///
 /// l is treated as 20 if l <= 6
-fn trim_clip_text(text: Arc<String>, l: i64) -> String {
+fn trim_clip_text(text: Arc<String>, l: u64) -> String {
     // trim the leading white space
     let mut text = text.graphemes(true);
     let l = if l <= 6 { 20 } else { l };

@@ -23,34 +23,25 @@ impl Default for PinnedFilter {
 
 #[derive(Debug, PartialEq, Properties)]
 pub struct PinClipButtonProps {
-    pub id: i64,
+    pub id: u64,
     pub pinned: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
-// represent the current clip
-pub enum ClipID {
-    /// the current clip is the clip with the given id
-    Clip(i64),
-    /// is the pinned clip with the given id
-    PinnedClip(i64),
 }
 
 #[derive(Debug, Serialize)]
 struct PinClipToTrayArgs {
-    pub id: i64,
+    pub id: u64,
     pub pinned: bool,
 }
 
 #[derive(Debug, Serialize)]
 struct GetIsPinnedProps {
-    pub id: i64,
+    pub id: u64,
 }
 
 #[derive(PartialEq, Debug, Store, Clone, Eq, Default, Serialize, Deserialize)]
 #[store(storage = "session")]
 struct IsPinnedID {
-    pub pinned: HashSet<i64>,
+    pub pinned: HashSet<u64>,
 }
 
 #[function_component(PinClipButton)]

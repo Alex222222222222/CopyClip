@@ -6,6 +6,7 @@ use crate::ClipType;
 
 /// a single clip
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "yew", derive(yew::Properties, PartialEq))]
 pub struct Clip {
     /// The text of the clip.
     /// After the clip is created, the text should not be changed
@@ -19,11 +20,10 @@ pub struct Clip {
     /// in seconds
     pub timestamp: i64,
     /// the id of the clip
-    pub id: i64,
-    ///  if the clip is a favourite 1 means true, 0 means false
-    pub favourite: bool,
-    /// if the clip is pinned 1 means true, 0 means false
-    pub pinned: bool,
+    pub id: u64,
+    /// the labels of the clip
+    /// each label is a string
+    pub labels: Vec<String>,
 }
 
 pub fn arc_string_deserialize<'de, D>(deserializer: D) -> Result<Arc<String>, D::Error>

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use sublime_fuzzy::ContinuousMatch;
 use yew::{function_component, html, Html, Properties};
@@ -7,20 +7,20 @@ use super::search_method::SearchMethod;
 
 #[derive(PartialEq, Properties)]
 pub struct FuzzySearchTextProps {
-    pub data: Rc<String>,
-    pub text: Rc<String>,
+    pub data: Arc<String>,
+    pub text: Arc<String>,
 }
 
 #[derive(PartialEq, Properties)]
 pub struct RegexpSearchTextProps {
-    pub data: Rc<String>,
-    pub text: Rc<String>,
+    pub data: Arc<String>,
+    pub text: Arc<String>,
 }
 
 #[derive(PartialEq, Properties)]
 pub struct SearchTextProps {
-    pub data: Rc<String>,
-    pub text: Rc<String>,
+    pub data: Arc<String>,
+    pub text: Arc<String>,
     pub search_method: SearchMethod,
 }
 

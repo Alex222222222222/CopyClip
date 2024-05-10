@@ -1,4 +1,4 @@
-use log::{info, warn};
+use log::{debug, error, info, warn};
 use tauri::{
     AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
     SystemTrayMenuItem, SystemTraySubmenu,
@@ -206,9 +206,11 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
     match id.as_str() {
         "quit" => {
             // quit the app
+            debug!("Quitting the app");
             std::process::exit(0);
         }
         "next_page" => {
+            debug!("Next page clicked");
             let clip_data = app.state::<ClipStateMutex>();
             let mut clip_data = clip_data.clip_state.lock().await;
             let res = clip_data.next_page(app).await;
@@ -218,9 +220,17 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             }
 
             // update the tray
-            send_tray_update_event(app);
+            let event_sender = app.state::<EventSender>();
+            let res = event_sender
+                .tx
+                .send(CopyClipEvent::RebuildTrayMenuEvent)
+                .await;
+            if let Err(err) = res {
+                error!("Failed to send event, error: {}", err);
+            }
         }
         "prev_page" => {
+            debug!("Prev page clicked");
             let clip_data = app.state::<ClipStateMutex>();
             let mut clip_data = clip_data.clip_state.lock().await;
             let res = clip_data.prev_page(app).await;
@@ -230,17 +240,33 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             }
 
             // update the tray
-            send_tray_update_event(app);
+            let event_sender = app.state::<EventSender>();
+            let res = event_sender
+                .tx
+                .send(CopyClipEvent::RebuildTrayMenuEvent)
+                .await;
+            if let Err(err) = res {
+                error!("Failed to send event, error: {}", err);
+            }
         }
         "first_page" => {
+            debug!("First page clicked");
             let clip_data = app.state::<ClipStateMutex>();
             let mut clip_data = clip_data.clip_state.lock().await;
             clip_data.first_page().await;
 
             // update the tray
-            send_tray_update_event(app);
+            let event_sender = app.state::<EventSender>();
+            let res = event_sender
+                .tx
+                .send(CopyClipEvent::RebuildTrayMenuEvent)
+                .await;
+            if let Err(err) = res {
+                error!("Failed to send event, error: {}", err);
+            }
         }
         "preferences" => {
+            debug!("Preferences clicked, Opening preferences window");
             // open the preferences window
             // test if the window is already open
             let windows = app.windows();
@@ -267,6 +293,7 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             }
         }
         "search" => {
+            debug!("Search clicked, Opening search window");
             // open the preferences window
             // test if the window is already open
             let windows = app.windows();
@@ -293,6 +320,7 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             }
         }
         "pause" => {
+            debug!("Pause clicked, Toggling pause monitoring");
             let config = app.state::<ConfigMutex>();
             let mut config = config.config.lock().await;
             config.pause_monitoring = !config.pause_monitoring;
@@ -309,20 +337,33 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
         _ => {
             if id.starts_with("tray_clip_") {
                 // test if the id is a tray_clip
+                debug!("Tray clip clicked: {}", id);
 
                 // get the index of the clip
-                let index = id.replace("tray_clip_", "").parse::<i64>().unwrap();
+                let index = id.replace("tray_clip_", "").parse::<u64>().unwrap();
 
                 // select the index
                 let clip_data = app.state::<ClipStateMutex>();
                 let mut clip_data = clip_data.clip_state.lock().await;
 
-                let item_id = clip_data.tray_ids_map.get(index as usize);
-                if item_id.is_none() {
-                    warn!("Failed to get the item id for the tray id: {}", index);
-                    return;
-                }
-                let item_id = *item_id.unwrap();
+                // try calculate the pos of the clip using current page and page_len
+                // and total number of clips
+                let item_id = match clip_data
+                    .get_id_with_pos_in_current_page(app, Some(index))
+                    .await
+                {
+                    Ok(res) => match res {
+                        Some(res) => res,
+                        None => {
+                            error!("Failed to get the item id for the tray id: {}", index);
+                            return;
+                        }
+                    },
+                    Err(_) => {
+                        error!("Failed to get the item id for the tray id: {}", index);
+                        return;
+                    }
+                };
 
                 let res = clip_data.select_clip(app, Some(item_id)).await;
                 if res.is_err() {
@@ -333,24 +374,36 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 // test if the id is a pinned_clip
 
                 // get the index of the clip
-                let index = id.replace("pinned_clip_", "").parse::<i64>().unwrap();
+                let index = id.replace("pinned_clip_", "").parse::<u64>().unwrap();
 
                 // select the index
                 let clip_data = app.state::<ClipStateMutex>();
                 let mut clip_data = clip_data.clip_state.lock().await;
 
-                let item_id = clip_data.pinned_clips.get(index as usize);
-                if item_id.is_none() {
-                    warn!(
-                        "Failed to get the item id for the pinned clip id: {}",
-                        index
-                    );
-                    return;
-                }
-                let item_id = item_id.unwrap();
-                let id = *item_id;
+                let item_id = match clip_data
+                    .get_label_clip_id_with_pos(app, "pinned", index)
+                    .await
+                {
+                    Ok(res) => match res {
+                        Some(res) => res,
+                        None => {
+                            error!(
+                                "Failed to get the item id for the pinned clip id: {}",
+                                index
+                            );
+                            return;
+                        }
+                    },
+                    Err(_) => {
+                        error!(
+                            "Failed to get the item id for the pinned clip id: {}",
+                            index
+                        );
+                        return;
+                    }
+                };
 
-                let res = clip_data.select_clip(app, Some(id)).await;
+                let res = clip_data.select_clip(app, Some(item_id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;
@@ -359,24 +412,36 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 // test if the id is a favourite_clip
 
                 // get the index of the clip
-                let index = id.replace("favourite_clip_", "").parse::<i64>().unwrap();
+                let index = id.replace("favourite_clip_", "").parse::<u64>().unwrap();
 
                 // select the index
                 let clip_data = app.state::<ClipStateMutex>();
                 let mut clip_data = clip_data.clip_state.lock().await;
 
-                let item_id = clip_data.favourite_clips.get(index as usize);
-                if item_id.is_none() {
-                    warn!(
-                        "Failed to get the item id for the favourite clip id: {}",
-                        index
-                    );
-                    return;
-                }
-                let item_id = item_id.unwrap();
-                let id = *item_id;
+                let item_id = match clip_data
+                    .get_label_clip_id_with_pos(app, "favourite", index)
+                    .await
+                {
+                    Ok(res) => match res {
+                        Some(res) => res,
+                        None => {
+                            error!(
+                                "Failed to get the item id for the favourite clip id: {}",
+                                index
+                            );
+                            return;
+                        }
+                    },
+                    Err(_) => {
+                        error!(
+                            "Failed to get the item id for the favourite clip id: {}",
+                            index
+                        );
+                        return;
+                    }
+                };
 
-                let res = clip_data.select_clip(app, Some(id)).await;
+                let res = clip_data.select_clip(app, Some(item_id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;
@@ -388,8 +453,4 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             info!("Menu item clicked: {}", id)
         }
     }
-}
-
-pub fn send_tray_update_event(app: &AppHandle) {
-    event_sender(app, CopyClipEvent::TrayUpdateEvent);
 }

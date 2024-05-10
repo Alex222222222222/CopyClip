@@ -25,26 +25,26 @@ impl Default for FavouriteFilter {
 
 #[derive(Debug, PartialEq, Properties)]
 pub struct FavouriteClipButtonProps {
-    pub id: i64,
+    pub id: u64,
     pub is_favourite: bool,
 }
 
 #[derive(Debug, Serialize)]
 struct ChangeFavouriteClipArgs {
-    pub id: i64,
+    pub id: u64,
     pub target: bool,
 }
 
 #[derive(PartialEq, Debug, Store, Clone, Eq, Default, Serialize, Deserialize)]
 #[store(storage = "session")]
-pub struct IsFavoriteID {
-    pub content: HashSet<i64>,
-    pub initialized: HashSet<i64>,
+pub struct IsFavouriteID {
+    pub content: HashSet<u64>,
+    pub initialized: HashSet<u64>,
 }
 
 #[function_component(FavouriteClipButton)]
 pub fn favourite_clip_button(props: &FavouriteClipButtonProps) -> Html {
-    let (favourite, dispatch) = use_store::<IsFavoriteID>();
+    let (favourite, dispatch) = use_store::<IsFavouriteID>();
     let id = props.id;
 
     if !favourite.initialized.contains(&id) {

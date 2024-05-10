@@ -1,9 +1,9 @@
 use std::io::Write;
 
-use crate::clip;
 use crate::clip::clip_data::ClipStateMutex;
 use crate::config::ConfigMutex;
 
+use crate::database::get_all_versions;
 use crate::error;
 use crate::event::EventSender;
 
@@ -85,7 +85,7 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
     }
 
     // get all versions from database
-    let versions = clip::database::get_all_versions(app).await?;
+    let versions = get_all_versions(app).await?;
     // convert to json
     let v_json = serde_json::to_string(&versions);
     if let Err(e) = v_json {

@@ -12,8 +12,6 @@ pub enum SearchMethod {
     Regexp,
     /// search using fuzzy search
     Fuzzy,
-    /// search using sql virtual table fts4
-    Fast,
 }
 
 impl Display for SearchMethod {
@@ -22,7 +20,6 @@ impl Display for SearchMethod {
             SearchMethod::Normal => f.write_str("normal"),
             SearchMethod::Regexp => f.write_str("regexp"),
             SearchMethod::Fuzzy => f.write_str("fuzzy"),
-            SearchMethod::Fast => f.write_str("fast"),
         }
     }
 }
@@ -33,7 +30,6 @@ impl From<&str> for SearchMethod {
             "normal" => SearchMethod::Normal,
             "regexp" => SearchMethod::Regexp,
             "fuzzy" => SearchMethod::Fuzzy,
-            "fast" => SearchMethod::Fast,
             _ => SearchMethod::Normal,
         }
     }

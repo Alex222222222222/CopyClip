@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -68,7 +68,7 @@ impl UserIdLimit {
 pub struct SearchFullArgs {
     pub search_method: SearchMethod,
     pub search_state: SearchState,
-    pub search_data: Rc<String>,
+    pub search_data: Arc<String>,
     pub order_by: OrderMethod,
     pub order_order: OrderOrder,
     pub favourite_filter: bool,
@@ -88,7 +88,7 @@ impl Default for SearchFullArgs {
         Self {
             search_method: SearchMethod::Fuzzy,
             search_state: SearchState::NotStarted,
-            search_data: Rc::new("".to_string()),
+            search_data: Arc::new("".to_string()),
             order_by: OrderMethod::Time,
             order_order: OrderOrder::Desc,
             favourite_filter: false,
@@ -113,7 +113,7 @@ pub fn search() -> Html {
     let text_box_on_change =
         search_args_dispatch.reduce_mut_callback_with(|state, event: Event| {
             let value = event.target_unchecked_into::<HtmlInputElement>().value();
-            *Rc::make_mut(&mut state.search_data) = value;
+            state.search_data = Arc::new(value);
         });
 
     let search_method_on_change =
@@ -248,7 +248,6 @@ pub fn search() -> Html {
                             onchange={search_method_on_change}
                         >
                             <option value="fuzzy" selected={SearchMethod::Fuzzy == search_args.search_method}>{t!("search.fuzzy")}</option>
-                            <option value="fast" selected={SearchMethod::Fast == search_args.search_method}>{t!("search.fast")}</option>
                             <option value="normal" selected={SearchMethod::Normal == search_args.search_method}>{t!("search.normal")}</option>
                             <option value="regexp" selected={SearchMethod::Regexp == search_args.search_method}>{t!("search.regex")}</option>
                         </select>
@@ -268,7 +267,6 @@ pub fn search() -> Html {
                             >
                                 <option value="time" selected={OrderMethod::Time == search_args.order_by}>{t!("search.time")}</option>
                                 <option value="fuzzy_score" selected={OrderMethod::FuzzyScore == search_args.order_by}>{t!("search.score")}</option>
-                                <option value="id" selected={OrderMethod::Id == search_args.order_by}>{t!("search.id")}</option>
                                 <option value="text" selected={OrderMethod::Text == search_args.order_by}>{t!("search.text")}</option>
                                 <option value="size" selected={OrderMethod::Size == search_args.order_by}>{t!("search.length")}</option>
                             </select>

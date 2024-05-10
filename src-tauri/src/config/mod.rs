@@ -9,13 +9,13 @@ use crate::error;
 
 pub mod command;
 
-fn default_clip_per_page() -> i64 {
+fn default_clip_per_page() -> u64 {
     20
 }
-fn default_clip_max_show_length() -> i64 {
+fn default_clip_max_show_length() -> u64 {
     50
 }
-fn default_search_clip_per_batch() -> i64 {
+fn default_search_clip_per_batch() -> u64 {
     2
 }
 fn default_log_level() -> LogLevelFilter {
@@ -44,17 +44,17 @@ pub struct ConfigMutex {
 pub struct Config {
     /// the number of clips to show in the tray menu
     #[serde(default = "default_clip_per_page")]
-    pub clip_per_page: i64,
+    pub clip_per_page: u64,
     /// the max length of a clip to show in the tray menu
     #[serde(default = "default_clip_max_show_length")]
-    pub clip_max_show_length: i64,
+    pub clip_max_show_length: u64,
     /// clip max show length in search page
     /// default 500
     #[serde(default = "default_search_clip_per_batch")]
-    pub search_page_clip_max_show_length: i64,
+    pub search_page_clip_max_show_length: u64,
     /// the number of clips to search in one batch
     #[serde(default = "default_search_clip_per_batch")]
-    pub search_clip_per_batch: i64,
+    pub search_clip_per_batch: u64,
     /// log level
     #[serde(default = "default_log_level")]
     pub log_level: LogLevelFilter,

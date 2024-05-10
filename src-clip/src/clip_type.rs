@@ -21,6 +21,31 @@ pub enum ClipType {
     Rtf,
 }
 
+impl From<ClipType> for u8 {
+    fn from(clip_type: ClipType) -> Self {
+        match clip_type {
+            ClipType::Text => 0,
+            ClipType::Image => 1,
+            ClipType::File => 2,
+            ClipType::Html => 3,
+            ClipType::Rtf => 4,
+        }
+    }
+}
+
+impl From<u8> for ClipType {
+    fn from(u: u8) -> Self {
+        match u {
+            0 => ClipType::Text,
+            1 => ClipType::Image,
+            2 => ClipType::File,
+            3 => ClipType::Html,
+            4 => ClipType::Rtf,
+            _ => ClipType::Text,
+        }
+    }
+}
+
 impl std::fmt::Display for ClipType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

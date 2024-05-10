@@ -7,9 +7,9 @@ use crate::{config::Config, error};
 /// the config struct before version 0.3.3
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConfigBefore {
-    pub clip_per_page: i64,
-    pub clip_max_show_length: i64,
-    pub search_clip_per_page: i64,
+    pub clip_per_page: u64,
+    pub clip_max_show_length: u64,
+    pub search_clip_per_page: u64,
     pub log_level: LogLevelFilter,
 }
 

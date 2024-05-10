@@ -7,14 +7,12 @@ use tauri_plugin_logging::panic_app;
 use crate::clip::clip_data::ClipStateMutex;
 use crate::{
     config::ConfigMutex,
-    systray::{create_tray_menu, handle_menu_item_click, send_tray_update_event},
+    systray::{create_tray_menu, handle_menu_item_click},
 };
 
 /// all the events that can be sent to the event daemon
 #[derive(Debug)]
 pub enum CopyClipEvent {
-    /// update the clips in the tray menu
-    TrayUpdateEvent,
     /// rebuild the tray menu
     RebuildTrayMenuEvent,
     /// save config event
@@ -84,19 +82,6 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
         debug!("Get event: {:?}", event);
         let app = app.app_handle();
         match event {
-            // update the clips in the tray menu
-            CopyClipEvent::TrayUpdateEvent => tauri::async_runtime::spawn(async move {
-                let clip_data = app.state::<ClipStateMutex>();
-                let mut clip_data = clip_data.clip_state.lock().await;
-
-                let res = clip_data.update_tray(&app).await;
-                if let Err(err) = res {
-                    panic_app(&format!(
-                        "Failed to update tray menu, error: {}",
-                        err.message()
-                    ));
-                }
-            }),
             // rebuild the tray menu
             CopyClipEvent::RebuildTrayMenuEvent => tauri::async_runtime::spawn(async move {
                 // get number of clips to show from config
@@ -105,16 +90,29 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 // get the number of pinned clips
                 let clip_data = app.state::<ClipStateMutex>();
                 let clip_data = clip_data.clip_state.lock().await;
-                let pinned_clips = clip_data.pinned_clips.len();
+                let pinned_clips = match clip_data.get_label_clip_number(&app, "pinned").await {
+                    Ok(res) => res,
+                    Err(err) => {
+                        error!("Failed to get pinned clips, error: {}", err);
+                        return;
+                    }
+                };
                 // get the number of favourite clips
-                let favourite_clips = clip_data.favourite_clips.len();
+                let favourite_clips = match clip_data.get_label_clip_number(&app, "favourite").await
+                {
+                    Ok(res) => res,
+                    Err(err) => {
+                        error!("Failed to get favourite clips, error: {}", err);
+                        return;
+                    }
+                };
                 // get paused state
                 let paused = app.state::<ConfigMutex>();
                 let paused = paused.config.lock().await.pause_monitoring;
                 drop(clip_data);
 
                 let res = app.tray_handle().set_menu(create_tray_menu(
-                    page_len,
+                    page_len as i64,
                     pinned_clips as i64,
                     favourite_clips as i64,
                     paused,
@@ -125,8 +123,18 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                         res.err().unwrap()
                     ));
                 }
-                // initial the tray
-                send_tray_update_event(&app);
+
+                let clip_data = app.state::<ClipStateMutex>();
+                let mut clip_data = clip_data.clip_state.lock().await;
+
+                let res = clip_data.update_tray(&app).await;
+                if let Err(err) = res {
+                    panic_app(&format!(
+                        "Failed to update tray menu, error: {}",
+                        err.message()
+                    ));
+                }
+                drop(clip_data);
             }),
             // pinned clips changed event
             CopyClipEvent::PinnedClipsChangedEvent => tauri::async_runtime::spawn(async move {
