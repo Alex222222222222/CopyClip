@@ -114,6 +114,15 @@ jobs:
       - name: Verify tauri-cli installation
         run: |
           cargo tauri --version
+      
+      - name: Install wasm-bindgen-cli
+        continue-on-error: true
+        run: |
+            cargo install wasm-bindgen-cli
+      
+      - name: Verify wasm-bindgen-cli installation
+        run: |
+          wasm-bindgen --version
 
       - name: Install trunk
         continue-on-error: true
