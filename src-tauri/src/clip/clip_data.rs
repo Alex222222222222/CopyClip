@@ -400,10 +400,7 @@ impl ClipState {
         };
         drop(db_connection);
 
-        let labels = match self.get_clip_labels(app, id).await? {
-            Some(labels) => labels,
-            None => Vec::new(),
-        };
+        let labels = (self.get_clip_labels(app, id).await?).unwrap_or_default();
 
         res.labels = labels;
 

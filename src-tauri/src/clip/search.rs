@@ -463,10 +463,7 @@ pub async fn search_clips(
             .get_clip_labels(&app, *id)
             .await
         {
-            Ok(labels) => match labels {
-                Some(labels) => labels,
-                None => vec![],
-            },
+            Ok(labels) => labels.unwrap_or_default(),
             Err(err) => {
                 return Err(err.message());
             }
