@@ -3,6 +3,7 @@ edition = "2021"
 name = "copy_clip_ui"
 version = "0.3.9"
 license = "MIT"
+rust-version = "1.78"
 
 [package.metadata.i18n]
 load-path = "locales"
