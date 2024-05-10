@@ -2,19 +2,17 @@ use log::{debug, error};
 use tauri::async_runtime::{Receiver, Sender};
 
 use tauri::{api::notification::Notification, AppHandle, Manager};
+use tauri_plugin_logging::panic_app;
 
+use crate::clip::clip_data::ClipStateMutex;
 use crate::{
-    clip::clip_data::ClipData,
     config::ConfigMutex,
-    log::{panic_app, LogLevel},
-    systray::{create_tray_menu, handle_menu_item_click, send_tray_update_event},
+    systray::{create_tray_menu, handle_menu_item_click},
 };
 
 /// all the events that can be sent to the event daemon
 #[derive(Debug)]
 pub enum CopyClipEvent {
-    /// update the clips in the tray menu
-    TrayUpdateEvent,
     /// rebuild the tray menu
     RebuildTrayMenuEvent,
     /// save config event
@@ -24,8 +22,6 @@ pub enum CopyClipEvent {
     /// tray menu item click event,
     /// the data is the id the tray item
     TrayMenuItemClickEvent(String),
-    /// log
-    LogEvent(LogLevel, String),
     /// send notification event
     /// the data is the notification message
     SendNotificationEvent(String),
@@ -86,34 +82,37 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
         debug!("Get event: {:?}", event);
         let app = app.app_handle();
         match event {
-            // update the clips in the tray menu
-            CopyClipEvent::TrayUpdateEvent => tauri::async_runtime::spawn(async move {
-                let clip_data = app.state::<ClipData>();
-                let res = clip_data.update_tray(&app).await;
-                if let Err(err) = res {
-                    panic_app(&format!(
-                        "Failed to update tray menu, error: {}",
-                        err.message()
-                    ));
-                }
-            }),
             // rebuild the tray menu
             CopyClipEvent::RebuildTrayMenuEvent => tauri::async_runtime::spawn(async move {
                 // get number of clips to show from config
                 let page_len = app.state::<ConfigMutex>();
                 let page_len = page_len.config.lock().await.clip_per_page;
                 // get the number of pinned clips
-                let pinned_clips = app.state::<ClipData>();
-                let pinned_clips = pinned_clips.clips.lock().await.pinned_clips.len();
+                let clip_data = app.state::<ClipStateMutex>();
+                let clip_data = clip_data.clip_state.lock().await;
+                let pinned_clips = match clip_data.get_label_clip_number(&app, "pinned").await {
+                    Ok(res) => res,
+                    Err(err) => {
+                        error!("Failed to get pinned clips, error: {}", err);
+                        return;
+                    }
+                };
                 // get the number of favourite clips
-                let favourite_clips = app.state::<ClipData>();
-                let favourite_clips = favourite_clips.clips.lock().await.favourite_clips.len();
+                let favourite_clips = match clip_data.get_label_clip_number(&app, "favourite").await
+                {
+                    Ok(res) => res,
+                    Err(err) => {
+                        error!("Failed to get favourite clips, error: {}", err);
+                        return;
+                    }
+                };
                 // get paused state
                 let paused = app.state::<ConfigMutex>();
                 let paused = paused.config.lock().await.pause_monitoring;
+                drop(clip_data);
 
                 let res = app.tray_handle().set_menu(create_tray_menu(
-                    page_len,
+                    page_len as i64,
                     pinned_clips as i64,
                     favourite_clips as i64,
                     paused,
@@ -124,8 +123,18 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                         res.err().unwrap()
                     ));
                 }
-                // initial the tray
-                send_tray_update_event(&app);
+
+                let clip_data = app.state::<ClipStateMutex>();
+                let mut clip_data = clip_data.clip_state.lock().await;
+
+                let res = clip_data.update_tray(&app).await;
+                if let Err(err) = res {
+                    panic_app(&format!(
+                        "Failed to update tray menu, error: {}",
+                        err.message()
+                    ));
+                }
+                drop(clip_data);
             }),
             // pinned clips changed event
             CopyClipEvent::PinnedClipsChangedEvent => tauri::async_runtime::spawn(async move {
@@ -143,19 +152,21 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                     panic_app(&format!("Failed to {}", res.err().unwrap().message()));
                 }
             }),
-            // log
-            CopyClipEvent::LogEvent(level, msg) => tauri::async_runtime::spawn(async move {
-                log::log!(log::Level::from(level), "{msg}");
-            }),
             // clipboard change event
             CopyClipEvent::ClipboardChangeEvent => tauri::async_runtime::spawn(async move {
                 debug!("Clipboard change event");
                 let config = app.state::<ConfigMutex>();
                 let config = config.config.lock().await;
-                if !config.pause_monitoring {
-                    drop(config);
-                    let clip_data = app.state::<ClipData>();
+                let paused = config.pause_monitoring;
+                debug!("Paused: {}", paused);
+                drop(config);
+                if !paused {
+                    debug!("Clipboard change event, not paused");
+                    let clip_data = app.state::<ClipStateMutex>();
+                    let mut clip_data = clip_data.clip_state.lock().await;
+
                     let res = clip_data.update_clipboard(&app).await;
+                    debug!("Clipboard updated");
                     if let Err(err) = res {
                         panic_app(&format!(
                             "Failed to update clipboard, error: {}",

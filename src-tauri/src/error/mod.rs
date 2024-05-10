@@ -23,10 +23,13 @@ pub enum Error {
     /// if it happens, it means the database connection is not initialized
     /// or the database connection is dropped
     DatabaseConnectionErr,
+    /// failed to write to database error
+    /// the first string is the error message
+    DatabaseWriteErr(String),
     /// delete clip from the database failed
     /// the error message is the error message from the sqlite::execute
     /// the first i64 is the id of the clip, the second string is the error message
-    DeleteClipFromDatabaseErr(i64, String),
+    DeleteClipFromDatabaseErr(u64, String),
     /// error occurred when exporting data
     /// the first string is the error message
     ExportError(String),
@@ -35,7 +38,7 @@ pub enum Error {
     /// get clip data from the database failed
     /// the error message is the error message from the sqlite::query_row
     /// the first i64 is the id of the clip, the second string is the error message
-    GetClipDataFromDatabaseErr(i64, String),
+    GetClipDataFromDatabaseErr(u64, String),
     /// get config file path error
     /// the first string is the error message
     GetConfigFilePathErr(String),
@@ -114,6 +117,7 @@ impl Error {
             Error::ClipNotFoundErr(id) => format!("clip not found in the database, id: {id}"),
             Error::DeleteClipFromDatabaseErr(id, err) => format!("delete clip from the database failed, id: {id}, error message: {err}"),
             Error::DatabaseConnectionErr => "the database connection is none".to_string(),
+            Error::DatabaseWriteErr(err) => format!("failed to write to database error, error message: {err}"),
             Error::InsertClipIntoDatabaseErr(clip, err) => format!("failed to insert new clip to the database, clip data: {clip}, error message: {err}"),
             Error::WriteToSystemClipboardErr(clip, err) => format!("failed to write to system clipboard, clip data: {clip}, error message: {err}"),
             Error::SetSystemTrayTitleErr( err) => format!("failed to set system tray title, error message: {err}"),

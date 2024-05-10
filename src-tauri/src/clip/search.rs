@@ -1,166 +1,43 @@
 use std::{collections::HashMap, sync::Arc};
 
 use log::debug;
-use regex::Regex;
-use sublime_fuzzy::best_match;
+use rusqlite::Row;
+
 use tauri::{AppHandle, Manager};
 
-use crate::{config::ConfigMutex, error};
+use crate::{
+    config::ConfigMutex,
+    database::{label_name_to_table_name, DatabaseStateMutex},
+    error,
+};
 
-use super::{clip_data::ClipData, clip_struct::Clip};
+use clip::Clip;
 
-use sqlx::{sqlite::SqliteRow, Row};
+use super::clip_data::ClipStateMutex;
 
 /// search for a clip in the database
 /// SELECT * FROM clips WHERE content MATCH 'linux';
 ///
 /// get the clip data from a sqlite row
 /// this function will not test if the row is valid
+///
+/// as the row will not contain info about the labels, the clip will not have any label
 #[warn(unused_must_use)]
-fn clip_from_row(row: SqliteRow) -> Result<Clip, error::Error> {
-    let id = row.try_get::<i64, _>("id");
-    if let Err(err) = id {
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            -1,
-            err.to_string(),
-        ));
-    }
-    let id = id.unwrap();
-
-    let text = row.try_get::<String, _>("text");
-    if let Err(err) = text {
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            id,
-            err.to_string(),
-        ));
-    }
-    let text = text.unwrap();
-
-    let favourite = row.try_get::<i64, _>("favourite");
-    if let Err(err) = favourite {
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            id,
-            err.to_string(),
-        ));
-    }
-    let favourite = favourite.unwrap();
-    let favourite = favourite == 1;
-
-    let pinned = row.try_get::<i64, _>("pinned");
-    if let Err(err) = pinned {
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            id,
-            err.to_string(),
-        ));
-    }
-    let pinned = pinned.unwrap();
-    let pinned = pinned == 1;
-
-    let timestamp = row.try_get::<i64, _>("timestamp");
-    if let Err(err) = timestamp {
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            id,
-            err.to_string(),
-        ));
-    }
-    let timestamp = timestamp.unwrap();
+fn clip_from_row(row: &Row) -> Result<Clip, rusqlite::Error> {
+    let id = row.get("id")?;
+    let text = row.get("text")?;
+    let timestamp: i64 = row.get("timestamp")?;
+    let clip_type: u8 = row.get("type")?;
 
     let clip = Clip {
         id,
         text: Arc::new(text),
-        favourite,
         timestamp,
-        pinned,
+        clip_type: clip_type.into(),
+        labels: vec![],
     };
 
     Ok(clip)
-}
-
-/// fast search for a clip in the database
-/// using the fts4 table search, will be faster however, for install data = "install" and a clip = "installapp"
-/// then this clip will not be in the search result.
-/// fts4 only searches for as a discrete token, not as a substring
-///
-/// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
-/// will return a list of clips
-pub async fn fast_search(
-    app: &AppHandle,
-    min_id: i64,
-    max_id: i64,
-    limit: i64,
-    data: String,
-    favourite: bool,
-    pinned: bool,
-) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
-    let res = if !favourite && !pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text MATCH ? ORDER BY id DESC LIMIT ?",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(&data)
-            .bind(limit)
-            .fetch_all(db_connection.as_ref()).await
-    } else if !favourite && pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND pinned = ? AND text MATCH ? ORDER BY id DESC LIMIT ?",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(pinned)
-            .bind(&data)
-            .bind(limit)
-            .fetch_all(db_connection.as_ref()).await
-    } else if favourite && !pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND text MATCH ? ORDER BY id DESC LIMIT ?",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(favourite)
-            .bind(&data)
-            .bind(limit)
-            .fetch_all(db_connection.as_ref()).await
-    } else {
-        sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND pinned = ? AND text MATCH ? ORDER BY id DESC LIMIT ?")
-        .bind(min_id)
-        .bind(max_id)
-        .bind(favourite)
-        .bind(pinned)
-        .bind(&data)
-        .bind(limit)
-            .fetch_all(db_connection.as_ref()).await
-    };
-
-    if let Err(err) = res {
-        debug!(
-            "failed to get clip from row, error message: {}",
-            err.to_string()
-        );
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            -1,
-            err.to_string(),
-        ));
-    }
-    let mut clips = HashMap::new();
-    for row in res.unwrap() {
-        let clip = clip_from_row(row);
-        if let Err(err) = clip {
-            debug!(
-                "failed to get clip from row, error message: {}",
-                err.to_string()
-            );
-            return Err(err);
-        }
-        let clip = clip.unwrap();
-        clips.insert(clip.id, clip);
-    }
-
-    Ok(clips)
 }
 
 /// normal search for a clip in the database
@@ -171,64 +48,75 @@ pub async fn fast_search(
 /// will return a list of clips
 pub async fn normal_search(
     app: &AppHandle,
-    min_id: i64,
-    max_id: i64,
-    limit: i64,
+    min_id: u64,
+    max_id: u64,
+    limit: u64,
     data: String,
     favourite: bool,
     pinned: bool,
-) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
-    let res = if !favourite && !pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text Like ? ORDER BY id DESC LIMIT ?",
-        )
-        .bind(min_id)
-        .bind(max_id)
-        .bind("%".to_string() + data.as_str() + "%")
-        .bind(limit)
-        .fetch_all(db_connection.as_ref())
-        .await
-    } else if !favourite && pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND pinned = ? AND text Like ? ORDER BY id DESC LIMIT ?",
-        )
-        .bind(min_id)
-        .bind(max_id)
-        .bind(pinned)
-        .bind("%".to_string() + data.as_str() + "%")
-        .bind(limit)
-        .fetch_all(db_connection.as_ref())
-        .await
-    } else if favourite && !pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND text Like ? ORDER BY id DESC LIMIT ?",
-        )
-        .bind(min_id)
-        .bind(max_id)
-        .bind(favourite)
-        .bind("%".to_string() + data.as_str() + "%")
-        .bind(limit)
-        .fetch_all(db_connection.as_ref())
-        .await
-    } else {
-        sqlx::query(            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND pinned = ? AND text Like ? ORDER BY id DESC LIMIT ?",
-).bind(min_id).bind(max_id).bind(1).bind(1).bind("%".to_string() + data.as_str() + "%").bind(limit)
-            .fetch_all(db_connection.as_ref()).await
+) -> Result<HashMap<u64, Clip>, error::Error> {
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.database_connection.lock().await;
+
+    let mut stmt: String =
+        "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND text LIKE ?".to_string();
+
+    if favourite {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("favourite"),
+            label_name_to_table_name("favourite")
+        );
+    }
+
+    if pinned {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("pinned"),
+            label_name_to_table_name("pinned")
+        );
+    }
+
+    let stmt = format!(
+        "{}
+        ORDER BY id DESC LIMIT ?",
+        stmt
+    );
+
+    let mut stmt = match db_connection.prepare(&stmt) {
+        Ok(stmt) => stmt,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
     };
 
-    if let Err(err) = res {
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            -1,
-            err.to_string(),
-        ));
-    }
+    let data = format!("%{}%", data);
+
+    let res = match stmt.query_map(
+        [
+            min_id.to_string(),
+            max_id.to_string(),
+            data,
+            limit.to_string(),
+        ],
+        clip_from_row,
+    ) {
+        Ok(res) => res,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+    };
+
     let mut clips = HashMap::new();
-    for row in res.unwrap() {
-        let clip = clip_from_row(row)?;
+    for clip in res {
+        let clip = match clip {
+            Ok(clip) => clip,
+            Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+        };
         clips.insert(clip.id, clip);
     }
 
@@ -242,93 +130,74 @@ pub async fn normal_search(
 /// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
 pub async fn fuzzy_search(
     app: &AppHandle,
-    min_id: i64,
-    max_id: i64,
-    limit: i64,
+    min_id: u64,
+    max_id: u64,
+    limit: u64,
     data: String,
     favourite: bool, // true: filter-on, false: filter-off
     pinned: bool,
-) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+) -> Result<HashMap<u64, Clip>, error::Error> {
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.database_connection.lock().await;
 
-    let mut max_id = max_id;
-    let mut count = 0;
+    let mut stmt: String =
+        "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND fuzzy_search(text, ?) > 0".to_string();
+
+    if favourite {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("favourite"),
+            label_name_to_table_name("favourite")
+        );
+    }
+
+    if pinned {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("pinned"),
+            label_name_to_table_name("pinned")
+        );
+    }
+
+    let stmt = format!(
+        "{}
+        ORDER BY id DESC LIMIT ?",
+        stmt
+    );
+
+    let mut stmt = match db_connection.prepare(&stmt) {
+        Ok(stmt) => stmt,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+    };
+
+    let res = match stmt.query_map(
+        [
+            min_id.to_string(),
+            max_id.to_string(),
+            data,
+            limit.to_string(),
+        ],
+        clip_from_row,
+    ) {
+        Ok(res) => res,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+    };
+
     let mut clips = HashMap::new();
-
-    while max_id >= min_id && count < limit {
-        let res = if !favourite && !pinned {
-            sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
-                .bind(min_id)
-                .bind(max_id)
-                .fetch_all(db_connection.as_ref())
-                .await
-        } else if !favourite && pinned {
-            sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND pinned = ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(pinned)
-            .fetch_all(db_connection.as_ref())
-            .await
-        } else if favourite && !pinned {
-            sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(favourite)
-            .fetch_all(db_connection.as_ref())
-            .await
-        } else {
-            sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND pinned = ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(1)
-            .bind(1)
-            .fetch_all(db_connection.as_ref())
-            .await
+    for clip in res {
+        let clip = match clip {
+            Ok(clip) => clip,
+            Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
         };
-
-        if let Err(err) = res {
-            return Err(error::Error::GetClipDataFromDatabaseErr(
-                -1,
-                err.to_string(),
-            ));
-        }
-        let res = res.unwrap();
-        if res.is_empty() {
-            break;
-        }
-
-        for row in res {
-            let clip = clip_from_row(row)?;
-
-            // if the text is too long do not do fuzzy search
-            // TODO change this to user configurable
-            if clip.text.len() > 5000 {
-                max_id = clip.id - 1;
-                continue;
-            }
-            let result = best_match(&data, &clip.text);
-            if result.is_none() {
-                max_id = clip.id - 1;
-                continue;
-            }
-            let result = result.unwrap();
-            if result.score() <= 0 {
-                max_id = clip.id - 1;
-                continue;
-            }
-            max_id = clip.id - 1;
-            clips.insert(clip.id, clip);
-            count += 1;
-        }
+        clips.insert(clip.id, clip);
     }
 
     Ok(clips)
@@ -341,89 +210,74 @@ pub async fn fuzzy_search(
 /// this will try select clips match data clip and min_id <= id <= max_id and maximum limit clips
 pub async fn regexp_search(
     app: &AppHandle,
-    min_id: i64,
-    max_id: i64,
-    limit: i64,
+    min_id: u64,
+    max_id: u64,
+    limit: u64,
     data: String,
     favourite: bool, // true: filter-on, false: filter-off
     pinned: bool,
-) -> Result<HashMap<i64, Clip>, error::Error> {
-    let re = Regex::new(&data);
-    if let Err(err) = re {
-        return Err(error::Error::RegexpErr(err.to_string()));
+) -> Result<HashMap<u64, Clip>, error::Error> {
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.database_connection.lock().await;
+
+    let mut stmt: String =
+        "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND regexp(text, ?)".to_string();
+
+    if favourite {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("favourite"),
+            label_name_to_table_name("favourite")
+        );
     }
-    let re = re.unwrap();
 
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+    if pinned {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("pinned"),
+            label_name_to_table_name("pinned")
+        );
+    }
 
-    let mut max_id = max_id;
-    let mut count = 0;
+    let stmt = format!(
+        "{}
+        ORDER BY id DESC LIMIT ?",
+        stmt
+    );
+
+    let mut stmt = match db_connection.prepare(&stmt) {
+        Ok(stmt) => stmt,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+    };
+
+    let res = match stmt.query_map(
+        [
+            min_id.to_string(),
+            max_id.to_string(),
+            data,
+            limit.to_string(),
+        ],
+        clip_from_row,
+    ) {
+        Ok(res) => res,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+    };
+
     let mut clips = HashMap::new();
-
-    while max_id >= min_id && count < limit {
-        let res = if !favourite && !pinned {
-            sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT 1")
-                .bind(min_id)
-                .bind(max_id)
-                .fetch_all(db_connection.as_ref())
-                .await
-        } else if !favourite && pinned {
-            sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND pinned = ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(pinned)
-            .fetch_all(db_connection.as_ref())
-            .await
-        } else if favourite && !pinned {
-            sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(min_id)
-            .bind(max_id)
-            .bind(favourite)
-            .fetch_all(db_connection.as_ref())
-            .await
-        } else {
-            sqlx::query(
-                "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND pinned = ? ORDER BY id DESC LIMIT 1",
-            )
-            .bind(max_id)
-            .bind(min_id)
-            .bind(1)
-            .bind(1)
-            .fetch_all(db_connection.as_ref())
-            .await
+    for clip in res {
+        let clip = match clip {
+            Ok(clip) => clip,
+            Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
         };
-
-        if let Err(err) = res {
-            return Err(error::Error::GetClipDataFromDatabaseErr(
-                -1,
-                err.to_string(),
-            ));
-        }
-        let res = res.unwrap();
-        if res.is_empty() {
-            break;
-        }
-
-        for row in res {
-            let clip = clip_from_row(row)?;
-
-            let result = re.is_match(&clip.text);
-            if !result {
-                max_id = clip.id - 1;
-                continue;
-            }
-
-            max_id = clip.id - 1;
-            clips.insert(clip.id, clip);
-            count += 1;
-        }
+        clips.insert(clip.id, clip);
     }
 
     Ok(clips)
@@ -433,68 +287,66 @@ pub async fn regexp_search(
 /// The total number of clips is limited to limit.
 async fn empty_search(
     app: &AppHandle,
-    min_id: i64,
-    max_id: i64,
-    limit: i64,
+    min_id: u64,
+    max_id: u64,
+    limit: u64,
     favourite: bool, // true: filter-on, false: filter-off
     pinned: bool,
-) -> Result<HashMap<i64, Clip>, error::Error> {
-    let db_connection_mutex = app.state::<ClipData>();
-    let db_connection_mutex = db_connection_mutex.database_connection.lock().await;
-    let db_connection = db_connection_mutex.clone().unwrap();
-    drop(db_connection_mutex);
+) -> Result<HashMap<u64, Clip>, error::Error> {
+    let db_connection = app.state::<DatabaseStateMutex>();
+    let db_connection = db_connection.database_connection.lock().await;
 
-    let res = if !favourite && !pinned {
-        sqlx::query("SELECT * FROM clips WHERE id BETWEEN ? AND ? ORDER BY id DESC LIMIT ?")
-            .bind(min_id)
-            .bind(max_id)
-            .bind(limit)
-            .fetch_all(db_connection.as_ref())
-            .await
-    } else if !favourite && pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND pinned = ? ORDER BY id DESC LIMIT ?",
-        )
-        .bind(min_id)
-        .bind(max_id)
-        .bind(pinned)
-        .bind(limit)
-        .fetch_all(db_connection.as_ref())
-        .await
-    } else if favourite && !pinned {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? ORDER BY id DESC LIMIT ?",
-        )
-        .bind(min_id)
-        .bind(max_id)
-        .bind(favourite)
-        .bind(limit)
-        .fetch_all(db_connection.as_ref())
-        .await
-    } else {
-        sqlx::query(
-            "SELECT * FROM clips WHERE id BETWEEN ? AND ? AND favourite = ? AND pinned = ? ORDER BY id DESC LIMIT ?",
-        )
-        .bind(min_id)
-        .bind(max_id)
-        .bind(1)
-        .bind(1)
-        .bind(limit)
-        .fetch_all(db_connection.as_ref())
-        .await
-    };
+    let mut stmt: String = "SELECT * FROM clips WHERE id BETWEEN ? AND ?".to_string();
 
-    if let Err(err) = res {
-        return Err(error::Error::GetClipDataFromDatabaseErr(
-            -1,
-            err.to_string(),
-        ));
+    if favourite {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("favourite"),
+            label_name_to_table_name("favourite")
+        );
     }
 
-    let res = res.unwrap();
+    if pinned {
+        stmt = format!(
+            "{}
+            INNER JOIN {}
+            ON clips.id = {}.id;
+            ",
+            stmt,
+            label_name_to_table_name("pinned"),
+            label_name_to_table_name("pinned")
+        );
+    }
+
+    let stmt = format!(
+        "{}
+        ORDER BY id DESC LIMIT ?",
+        stmt
+    );
+
+    let mut stmt = match db_connection.prepare(&stmt) {
+        Ok(stmt) => stmt,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+    };
+
+    let res = match stmt.query_map(
+        [min_id.to_string(), max_id.to_string(), limit.to_string()],
+        clip_from_row,
+    ) {
+        Ok(res) => res,
+        Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+    };
+
     let mut clips = HashMap::new();
-    for row in res {
-        let clip = clip_from_row(row)?;
+    for clip in res {
+        let clip = match clip {
+            Ok(clip) => clip,
+            Err(err) => return Err(error::Error::GetClipDataFromDatabaseErr(0, err.to_string())),
+        };
         clips.insert(clip.id, clip);
     }
 
@@ -504,8 +356,12 @@ async fn empty_search(
 /// get the max id of the clip in the database,
 /// if no clip in the database, return 0
 #[tauri::command]
-pub async fn get_max_id(clip_data: tauri::State<'_, ClipData>) -> Result<i64, error::Error> {
-    let res = clip_data.get_latest_clip_id().await?;
+pub async fn get_max_id(
+    app: AppHandle,
+    clip_state: tauri::State<'_, ClipStateMutex>,
+) -> Result<u64, error::Error> {
+    let clip_data = clip_state.clip_state.lock().await;
+    let res = clip_data.get_latest_clip_id(&app).await?;
     if res.is_none() {
         return Ok(0);
     }
@@ -533,54 +389,86 @@ pub async fn search_clips(
     app: AppHandle,
     data: String,
     minid: i64,
-    maxid: i64,
+    maxid: u64,
     favourite: bool, // true: filter-on, false: filter-off
     pinned: bool,
     searchmethod: String,
-) -> Result<HashMap<i64, Clip>, String> {
+) -> Result<HashMap<u64, Clip>, String> {
+    debug!(
+        "search_clips: data: {}, minid: {}, maxid: {}, searchmethod: {}",
+        data, minid, maxid, searchmethod
+    );
     let config = app.state::<ConfigMutex>();
     let config = config.config.lock().await;
     let limit = config.search_clip_per_batch;
     drop(config);
+    let clip_state = app.state::<ClipStateMutex>();
+    let minid = if minid < 0 {
+        match clip_state
+            .clip_state
+            .lock()
+            .await
+            .get_latest_clip_id(&app)
+            .await
+        {
+            Ok(res) => res.unwrap_or(0),
+            Err(err) => {
+                return Err(err.message());
+            }
+        }
+    } else {
+        minid as u64
+    };
 
     // if data is empty, return all clips
-    if data.is_empty() {
+    let mut res = if data.is_empty() {
+        debug!("search_clips: empty search");
         let res = empty_search(&app, minid, maxid, limit, favourite, pinned).await;
         if let Err(err) = res {
             return Err(err.message());
         }
-        return Ok(res.unwrap());
+        res.unwrap()
+    } else {
+        match searchmethod.as_str() {
+            "fuzzy" => {
+                let res = fuzzy_search(&app, minid, maxid, limit, data, favourite, pinned).await;
+                if let Err(err) = res {
+                    return Err(err.message());
+                }
+                res.unwrap()
+            }
+            "normal" => {
+                let res = normal_search(&app, minid, maxid, limit, data, favourite, pinned).await;
+                if let Err(err) = res {
+                    return Err(err.message());
+                }
+                res.unwrap()
+            }
+            "regexp" => {
+                let res = regexp_search(&app, minid, maxid, limit, data, favourite, pinned).await;
+                if let Err(err) = res {
+                    return Err(err.message());
+                }
+                res.unwrap()
+            }
+            _ => return Err("invalid search method".to_string()),
+        }
+    };
+
+    for (id, clip) in res.iter_mut() {
+        clip.labels = match clip_state
+            .clip_state
+            .lock()
+            .await
+            .get_clip_labels(&app, *id)
+            .await
+        {
+            Ok(labels) => labels.unwrap_or_default(),
+            Err(err) => {
+                return Err(err.message());
+            }
+        }
     }
 
-    match searchmethod.as_str() {
-        "fuzzy" => {
-            let res = fuzzy_search(&app, minid, maxid, limit, data, favourite, pinned).await;
-            if let Err(err) = res {
-                return Err(err.message());
-            }
-            Ok(res.unwrap())
-        }
-        "fast" => {
-            let res = fast_search(&app, minid, maxid, limit, data, favourite, pinned).await;
-            if let Err(err) = res {
-                return Err(err.message());
-            }
-            Ok(res.unwrap())
-        }
-        "normal" => {
-            let res = normal_search(&app, minid, maxid, limit, data, favourite, pinned).await;
-            if let Err(err) = res {
-                return Err(err.message());
-            }
-            Ok(res.unwrap())
-        }
-        "regexp" => {
-            let res = regexp_search(&app, minid, maxid, limit, data, favourite, pinned).await;
-            if let Err(err) = res {
-                return Err(err.message());
-            }
-            Ok(res.unwrap())
-        }
-        _ => Err("invalid search method".to_string()),
-    }
+    Ok(res)
 }

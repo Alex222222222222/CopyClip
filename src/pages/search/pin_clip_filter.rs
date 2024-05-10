@@ -31,7 +31,10 @@ pub fn pin_clip_filter(props: &PinClipFilterProps) -> Html {
             state.pin_filter = !state.pin_filter;
             state.search_state = SearchState::Searching;
         });
-        gloo_console::log!("cliked pin filter, set default to ", search_args.pin_filter);
+        tauri_plugin_logging::debug(format!(
+            "clicked pin filter, set default to {}",
+            search_args.pin_filter
+        ));
         spawn_local(async move {
             let res = search_clips(
                 search_res_dispatch,

@@ -1,37 +1,29 @@
-use std::{rc::Rc, sync::Mutex};
+use std::sync::Mutex;
 
+use clip::Clip;
 use serde::Deserialize;
 use serde::Serialize;
-use yew::Properties;
 
 /// max len of the clip to do fuzzy search
 const MAX_LEN: usize = 2000;
 
 /// clip data
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Clip {
-    pub id: i64,
-    pub text: Rc<String>,
-    pub timestamp: i64,
-    pub favourite: bool,
+pub struct ClipWithSearchInfo {
+    pub clip: Clip,
     pub score: i64,
     pub len: u64,
-    pub pinned: bool,
 }
 
-impl Clip {
+impl ClipWithSearchInfo {
     /// create a new clip from the search data and the clip data
-    pub fn from_clip_res(search_data: String, clip_res: ClipRes) -> Self {
+    pub fn from_clip(search_data: String, clip_res: Clip) -> Self {
         // if the text is too long, we skip the fuzzy check.
         if clip_res.text.len() > MAX_LEN {
             return Self {
                 len: clip_res.text.len() as u64,
-                id: clip_res.id,
-                text: Rc::new(clip_res.text),
-                timestamp: clip_res.timestamp,
-                favourite: clip_res.favourite,
+                clip: clip_res,
                 score: 0,
-                pinned: clip_res.pinned,
             };
         }
 
@@ -43,32 +35,18 @@ impl Clip {
         };
 
         Self {
-            id: clip_res.id,
             len: clip_res.text.len() as u64,
-            text: Rc::new(clip_res.text),
-            timestamp: clip_res.timestamp,
-            favourite: clip_res.favourite,
-            pinned: clip_res.pinned,
+            clip: clip_res,
             score,
         }
     }
-}
-
-/// clip data get from the backend
-#[derive(PartialEq, Properties, Deserialize)]
-pub struct ClipRes {
-    pub id: i64,
-    pub text: String,
-    pub timestamp: i64,
-    pub favourite: bool,
-    pub pinned: bool,
 }
 
 /// search Result
 #[derive(Default, Deserialize, Serialize, Clone)]
 pub struct SearchRes {
     pub rebuild_num: u64,
-    pub res: std::rc::Rc<Mutex<Vec<Clip>>>,
+    pub res: std::rc::Rc<Mutex<Vec<ClipWithSearchInfo>>>,
 }
 
 impl yewdux::store::Store for SearchRes {

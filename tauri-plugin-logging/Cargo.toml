@@ -1,0 +1,38 @@
+[package]
+name = "tauri-plugin-logging"
+version = "0.0.1"
+authors = ["Alex222222222222"]
+description = "logging plugin for my copyclip app"
+edition = "2021"
+
+[dependencies]
+tauri = { version = "*", optional = true }
+# used to setup logging
+fern = { version = "0.6", optional = true }
+log = { version = "*", optional = true }
+# used to read user configuration
+serde_json = { version = "*", optional = true }
+serde = { version = "*", features = ["derive"], optional = true }
+# format log messages
+chrono = { version = "*", optional = true }
+wasm-bindgen = { version = "*", optional = true }
+wasm-bindgen-futures = { version = "*", optional = true }
+serde-wasm-bindgen = { version = "*", optional = true }
+
+[features]
+# features for the tauri plugin
+tauri = [
+    "dep:tauri",
+    "dep:fern",
+    "dep:log",
+    "dep:serde_json",
+    "dep:serde",
+    "dep:chrono",
+]
+# feature for the frontend api
+api = [
+    "dep:serde",
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:serde-wasm-bindgen",
+]

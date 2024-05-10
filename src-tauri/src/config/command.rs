@@ -2,11 +2,9 @@
 use log::debug;
 use rust_i18n::set_locale;
 use tauri::{Manager, Runtime, State};
+use tauri_plugin_logging::LogLevelFilter;
 
-use crate::{
-    event::{CopyClipEvent, EventSender},
-    log::LogLevelFilter,
-};
+use crate::event::{CopyClipEvent, EventSender};
 
 use super::ConfigMutex;
 
@@ -18,7 +16,7 @@ use super::ConfigMutex;
 ///    data: i64
 /// }
 #[tauri::command]
-pub async fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<i64, String> {
+pub async fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<u64, String> {
     let config = config.config.lock().await;
     let res = config.clip_per_page;
     drop(config);
@@ -39,7 +37,7 @@ pub async fn get_per_page_data(config: State<'_, ConfigMutex>) -> Result<i64, St
 pub async fn set_per_page_data<R: Runtime>(
     app: tauri::AppHandle<R>,
     config: State<'_, ConfigMutex>,
-    data: i64,
+    data: u64,
 ) -> Result<(), String> {
     let mut config = config.config.lock().await;
     config.clip_per_page = data;
@@ -62,7 +60,7 @@ pub async fn set_per_page_data<R: Runtime>(
 ///    i64.to_string()
 /// }
 #[tauri::command]
-pub async fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<i64, String> {
+pub async fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<u64, String> {
     let config = config.config.lock().await;
     let res = config.clip_max_show_length;
     drop(config);
@@ -83,13 +81,13 @@ pub async fn get_max_clip_len(config: State<'_, ConfigMutex>) -> Result<i64, Str
 pub async fn set_max_clip_len<R: Runtime>(
     app: tauri::AppHandle<R>,
     config: State<'_, ConfigMutex>,
-    data: i64,
+    data: u64,
 ) -> Result<(), String> {
     let mut config = config.config.lock().await;
     config.clip_max_show_length = data;
 
     let event_sender = app.state::<EventSender>();
-    event_sender.send(CopyClipEvent::TrayUpdateEvent).await;
+    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
     event_sender.send(CopyClipEvent::SaveConfigEvent).await;
 
     Ok(())
@@ -165,7 +163,7 @@ pub async fn set_dark_mode(
 ///
 /// input: {}
 #[tauri::command]
-pub async fn get_search_clip_per_batch(config: State<'_, ConfigMutex>) -> Result<i64, String> {
+pub async fn get_search_clip_per_batch(config: State<'_, ConfigMutex>) -> Result<u64, String> {
     let config = config.config.lock().await;
     let res = config.search_clip_per_batch;
 
@@ -183,7 +181,7 @@ pub async fn get_search_clip_per_batch(config: State<'_, ConfigMutex>) -> Result
 #[tauri::command]
 pub async fn set_search_clip_per_batch(
     config: State<'_, ConfigMutex>,
-    data: i64,
+    data: u64,
 ) -> Result<(), String> {
     let mut config = config.config.lock().await;
     config.search_clip_per_batch = data;

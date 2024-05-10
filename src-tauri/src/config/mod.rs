@@ -3,18 +3,19 @@ use std::fs;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use tauri::{async_runtime::Mutex, AppHandle};
+use tauri_plugin_logging::LogLevelFilter;
 
-use crate::{error, log::LogLevelFilter};
+use crate::error;
 
 pub mod command;
 
-fn default_clip_per_page() -> i64 {
+fn default_clip_per_page() -> u64 {
     20
 }
-fn default_clip_max_show_length() -> i64 {
+fn default_clip_max_show_length() -> u64 {
     50
 }
-fn default_search_clip_per_batch() -> i64 {
+fn default_search_clip_per_batch() -> u64 {
     2
 }
 fn default_log_level() -> LogLevelFilter {
@@ -43,17 +44,17 @@ pub struct ConfigMutex {
 pub struct Config {
     /// the number of clips to show in the tray menu
     #[serde(default = "default_clip_per_page")]
-    pub clip_per_page: i64,
+    pub clip_per_page: u64,
     /// the max length of a clip to show in the tray menu
     #[serde(default = "default_clip_max_show_length")]
-    pub clip_max_show_length: i64,
+    pub clip_max_show_length: u64,
     /// clip max show length in search page
     /// default 500
     #[serde(default = "default_search_clip_per_batch")]
-    pub search_page_clip_max_show_length: i64,
+    pub search_page_clip_max_show_length: u64,
     /// the number of clips to search in one batch
     #[serde(default = "default_search_clip_per_batch")]
-    pub search_clip_per_batch: i64,
+    pub search_clip_per_batch: u64,
     /// log level
     #[serde(default = "default_log_level")]
     pub log_level: LogLevelFilter,
@@ -237,13 +238,7 @@ impl Config {
 
     pub fn load_config(&mut self, app: &AppHandle) {
         let config = load_config(app);
-        self.clip_per_page = if config.clip_per_page > 50 {
-            50
-        } else if config.clip_per_page < 1 {
-            1
-        } else {
-            config.clip_per_page
-        };
+        self.clip_per_page = config.clip_per_page.clamp(1, 50);
         self.clip_max_show_length = config.clip_max_show_length;
         self.search_clip_per_batch = config.search_clip_per_batch;
         self.log_level = config.log_level;

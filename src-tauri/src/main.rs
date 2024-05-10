@@ -2,62 +2,54 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use copy_clip::{
-    clip::{self, clip_data::ClipData, database::init_database_connection},
-    config,
-    config::{Config, ConfigMutex},
+    clip::{self, clip_data::ClipStateMutex},
+    config::{self, Config, ConfigMutex},
+    database::{init_database_connection, DatabaseStateMutex},
     event::{event_daemon, event_sender, CopyClipEvent, EventSender},
     export,
-    log::{panic_app, setup_logger},
     systray::handle_tray_event,
 };
-use log::info;
+use log::{error, info};
 use rust_i18n::set_locale;
 use tauri::{async_runtime::Mutex, Manager, SystemTray};
+use tauri_plugin_logging::panic_app;
 
 const EVENT_CHANNEL_SIZE: usize = 1000;
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard::init())
+        .plugin(tauri_plugin_logging::init())
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .manage(ConfigMutex {
             config: Mutex::<Config>::default(),
         })
-        .manage(ClipData::default())
+        .manage(ClipStateMutex::default())
+        .manage(DatabaseStateMutex::default())
         .setup(|app| {
-            // tx and rx is used to wait until the prepare finished
-
-            // set up the logger
-            let app_handle = app.handle();
-            let (tx, rx) = std::sync::mpsc::channel::<()>();
-            tauri::async_runtime::spawn(async move {
-                let res = setup_logger(&app_handle).await;
-                if let Err(err) = res {
-                    #[cfg(debug_assertions)]
-                    println!("failed to init logger");
-                    panic!("{}", err.to_string());
-                }
-                tx.send(()).unwrap();
-            });
-            rx.recv().unwrap();
-
             // set up the database connection and create the table
             // will also init the clip data state
             let app_handle = app.handle();
+            let connection = match init_database_connection(&app_handle) {
+                Ok(connection) => connection,
+                Err(err) => {
+                    error!("failed to init database connection");
+                    return Err(err.to_string().into());
+                }
+            };
+            // tx and rx is used to wait until the prepare finished
             let (tx, rx) = std::sync::mpsc::channel::<()>();
             tauri::async_runtime::spawn(async move {
-                let res = init_database_connection(&app_handle).await;
-                if let Err(err) = res {
-                    #[cfg(debug_assertions)]
-                    println!("failed to init database connection");
-                    panic_app(&format!("failed to init database connection {err}",));
-                }
+                let database_mutex = app_handle.state::<DatabaseStateMutex>();
+                let mut database_mutex = database_mutex.database_connection.lock().await;
+                *database_mutex = connection;
                 tx.send(()).unwrap();
             });
             rx.recv().unwrap();
 
             // load the config info from the config file
             let app_handle = app.handle();
+            // tx and rx is used to wait until the prepare finished
             let (tx, rx) = std::sync::mpsc::channel::<()>();
             tauri::async_runtime::spawn(async move {
                 let config_mutex = app_handle.state::<ConfigMutex>();
@@ -130,7 +122,6 @@ fn main() {
             clip::search::search_clips,
             clip::search::get_max_id,
             clip::id_is_pinned,
-            copy_clip::log::log_command,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

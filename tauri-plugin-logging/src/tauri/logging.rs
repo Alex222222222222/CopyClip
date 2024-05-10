@@ -1,17 +1,9 @@
 use std::{fmt::Display, fs, path::PathBuf};
 
-use log::{debug, error};
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::PathResolver;
 
 use log::warn;
-
-// remember to call `.manage(MyState::default())`
-#[tauri::command]
-pub async fn log_command(msg: String) -> Result<(), String> {
-    debug!("{}", msg);
-    Ok(())
-}
 
 /// the config struct that only load log_level
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,8 +108,8 @@ impl From<String> for LogLevelFilter {
     }
 }
 
-pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
-    let path = get_user_log_path(app);
+pub fn setup_logger(path_resolver: &PathResolver) -> Result<(), fern::InitError> {
+    let path = get_user_log_path(path_resolver);
     if path.is_none() {
         return Ok(());
     }
@@ -125,7 +117,9 @@ pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
 
     let mut log = fern::Dispatch::new().format(|out, message, record| {
         out.finish(format_args!(
-            "[{} {} {}] {}",
+            "[{}:{}][{} {} {}] {}",
+            record.file().unwrap_or("unknown"),
+            record.line().unwrap_or(0),
             get_time(),
             record.level(),
             record.target(),
@@ -136,7 +130,7 @@ pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
     // at this stage the user config is still not loaded, so we needed to manually get the config.
     // user config is loaded after the database config to prevent issue with backward compatibility
     // however, we only need the log level, so there should be no issue with the backward compatibility
-    let level = get_user_log_level(app).await;
+    let level = get_user_log_level(path_resolver);
     log = log.level(level);
 
     #[cfg(debug_assertions)]
@@ -156,8 +150,8 @@ pub async fn setup_logger(app: &AppHandle) -> Result<(), fern::InitError> {
 }
 
 /// get the app log path
-fn get_user_log_path(app: &AppHandle) -> Option<PathBuf> {
-    let log_dir = app.path_resolver().app_log_dir();
+pub fn get_user_log_path(path_resolver: &PathResolver) -> Option<PathBuf> {
+    let log_dir = path_resolver.app_log_dir();
     let mut log_dir = log_dir?;
 
     // test if log_dir exist
@@ -176,10 +170,10 @@ fn get_user_log_path(app: &AppHandle) -> Option<PathBuf> {
 }
 
 /// get the user log level
-async fn get_user_log_level(app: &AppHandle) -> log::LevelFilter {
+fn get_user_log_level(path_resolver: &PathResolver) -> log::LevelFilter {
     // warn in this functions will not go to the correct place as the logger is not yet setup
 
-    let data_dir = app.path_resolver().app_data_dir();
+    let data_dir = path_resolver.app_data_dir();
     if data_dir.is_none() {
         warn!("can not find app data dir");
         return log::LevelFilter::Info;
@@ -245,9 +239,4 @@ async fn get_user_log_level(app: &AppHandle) -> log::LevelFilter {
 fn get_time() -> String {
     let now = chrono::Local::now();
     now.format("%Y-%m-%d %H:%M:%S%.3f %z %Z").to_string()
-}
-
-pub fn panic_app(msg: &str) {
-    error!("{}", msg);
-    panic!("{}", msg);
 }

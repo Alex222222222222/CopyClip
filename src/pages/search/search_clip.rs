@@ -1,15 +1,16 @@
 use std::collections::HashMap;
 
+use clip::Clip;
 use serde::Serialize;
 use serde_wasm_bindgen::to_value;
 
 /// TODO because of I cannot find a component for the date-picker, so I do not implement the date-picker
-use crate::{
-    invoke::invoke,
-    pages::search::clip::{Clip, ClipRes},
-};
+use crate::invoke::invoke;
 
-use super::{clip::SearchRes, SearchFullArgs};
+use super::{
+    clip::{ClipWithSearchInfo, SearchRes},
+    SearchFullArgs,
+};
 
 /// search args
 #[derive(Serialize)]
@@ -69,26 +70,26 @@ pub async fn search_clips(
         .unwrap();
 
         let res = invoke("search_clips", args).await;
-        let res = serde_wasm_bindgen::from_value::<HashMap<String, ClipRes>>(res);
+        let res = serde_wasm_bindgen::from_value::<HashMap<String, Clip>>(res);
         if let Ok(res) = res {
             if res.is_empty() {
                 break;
             }
             for (id, clip) in res {
-                let id = str::parse::<i64>(id.as_str()).unwrap();
+                let id = id.parse::<u64>().unwrap();
                 max_id -= 1;
-                if id < max_id {
-                    max_id = id;
+                if (id as i64) < max_id {
+                    max_id = id as i64;
                 }
 
                 // if the clip is not the duplication of the last clip, then push it
                 search_res_dispatch.reduce_mut(|state| {
                     let mut state = state.res.lock().unwrap();
-                    let last_clip_id = state.iter().find(|clip| clip.id == id);
+                    let last_clip_id = state.iter().find(|clip| clip.clip.id == id);
                     if last_clip_id.is_some() {
                         return;
                     }
-                    state.push(Clip::from_clip_res(
+                    state.push(ClipWithSearchInfo::from_clip(
                         search_full_args.search_data.to_string(),
                         clip,
                     ));
