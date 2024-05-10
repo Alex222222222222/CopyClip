@@ -5087,9 +5087,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-clipboard"
-version = "0.6.9"
+version = "0.6.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c47a0db742d46f869e96219b8591adedca2e4534a523d4fb3bd1ef474fb27ae0"
+checksum = "9b7bac5d4342efcb63a437947aecaf135fa307b1791860805a537b56d9d75c2d"
 dependencies = [
  "base64 0.21.7",
  "clipboard-rs",
