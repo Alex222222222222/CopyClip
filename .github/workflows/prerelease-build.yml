@@ -8,14 +8,12 @@ on:
     types:
       - closed
     paths:
-      - ".github/workflows/prerelease-build.yml"
       - "!package.json"
       - "!package-lock.json"
       - "!yarn.lock"
       - "!pnpm-lock.yaml"
       - "!README.md"
       - "!.devcontainer/**"
-      - "!.github/**"
       - "!docs/**"
       - "!CODE_OF_CONDUCT.md"
 
