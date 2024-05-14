@@ -7,16 +7,17 @@ on:
   pull_request:
     types:
       - closed
-    paths-ignore:
-      - "package.json"
-      - "package-lock.json"
-      - "yarn.lock"
-      - "pnpm-lock.yaml"
-      - "README.md"
-      - ".devcontainer/**"
-      - ".github/**"
-      - "docs/**"
-      - "CODE_OF_CONDUCT.md"
+    paths:
+      - ".github/workflows/prerelease-build.yml"
+      - "!package.json"
+      - "!package-lock.json"
+      - "!yarn.lock"
+      - "!pnpm-lock.yaml"
+      - "!README.md"
+      - "!.devcontainer/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!CODE_OF_CONDUCT.md"
 
 jobs:
   build:
