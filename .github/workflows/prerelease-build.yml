@@ -14,13 +14,14 @@ on:
       - "!pnpm-lock.yaml"
       - "!README.md"
       - "!.devcontainer/**"
+      - "!.github/**"
       - "!docs/**"
       - "!CODE_OF_CONDUCT.md"
 
 jobs:
   build:
     name: build for pre-release
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     strategy:
       fail-fast: true
       matrix:
@@ -159,7 +160,7 @@ jobs:
         with:
           name: ${{ matrix.os }}-prerelease
           path: target/release/bundle/dmg
-    
+
       - if: matrix.os == 'macos-12'
         uses: actions/upload-artifact@v3
         with:
