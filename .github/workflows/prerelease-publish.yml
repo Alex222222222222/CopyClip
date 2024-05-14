@@ -10,7 +10,7 @@ on:
       - completed
 
 jobs:
-  publish:
+  on-success:
     name: Publish the package
     runs-on: ubuntu-latest
     steps:
