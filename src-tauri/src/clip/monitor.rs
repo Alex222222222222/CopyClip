@@ -2,7 +2,7 @@
 /// use the package provided by https://github.com/DoumanAsh/clipboard-master
 /// Supported platforms
 ///   - Windows - uses dummy window to receive messages when clipboard changes;
-///   - Linux - uses x11_clipboard (require to install xcb library); TODO add the requirement to the readme
+///   - Linux - uses x11_clipboard (require to install xcb library);
 ///   - MacOS - uses polling via NSPasteboard::changeCount as there is no event notification.
 ///
 /// function "monitor_clip_board" monitor the system keyboard change

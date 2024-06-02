@@ -1,6 +1,7 @@
 pub mod clip_data;
 pub mod monitor;
 pub mod search;
+mod image_clip;
 
 use tauri::{AppHandle, Manager};
 

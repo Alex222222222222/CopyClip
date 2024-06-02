@@ -24,6 +24,7 @@ default-language = "en-GB"
 available-locales = ["en-GB", "zh-CN", "en", "de"]
 
 [dependencies]
+md5 = "0.7.0"
 rust-i18n = "3.0.1"
 unicode-segmentation = "1.11.0"
 unicode-width = "0.1.11"

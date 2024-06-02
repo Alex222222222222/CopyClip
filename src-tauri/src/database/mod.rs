@@ -163,9 +163,6 @@ fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, Er
 fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connection, Error> {
     // create the database dir if it does not exist
     let database_path = app_data_dir.join("database");
-
-    // TODO test if the database file does not exist
-
     match Connection::open(database_path) {
         Ok(connection) => Ok(connection),
         Err(err) => Err(Error::OpenDatabaseErr(err.to_string())),

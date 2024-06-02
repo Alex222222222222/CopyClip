@@ -13,7 +13,7 @@ use once_cell::sync::Lazy;
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::copy_clip_to_clipboard_in;
+use super::{copy_clip_to_clipboard_in, image_clip};
 
 /// The clip data to be shared between threads
 #[derive(Debug, Default, Clone)]
@@ -623,7 +623,13 @@ impl ClipState {
     pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), Error> {
         debug!("Clipboard changed");
         // get the current clip text
-        let clipboard_clip_text = clip_data_from_system_clipboard(app)?;
+        let (clipboard_clip_type, clipboard_clip_text) = clip_data_from_system_clipboard(app)?;
+        if clipboard_clip_type != ClipType::Text {
+            // TODO implement other type of clip
+            debug!("The clipboard type is not text, do not create a new clip");
+            return Ok(());
+        }
+
         // if the current clip text is empty, then return
         if clipboard_clip_text.is_empty() {
             debug!("The clipboard text is empty, do not create a new clip");
@@ -947,23 +953,89 @@ impl ClipState {
 }
 
 /// The current clip text in the system clipboard
-fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<Arc<String>, Error> {
+///
+/// The first element is the clip type, the second element is
+/// - the text if the clip type is text
+/// - the rtf if the clip type is rtf
+/// - the html if the clip type is html
+/// - the json formatted vec<FileURI> if the clip type is file
+/// - a string of the image that indicate where the image is saved if the clip type is image
+fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<String>), Error> {
     let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
-    let has_text = match clipboard_manager.has_text() {
+    if match clipboard_manager.has_image() {
+        Ok(has_image) => has_image,
+        Err(err) => {
+            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
+        }
+    } {
+        match clipboard_manager.read_image_binary() {
+            Ok(clip) => {
+                // get path of the image
+                let user_data_dir = match app.path_resolver().app_data_dir() {
+                    Some(user_data_dir) => user_data_dir,
+                    None => return Err(Error::GetAppDataDirErr),
+                };
+                let image_path = image_clip::store_img_return_path(user_data_dir, &clip)?;
+                return Ok((ClipType::Image, Arc::new(image_path)));
+            }
+            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+        }
+    }
+
+    if match clipboard_manager.has_files() {
+        Ok(has_files) => has_files,
+        Err(err) => {
+            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
+        }
+    } {
+        match clipboard_manager.read_files_uris() {
+            Ok(clip) => {
+                // convert the clip to json
+                let clip = serde_json::to_string(&clip).unwrap();
+                return Ok((ClipType::File, Arc::new(clip)));
+            }
+            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+        }
+    }
+
+    if match clipboard_manager.has_rtf() {
+        Ok(has_rtf) => has_rtf,
+        Err(err) => {
+            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
+        }
+    } {
+        match clipboard_manager.read_rtf() {
+            Ok(clip) => return Ok((ClipType::Rtf, Arc::new(clip))),
+            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+        }
+    }
+
+    if match clipboard_manager.has_html() {
+        Ok(has_html) => has_html,
+        Err(err) => {
+            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
+        }
+    } {
+        match clipboard_manager.read_html() {
+            Ok(clip) => return Ok((ClipType::Html, Arc::new(clip))),
+            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+        }
+    }
+
+    if match clipboard_manager.has_text() {
         Ok(has_text) => has_text,
         Err(err) => {
             return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
         }
-    };
-    if !has_text {
-        // TODO unimplemented for other types of clipboard
-        return Ok(Arc::new("".to_string()));
+    } {
+        match clipboard_manager.read_text() {
+            Ok(clip) => return Ok((ClipType::Text, Arc::new(clip))),
+            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+        }
     }
 
-    match clipboard_manager.read_text() {
-        Ok(clip) => Ok(Arc::new(clip)),
-        Err(err) => Err(Error::ReadFromSystemClipboardErr(err.to_string())),
-    }
+    // The only possible type left is unknown
+    return Ok((ClipType::Text, Arc::new("".to_string())));
 }
 
 /// chars that consider as white space

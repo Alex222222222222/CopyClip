@@ -65,6 +65,9 @@ pub enum Error {
     /// failed to open the database
     /// the error message is the error message from the sqlite::open
     OpenDatabaseErr(String),
+    /// Path error
+    /// OS path related errors
+    PathError(String),
     /// read from system clipboard failed
     /// the first string is the error message
     ReadFromSystemClipboardErr(String),
@@ -131,6 +134,7 @@ impl Error {
             Error::CreatePinnedClipsTableErr(err) => format!("create pinned clips table failed, error message: {err}"),
             Error::GetPinnedClipsErr(err) => format!("failed to get pinned clips from the database, error message: {err}"),
             Error::GetFavouriteClipsErr(err) => format!("failed to get favourite clips from the database, error message: {err}"),
+            Error::PathError(err) => format!("Path error, error message: {err}"),
         }
     }
 
