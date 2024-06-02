@@ -28,7 +28,7 @@ rust-i18n = "3.0.1"
 unicode-segmentation = "1.11.0"
 unicode-width = "0.1.11"
 directories = "5.0.0"
-base64 = "0.22.0"
+base64 = "0.22.1"
 flate2 = "1.0"
 chrono = "0.4.37"
 clipboard-master = { git = "https://github.com/DoumanAsh/clipboard-master.git" }
@@ -51,21 +51,21 @@ rusqlite = { version = "0.31.0", features = [
 ] }
 data-encoding = "2.6.0"
 sublime_fuzzy = "0.7.0"
-tauri = { version = "1.6.5", features = [
-    "api-all",
+tauri = { version = "1.6.7", features = [
+    # requireed api
+    "notification-all",
+    # requireed api
+    "fs-all",
+
     "config-json5",
-    "config-toml",
-    "fs-extract-api",
-    "global-shortcut",
+
     "icon-ico",
     "icon-png",
-    "notification",
-    "process-command-api",
-    "process-relaunch-dangerous-allow-symlink-macos",
+
     "system-tray",
     "windows7-compat",
 ] }
-tauri-plugin-clipboard = "0.6.10"
+tauri-plugin-clipboard = "1.0"
 clip = { path = "../src-clip" }
 
 [features]
