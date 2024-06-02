@@ -52,16 +52,16 @@ rusqlite = { version = "0.31.0", features = [
 data-encoding = "2.6.0"
 sublime_fuzzy = "0.7.0"
 tauri = { version = "1.6.7", features = [
-    "api-all",
+    # requireed api
+    "notification-all",
+    # requireed api
+    "fs-all",
+
     "config-json5",
-    "config-toml",
-    "fs-extract-api",
-    "global-shortcut",
+
     "icon-ico",
     "icon-png",
-    "notification",
-    "process-command-api",
-    "process-relaunch-dangerous-allow-symlink-macos",
+
     "system-tray",
     "windows7-compat",
 ] }
