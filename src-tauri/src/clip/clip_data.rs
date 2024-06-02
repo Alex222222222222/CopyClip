@@ -10,6 +10,7 @@ use std::sync::Arc;
 use clip::{Clip, ClipType};
 use log::debug;
 use once_cell::sync::Lazy;
+use rtf_parser::document::RtfDocument;
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -364,6 +365,7 @@ impl ClipState {
     /// None if the clip is not found.
     #[warn(unused_must_use)]
     pub async fn get_clip(&self, app: &AppHandle, id: Option<u64>) -> Result<Option<Clip>, Error> {
+        debug!("Get clip: {:?}", id);
         // if id is none, change it to the latest clip
         let id = match id {
             Some(id) => id,
@@ -389,6 +391,7 @@ impl ClipState {
                 labels: Vec::new(),
             })
         }
+        debug!("Starting to query the clip");
         let mut res = match db_connection.query_row(
             "SELECT id, type, text, timestamp FROM clips WHERE id = ?",
             [id],
@@ -499,6 +502,8 @@ impl ClipState {
         let db_connection = app.state::<DatabaseStateMutex>();
         let db_connection = db_connection.database_connection.lock().await;
 
+        let clip_type: u8 = clip_type.into();
+
         let id: u64 = match db_connection.query_row(
             "INSERT INTO clips (id, text, timestamp, type)
             VALUES (?, ?, ?, ?)
@@ -507,7 +512,7 @@ impl ClipState {
                 id.to_string(),
                 text.to_string(),
                 timestamp.to_string(),
-                clip_type.into(),
+                clip_type.to_string(),
             ],
             |row| row.get(0),
         ) {
@@ -766,7 +771,7 @@ impl ClipState {
             let c = c.unwrap();
 
             let text = c.text.clone();
-            let text = trim_clip_text(text, max_clip_length);
+            let text = display_clip_text(c.clip_type, text, max_clip_length)?;
             let res = tray_clip_sub_menu.set_title(text);
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
@@ -845,8 +850,9 @@ impl ClipState {
                 }
             };
 
+            let pinned_clip_type = pinned_clip.clip_type;
             let pinned_clip = pinned_clip.text;
-            let pinned_clip = trim_clip_text(pinned_clip, max_clip_length);
+            let pinned_clip = display_clip_text(pinned_clip_type, pinned_clip, max_clip_length)?;
             let pinned_clip_item: tauri::SystemTrayMenuItemHandle =
                 app.tray_handle().get_item(&format!("pinned_clip_{}", i));
             let res = pinned_clip_item.set_title(pinned_clip);
@@ -883,8 +889,10 @@ impl ClipState {
                 }
             };
 
+            let favourite_clip_type = favourite_clip.clip_type;
             let favourite_clip_text = favourite_clip.text.clone();
-            let favourite_clip_text = trim_clip_text(favourite_clip_text, max_clip_length);
+            let favourite_clip_text =
+                display_clip_text(favourite_clip_type, favourite_clip_text, max_clip_length)?;
             let favourite_clip_id = "favourite_clip_".to_string() + &i.to_string();
             let favourite_clip_item: tauri::SystemTrayMenuItemHandle =
                 app.tray_handle().get_item(&favourite_clip_id);
@@ -1005,18 +1013,6 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
         }
     }
 
-    if match clipboard_manager.has_rtf() {
-        Ok(has_rtf) => has_rtf,
-        Err(err) => {
-            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
-        }
-    } {
-        match clipboard_manager.read_rtf() {
-            Ok(clip) => return Ok((ClipType::Rtf, Arc::new(clip))),
-            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
-        }
-    }
-
     if match clipboard_manager.has_html() {
         Ok(has_html) => has_html,
         Err(err) => {
@@ -1025,6 +1021,18 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
     } {
         match clipboard_manager.read_html() {
             Ok(clip) => return Ok((ClipType::Html, Arc::new(clip))),
+            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+        }
+    }
+
+    if match clipboard_manager.has_rtf() {
+        Ok(has_rtf) => has_rtf,
+        Err(err) => {
+            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
+        }
+    } {
+        match clipboard_manager.read_rtf() {
+            Ok(clip) => return Ok((ClipType::Rtf, Arc::new(clip))),
             Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
         }
     }
@@ -1048,13 +1056,38 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
 /// chars that consider as white space
 static WHITE_SPACE: Lazy<Vec<&str>> = Lazy::new(|| vec![" ", "\t", "\n", "\r"]);
 
+/// Convert the text to display friendly text
+///
+/// If the text is in rtf or html, then try get the inner text,
+/// and then trim the text to the max_clip_length.
+fn display_clip_text(clip_type: ClipType, text: Arc<String>, l: u64) -> Result<String, Error> {
+    let res = match clip_type {
+        ClipType::Rtf => {
+            let doc: RtfDocument = match RtfDocument::try_from((*text).as_str()) {
+                Ok(doc) => doc,
+                Err(err) => {
+                    return Err(Error::ParseRtfHtmlErr(err.to_string()));
+                }
+            };
+            Arc::new(doc.get_text())
+        }
+        ClipType::Html => {
+            let text = html2text::from_read(std::io::Cursor::new((*text).as_bytes()), 256);
+            Arc::new(text)
+        }
+        _ => text,
+    };
+
+    Ok(trimming_clip_text(res, l))
+}
+
 /// Trim the text to the given length.
 ///
 /// Also take care of slicing the text in the middle of a unicode character
 /// Also take care of the width of a unicode character
 ///
 /// l is treated as 20 if l <= 6
-fn trim_clip_text(text: Arc<String>, l: u64) -> String {
+fn trimming_clip_text(text: Arc<String>, l: u64) -> String {
     // trim the leading white space
     let mut text = text.graphemes(true);
     let l = if l <= 6 { 20 } else { l };

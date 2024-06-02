@@ -49,6 +49,8 @@ tauri-plugin-logging = {path = "./tauri-plugin-logging", features = ["api"]}
 clip = {path = "./src-clip", features = ["yew"]}
 
 [profile.release]
+# Strip all the debug symbles
+strip = true
 # less code to include into binary
 panic = 'abort'
 # optimization over all codebase ( better optimization, slower build )

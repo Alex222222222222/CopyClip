@@ -25,6 +25,8 @@ available-locales = ["en-GB", "zh-CN", "en", "de"]
 
 [dependencies]
 md5 = "0.7.0"
+rtf-parser = "0.3.0"
+html2text = "0.12.5"
 rust-i18n = "3.0.1"
 unicode-segmentation = "1.11.0"
 unicode-width = "0.1.11"

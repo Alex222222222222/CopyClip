@@ -90,3 +90,11 @@ pub fn store_img_return_path(user_data_dir: PathBuf, img: &Vec<u8>) -> Result<St
 
     Ok(path.to_string_lossy().to_string())
 }
+
+/// Get the image from the path
+pub fn get_img(path: &str) -> Result<Vec<u8>, Error> {
+    match std::fs::read(path) {
+        Ok(img) => Ok(img),
+        Err(err) => Err(Error::PathError(format!("failed to read image: {}", err))),
+    }
+}

@@ -1,7 +1,7 @@
 pub mod clip_data;
+mod image_clip;
 pub mod monitor;
 pub mod search;
-mod image_clip;
 
 use tauri::{AppHandle, Manager};
 
@@ -24,11 +24,34 @@ pub fn get_system_timestamp() -> i64 {
 /// copy the clip to the clipboard
 pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(), Error> {
     let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
-    match clipboard_manager.write_text((*clip.text).clone()) {
+    let res = match clip.clip_type {
+        clip::ClipType::Text => clipboard_manager.write_text((*clip.text).clone()),
+        clip::ClipType::Image => {
+            let img = image_clip::get_img(&clip.text)?;
+            clipboard_manager.write_image_binary(img)
+        }
+        clip::ClipType::File => {
+            // json deserialize the json encoded file uri
+            let file: Vec<String> = match serde_json::from_str(&clip.text) {
+                Ok(file) => file,
+                Err(e) => {
+                    return Err(Error::WriteToSystemClipboardErr(
+                        "file".to_string(),
+                        e.to_string(),
+                    ))
+                }
+            };
+            clipboard_manager.write_files_uris(file)
+        }
+        clip::ClipType::Html => clipboard_manager.write_html((*clip.text).clone()),
+        clip::ClipType::Rtf => clipboard_manager.write_rtf((*clip.text).clone()),
+    };
+
+    match res {
         Ok(_) => Ok(()),
-        Err(e) => Err(Error::WriteToSystemClipboardErr(
-            (*clip.text).clone(),
-            e.to_string(),
+        Err(err) => Err(Error::WriteToSystemClipboardErr(
+            clip.clip_type.to_string(),
+            err.to_string(),
         )),
     }
 }

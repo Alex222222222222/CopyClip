@@ -15,6 +15,8 @@ pub enum Error {
     /// failed to create clips table
     /// error message from sqlite::statement::next
     CreateClipsTableErr(String),
+    /// create pinned clips table failed
+    CreatePinnedClipsTableErr(String),
     /// failed to create version table
     /// error message from sqlite::statement::next
     CreateVersionTableErr(String),
@@ -42,6 +44,10 @@ pub enum Error {
     /// get config file path error
     /// the first string is the error message
     GetConfigFilePathErr(String),
+    /// failed to get favourite clips from the database
+    GetFavouriteClipsErr(String),
+    /// failed to get pinned clips from the database
+    GetPinnedClipsErr(String),
     /// failed to get version from the database
     /// the error message is the error message from the sqlite::query_row
     GetVersionFromDatabaseErr(String),
@@ -65,6 +71,8 @@ pub enum Error {
     /// failed to open the database
     /// the error message is the error message from the sqlite::open
     OpenDatabaseErr(String),
+    /// parse RTF or HTML error
+    ParseRtfHtmlErr(String),
     /// Path error
     /// OS path related errors
     PathError(String),
@@ -92,49 +100,44 @@ pub enum Error {
     /// failed to write to system clipboard
     /// the string is the text that failed to write to the system clipboard, the second string is the error message
     WriteToSystemClipboardErr(String, String),
-    /// create pinned clips table failed
-    CreatePinnedClipsTableErr(String),
-    /// failed to get pinned clips from the database
-    GetPinnedClipsErr(String),
-    /// failed to get favourite clips from the database
-    GetFavouriteClipsErr(String),
 }
 
 impl Error {
     /// return the error message
     pub fn message(&self) -> String {
         match self {
-            Error::Unknown => "unknown error".to_string(),
-            Error::GetAppDataDirErr => "failed to get the app data dir, using tauri path resolver".to_string(),
-            Error::CreateAppDataDirErr(err) => format!("failed to create the app data dir, error message: {err}"),
-            Error::OpenDatabaseErr(err) => format!("failed to open the database, error message: {err}"),
-            Error::GetVersionFromDatabaseErr(err) => format!("failed to get version from the database, error message: {err}"),
-            Error::GetVersionFromTauriErr => "failed to get current version from tauri".to_string(),
-            Error::InsertVersionErr(version, err) => format!("failed to insert version to the database, version: {version}, error message: {err}"),
-            Error::CreateVersionTableErr(err) => format!("failed to create version table, error message: {err}"),
-            Error::GetWholeIdsErr(err) => format!("failed to read whole ids list from the database, error message: {err}"),
-            Error::CreateClipsTableErr(err) => format!("failed to create clips table, error message: {err}"),
-            Error::WholeListIDSEmptyErr => "the whole ids list is empty".to_string(),
-            Error::InvalidIDFromWholeListErr(id) => format!("get empty or invalid id from the whole ids list, id: {id:?}"),
-            Error::GetClipDataFromDatabaseErr(id, err) => format!("get clip data from the database failed, id: {id}, error message: {err}"),
-            Error::ClipNotFoundErr(id) => format!("clip not found in the database, id: {id}"),
-            Error::DeleteClipFromDatabaseErr(id, err) => format!("delete clip from the database failed, id: {id}, error message: {err}"),
+            Error::ClipNotFoundErr(id) => format!("clip not found in the database, id: {}", id),
+            Error::CreateAppDataDirErr(err) => format!("failed to create the app data dir, error message: {}", err),
+            Error::CreateClipsTableErr(err) => format!("failed to create clips table, error message: {}", err),
+            Error::CreatePinnedClipsTableErr(err) => format!("create pinned clips table failed, error message: {}", err),
+            Error::CreateVersionTableErr(err) => format!("failed to create version table, error message: {}", err),
             Error::DatabaseConnectionErr => "the database connection is none".to_string(),
-            Error::DatabaseWriteErr(err) => format!("failed to write to database error, error message: {err}"),
-            Error::InsertClipIntoDatabaseErr(clip, err) => format!("failed to insert new clip to the database, clip data: {clip}, error message: {err}"),
-            Error::WriteToSystemClipboardErr(clip, err) => format!("failed to write to system clipboard, clip data: {clip}, error message: {err}"),
-            Error::SetSystemTrayTitleErr( err) => format!("failed to set system tray title, error message: {err}"),
-            Error::GetConfigFilePathErr(err) => format!("get config file path error, error message: {err}"),
-            Error::SerializeConfigToJsonErr(err) => format!("serialize config to json error, error message: {err}"),
-            Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {err}"),
-            Error::UpdateClipsInDatabaseErr(err, err2) => format!("update clips in database failed, error message: {err}, error message from sqlite::execute: {err2}"),
-            Error::RegexpErr(err) => format!("invalid regexp string, error message: {err}"),
-            Error::ReadFromSystemClipboardErr(err) => format!("read from system clipboard failed, error message: {err}"),
-            Error::ExportError(err) => format!("error occurred when exporting data, error message: {err}"),
-            Error::CreatePinnedClipsTableErr(err) => format!("create pinned clips table failed, error message: {err}"),
-            Error::GetPinnedClipsErr(err) => format!("failed to get pinned clips from the database, error message: {err}"),
-            Error::GetFavouriteClipsErr(err) => format!("failed to get favourite clips from the database, error message: {err}"),
-            Error::PathError(err) => format!("Path error, error message: {err}"),
+            Error::DatabaseWriteErr(err) => format!("failed to write to database error, error message: {}", err),
+            Error::DeleteClipFromDatabaseErr(id, err) => format!("delete clip from the database failed, id: {}, error message: {}", id, err),
+            Error::ExportError(err) => format!("error occurred when exporting data, error message: {}", err),
+            Error::GetAppDataDirErr => "failed to get the app data dir, using tauri path resolver".to_string(),
+            Error::GetClipDataFromDatabaseErr(id, err) => format!("get clip data from the database failed, id: {}, error message: {}", id, err),
+            Error::GetConfigFilePathErr(err) => format!("get config file path error, error message: {}", err),
+            Error::GetFavouriteClipsErr(err) => format!("failed to get favourite clips from the database, error message: {}", err),
+            Error::GetPinnedClipsErr(err) => format!("failed to get pinned clips from the database, error message: {}", err),
+            Error::GetVersionFromDatabaseErr(err) => format!("failed to get version from the database, error message: {}", err),
+            Error::GetVersionFromTauriErr => "failed to get current version from tauri".to_string(),
+            Error::GetWholeIdsErr(err) => format!("failed to read whole ids list from the database, error message: {}", err),
+            Error::InsertClipIntoDatabaseErr(clip, err) => format!("failed to insert new clip to the database, clip data: {}, error message: {}", clip, err),
+            Error::InsertVersionErr(version, err) => format!("failed to insert version to the database, version: {}, error message: {}", version, err),
+            Error::InvalidIDFromWholeListErr(id) => format!("get empty or invalid id from the whole ids list, id: {:?}", id),
+            Error::OpenDatabaseErr(err) => format!("failed to open the database, error message: {}", err),
+            Error::ParseRtfHtmlErr(err) => format!("parse RTF or HTML error, error message: {}", err),
+            Error::PathError(err) => format!("Path error, error message: {}", err),
+            Error::ReadFromSystemClipboardErr(err) => format!("read from system clipboard failed, error message: {}", err),
+            Error::RegexpErr(err) => format!("invalid regexp string, error message: {}", err),
+            Error::SerializeConfigToJsonErr(err) => format!("serialize config to json error, error message: {}", err),
+            Error::SetSystemTrayTitleErr(err) => format!("failed to set system tray title, error message: {}", err),
+            Error::Unknown => "unknown error".to_string(),
+            Error::UpdateClipsInDatabaseErr(err, err2) => format!("update clips in database failed, error message: {}, error message from sqlite::execute: {}", err, err2),
+            Error::WholeListIDSEmptyErr => "the whole ids list is empty".to_string(),
+            Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {}", err),
+            Error::WriteToSystemClipboardErr(clip, err) => format!("failed to write to system clipboard, clip data: {}, error message: {}", clip, err),
         }
     }
 
