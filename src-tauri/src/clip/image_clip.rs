@@ -2,9 +2,8 @@ use std::path::PathBuf;
 
 use crate::error::Error;
 
-
 /// Takes a vector of bytes and returns a hash of the image in base64
- fn hash_img(img: &Vec<u8>) -> String {
+fn hash_img(img: &Vec<u8>) -> String {
     let res = format!("{:x}", md5::compute(img));
     // if length of the hash is less than 16, pad it with 0
     if res.len() < 16 {
@@ -25,7 +24,7 @@ use crate::error::Error;
 ///
 /// If the exactly same image is already stored in the path, return the (path, true)
 /// If the image is not stored in the path, return the (path, false)
- fn get_img_path(user_data_dir: PathBuf, img: &Vec<u8>) -> (PathBuf, bool) {
+fn get_img_path(user_data_dir: PathBuf, img: &Vec<u8>) -> (PathBuf, bool) {
     let mut path = user_data_dir;
     path.push("img");
     let hash = hash_img(img);
@@ -88,6 +87,6 @@ pub fn store_img_return_path(user_data_dir: PathBuf, img: &Vec<u8>) -> Result<St
         }
         std::fs::write(&path, img).unwrap();
     }
-    
+
     Ok(path.to_string_lossy().to_string())
 }

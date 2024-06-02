@@ -481,7 +481,12 @@ impl ClipState {
     }
 
     /// Create a new clip in the database and return the id of the new clip
-    pub async fn new_clip(&mut self, app: &AppHandle, text: Arc<String>) -> Result<u64, Error> {
+    pub async fn new_clip(
+        &mut self,
+        app: &AppHandle,
+        clip_type: ClipType,
+        text: Arc<String>,
+    ) -> Result<u64, Error> {
         debug!("Create a new clip");
         let id: u64 = if let Some(id) = self.get_latest_clip_id(app).await? {
             id + 1
@@ -496,9 +501,14 @@ impl ClipState {
 
         let id: u64 = match db_connection.query_row(
             "INSERT INTO clips (id, text, timestamp, type)
-            VALUES (?, ?, ?, 0)
+            VALUES (?, ?, ?, ?)
             RETURNING id",
-            [id.to_string(), text.to_string(), timestamp.to_string()],
+            [
+                id.to_string(),
+                text.to_string(),
+                timestamp.to_string(),
+                clip_type.into(),
+            ],
             |row| row.get(0),
         ) {
             Ok(id) => id,
@@ -624,11 +634,6 @@ impl ClipState {
         debug!("Clipboard changed");
         // get the current clip text
         let (clipboard_clip_type, clipboard_clip_text) = clip_data_from_system_clipboard(app)?;
-        if clipboard_clip_type != ClipType::Text {
-            // TODO implement other type of clip
-            debug!("The clipboard type is not text, do not create a new clip");
-            return Ok(());
-        }
 
         // if the current clip text is empty, then return
         if clipboard_clip_text.is_empty() {
@@ -638,14 +643,14 @@ impl ClipState {
 
         // get the current clip text
         let current_clip = self.get_current_clip(app).await?;
-        let current_clip_text = if let Some(current_clip_text) = current_clip {
-            current_clip_text.text
+        let (current_clip_type, current_clip_text) = if let Some(current_clip_text) = current_clip {
+            (current_clip_text.clip_type, current_clip_text.text)
         } else {
-            Arc::new("".to_string())
+            (ClipType::Text, Arc::new("".to_string()))
         };
 
-        // if the current clip text is the same as the current clip text, then return
-        if *clipboard_clip_text == *current_clip_text {
+        // if the clip in the clipboard is the same as the current clip, then return
+        if current_clip_type == clipboard_clip_type && *clipboard_clip_text == *current_clip_text {
             debug!(
                 "The clipboard text is the same as the current clip text, do not create a new clip"
             );
@@ -655,12 +660,12 @@ impl ClipState {
         // if the current clip text is the same as the last clip text, then return
         let latest_clip_id = self.get_latest_clip_id(app).await?;
         if self.current_clip != latest_clip_id {
-            let clip = match self.get_clip(app, latest_clip_id).await? {
-                Some(clip) => clip.text,
-                None => Arc::new("".to_string()),
+            let (clip_type, clip) = match self.get_clip(app, latest_clip_id).await? {
+                Some(clip) => (clip.clip_type, clip.text),
+                None => (ClipType::Text, Arc::new("".to_string())),
             };
 
-            if *clip == *clipboard_clip_text {
+            if clip_type == clipboard_clip_type && *clip == *clipboard_clip_text {
                 debug!(
                 "The clipboard text is the same as the last clip text, do not create a new clip"
             );
@@ -668,7 +673,9 @@ impl ClipState {
             }
         }
 
-        let id = self.new_clip(app, clipboard_clip_text.clone()).await?;
+        let id = self
+            .new_clip(app, clipboard_clip_type, clipboard_clip_text.clone())
+            .await?;
         self.current_clip = Some(id);
 
         // update the tray

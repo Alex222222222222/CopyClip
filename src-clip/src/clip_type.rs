@@ -12,7 +12,7 @@ pub enum ClipType {
     Image,
     /// file path
     ///
-    /// each line is a file path
+    /// json encoded vec<FileURI>
     #[serde(rename = "file")]
     File,
     #[serde(rename = "html")]
