@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{
     config::ConfigMutex,
     database::{label_name_to_table_name, DatabaseStateMutex},
@@ -258,29 +260,51 @@ impl ClipState {
     }
 
     /// Delete a clip from the database and the cache,
-    /// this method will not delete any pinned clip.
-    ///
-    /// None represent the latest clip.
     ///
     /// Will not trigger a tray update event.
-    pub async fn delete_clip(&mut self, app: &AppHandle, id: Option<u64>) -> Result<(), Error> {
+    pub async fn delete_clip(
+        &mut self,
+        app: &AppHandle,
+        id: Option<u64>,
+    ) -> Result<(), anyhow::Error> {
         // if id is none, change it to the latest clip
         let id = match id {
             Some(id) => id,
-            None => match self.get_latest_clip_id(app).await? {
-                Some(id) => id,
-                None => return Ok(()),
-            },
+            None => return Ok(()),
+        };
+
+        let c = self.get_clip(app, Some(id)).await?;
+        let c = match c {
+            Some(c) => c,
+            None => return Ok(()),
         };
 
         // delete in database
         // wait for any error
         let db_connection = app.state::<DatabaseStateMutex>();
         let db_connection = db_connection.database_connection.lock().await;
-        match db_connection.execute("DELETE FROM clips WHERE id = ?", [id.to_string()]) {
-            Ok(_) => (),
-            Err(err) => return Err(Error::DeleteClipFromDatabaseErr(id, err.to_string())),
-        };
+        db_connection.execute("DELETE FROM clips WHERE id = ?", [id.to_string()])?;
+
+        // if it is a image, decide whether it is the only image reference to that file
+        if c.clip_type == ClipType::Image {
+            match db_connection.query_row(
+                "SELECT id FROM clips WHERE data = ?",
+                [c.get_data_database()],
+                |_| Ok(()),
+            ) {
+                Ok(_) => {
+                    // there is still a clip reference to the image file
+                }
+                Err(rusqlite::Error::QueryReturnedNoRows) => {
+                    // there is not any clip reference to the image file
+                    let path = PathBuf::from(c.decompress_text()?);
+                    if path.exists() {
+                        std::fs::remove_file(path)?;
+                    }
+                }
+                Err(err) => return Err(err.into()),
+            };
+        }
 
         self.trigger_tray_update_event(app).await;
 
