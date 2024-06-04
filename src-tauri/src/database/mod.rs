@@ -1,6 +1,9 @@
 mod init;
+mod search;
 
-use clip::Clip;
+use std::borrow::Borrow;
+
+use clip::{Clip, SearchConstraint};
 use data_encoding::BASE32;
 use log::debug;
 /// The database module is used to deal with the database connection and the database table
@@ -66,6 +69,14 @@ impl DatabaseStateMutex {
         *db_connection = connection;
 
         Ok(())
+    }
+
+    /// search the database for clips that match the search constraints
+    pub async fn search_clips(
+        &self,
+        constraints: Vec<SearchConstraint>,
+    ) -> Result<Vec<clip::Clip>, anyhow::Error> {
+        search::search_clips(&self.database_connection, constraints).await
     }
 
     /// Get the id of a clip in the database by the position counting from the lower id to the higher id.

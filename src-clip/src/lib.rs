@@ -4,6 +4,7 @@ mod clip_type;
 mod compress_data;
 #[cfg(feature = "search")]
 mod search_text;
+mod search_constraint;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -17,6 +18,8 @@ use search_text::convert_text_to_search_text;
 #[cfg(feature = "search")]
 pub use search_text::init_search;
 use unicode_segmentation::UnicodeSegmentation;
+
+pub use search_constraint::SearchConstraint;
 
 /// return the unix epoch in seconds
 pub fn timestamp() -> i64 {
