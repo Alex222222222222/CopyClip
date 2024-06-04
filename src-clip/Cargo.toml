@@ -6,9 +6,26 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.86"
+rten = { version = "0.10.0", optional = true }
+image = { version = "0.25.1", default-features = false, features = [
+    "png",
+], optional = true }
+once_cell = { version = "1.19.0", optional = true }
+ocrs = { version = "0.8.0", optional = true }
+rtf-parser = { version = "0.3.0", optional = true }
+html2text = { version = "0.12.5", optional = true }
+flate2 = { version = "1.0", optional = true }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 yew = { version = "*", features = ["csr"], optional = true }
+rusqlite = { version = "*", features = ["bundled"], optional = true }
 
 [features]
+default = ["backend"]
+backend = ["compress", "search", "database"]
 yew = ["dep:yew"]
+compress = ["flate2"]
+search = ["ocr", "dep:rtf-parser", "dep:html2text"]
+ocr = ["dep:ocrs", "dep:once_cell", "dep:image", "dep:rten"]
+database = ["dep:rusqlite"]

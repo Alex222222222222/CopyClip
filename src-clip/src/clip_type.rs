@@ -46,6 +46,31 @@ impl From<u8> for ClipType {
     }
 }
 
+impl From<ClipType> for i64 {
+    fn from(clip_type: ClipType) -> Self {
+        match clip_type {
+            ClipType::Text => 0,
+            ClipType::Image => 1,
+            ClipType::File => 2,
+            ClipType::Html => 3,
+            ClipType::Rtf => 4,
+        }
+    }
+}
+
+impl From<i64> for ClipType {
+    fn from(u: i64) -> Self {
+        match u {
+            0 => ClipType::Text,
+            1 => ClipType::Image,
+            2 => ClipType::File,
+            3 => ClipType::Html,
+            4 => ClipType::Rtf,
+            _ => ClipType::Text,
+        }
+    }
+}
+
 impl std::fmt::Display for ClipType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
