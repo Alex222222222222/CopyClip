@@ -209,8 +209,12 @@ impl ClipState {
                 Err(rusqlite::Error::QueryReturnedNoRows) => {
                     // there is not any clip reference to the image file
                     let path = PathBuf::from(c.decompress_text()?);
+                    let thumbnail_path = clip::thumbnail_path(&path);
                     if path.exists() {
                         std::fs::remove_file(path)?;
+                    };
+                    if thumbnail_path.exists() {
+                        std::fs::remove_file(thumbnail_path)?;
                     }
                 }
                 Err(err) => return Err(err.into()),
