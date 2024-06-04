@@ -4,7 +4,7 @@ use tauri::async_runtime::{Receiver, Sender};
 use tauri::{api::notification::Notification, AppHandle, Manager};
 use tauri_plugin_logging::panic_app;
 
-use crate::clip::clip_data::ClipStateMutex;
+use crate::clip::clip_data::{ClipState, ClipStateMutex};
 use crate::{
     config::ConfigMutex,
     systray::{create_tray_menu, handle_menu_item_click},
@@ -88,9 +88,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 let page_len = app.state::<ConfigMutex>();
                 let page_len = page_len.config.lock().await.clip_per_page;
                 // get the number of pinned clips
-                let clip_data = app.state::<ClipStateMutex>();
-                let clip_data = clip_data.clip_state.lock().await;
-                let pinned_clips = match clip_data.get_label_clip_number(&app, "pinned").await {
+                let pinned_clips = match ClipState::get_label_clip_number(&app, "pinned").await {
                     Ok(res) => res,
                     Err(err) => {
                         error!("Failed to get pinned clips, error: {}", err);
@@ -98,7 +96,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                     }
                 };
                 // get the number of favourite clips
-                let favourite_clips = match clip_data.get_label_clip_number(&app, "favourite").await
+                let favourite_clips = match ClipState::get_label_clip_number(&app, "favourite").await
                 {
                     Ok(res) => res,
                     Err(err) => {
@@ -109,7 +107,6 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 // get paused state
                 let paused = app.state::<ConfigMutex>();
                 let paused = paused.config.lock().await.pause_monitoring;
-                drop(clip_data);
 
                 let res = app.tray_handle().set_menu(create_tray_menu(
                     page_len as i64,
@@ -131,7 +128,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 if let Err(err) = res {
                     panic_app(&format!(
                         "Failed to update tray menu, error: {}",
-                        err.message()
+                        err.to_string()
                     ));
                 }
                 drop(clip_data);

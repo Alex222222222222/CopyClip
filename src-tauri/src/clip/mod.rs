@@ -2,6 +2,7 @@ pub mod clip_data;
 mod image_clip;
 pub mod monitor;
 
+use clip_data::ClipState;
 use tauri::{AppHandle, Manager};
 
 use crate::{
@@ -37,14 +38,8 @@ pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(
 
 /// tell if the clip is pinned
 #[tauri::command]
-pub async fn id_is_pinned(
-    app: AppHandle,
-    clip_state: tauri::State<'_, ClipStateMutex>,
-    id: u64,
-) -> Result<bool, String> {
-    let clips = clip_state.clip_state.lock().await;
-    let res = clips.clip_have_label(&app, id, "pinned").await;
-    drop(clips);
+pub async fn id_is_pinned(app: AppHandle, id: u64) -> Result<bool, String> {
+    let res = ClipState::clip_have_label(&app, id, "pinned").await;
     match res {
         Ok(res) => Ok(res),
         Err(err) => Err(err.to_string()),
@@ -62,7 +57,7 @@ pub async fn copy_clip_to_clipboard(
     let clip_data = clip_data_mutex.get_clip(&app, Some(id)).await;
     drop(clip_data_mutex);
     if let Err(err) = clip_data {
-        return Err(err.message());
+        return Err(err.to_string());
     }
     let clip_data = clip_data.unwrap();
     if clip_data.is_none() {
@@ -150,7 +145,7 @@ pub async fn switch_pinned_status(
         .await;
     drop(clip_state_mutex);
     if let Err(err) = res {
-        return Err(err.message());
+        return Err(err.to_string());
     }
 
     event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;

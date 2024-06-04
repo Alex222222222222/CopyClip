@@ -1,10 +1,8 @@
 use std::io::Write;
 
-use crate::clip::clip_data::ClipStateMutex;
+use crate::clip::clip_data::{ClipState, ClipStateMutex};
 use crate::config::ConfigMutex;
 
-use crate::database::get_all_versions;
-use crate::error;
 use crate::event::EventSender;
 
 extern crate directories;
@@ -43,7 +41,7 @@ use flate2::Compression;
 /// then the data is compressed using gzip
 /// and then save to user download folder
 #[warn(unused_must_use)]
-async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> {
+async fn export_data(app: &AppHandle, path: String) -> Result<(), anyhow::Error> {
     // write to file
     // get the file path
     let mut file_path = path;
@@ -54,11 +52,7 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
         debug!("{}", d);
     }
 
-    let file = std::fs::File::create(file_path);
-    if let Err(e) = file {
-        return Err(error::Error::ExportError(e.to_string()));
-    }
-    let file = file.unwrap();
+    let file = std::fs::File::create(file_path)?;
 
     // let mut e = ZlibEncoder::new(file, Compression::default());
     let mut e = GzEncoder::new(file, Compression::new(9));
@@ -73,82 +67,49 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
     #[cfg(debug_assertions)]
     debug!("config json: {}", c_json);
     // write to the encoder
-    let res = e.write_all(c_json.as_bytes());
-    if let Err(e) = res {
-        return Err(error::Error::ExportError(e.to_string()));
-    }
+    e.write_all(c_json.as_bytes())?;
 
     // write the separator
-    let res = e.write_all(":".as_bytes());
-    if let Err(e) = res {
-        return Err(error::Error::ExportError(e.to_string()));
-    }
+    e.write_all(":".as_bytes())?;
 
     // get all versions from database
-    let versions = get_all_versions(app).await?;
+    let versions = app
+        .state::<crate::database::DatabaseStateMutex>()
+        .get_all_versions()
+        .await?;
     // convert to json
-    let v_json = serde_json::to_string(&versions);
-    if let Err(e) = v_json {
-        return Err(error::Error::ExportError(e.to_string()));
-    }
-    let v_json = v_json.unwrap();
+    let v_json = serde_json::to_string(&versions)?;
     // encode the json to base64
     let v_json = base64::engine::general_purpose::STANDARD.encode(v_json.as_bytes());
     // write to the encoder
-    let res = e.write_all(v_json.as_bytes());
-    if let Err(e) = res {
-        return Err(error::Error::ExportError(e.to_string()));
-    }
+    e.write_all(v_json.as_bytes())?;
 
     // write the separator
-    let res = e.write_all(":".as_bytes());
-    if let Err(e) = res {
-        return Err(error::Error::ExportError(e.to_string()));
-    }
+    e.write_all(":".as_bytes())?;
 
     // the clips
     let clip_data = app.state::<ClipStateMutex>();
     let clip_data = clip_data.clip_state.lock().await;
-    let clips_len = clip_data.get_total_number_of_clip(app).await?;
+    let clips_len = ClipState::get_total_number_of_clip(app).await?;
     for i in 0..clips_len {
-        let id = clip_data.get_id_with_pos(app, i).await?;
+        let id = ClipState::get_id_with_pos(app, i).await?;
         let clip = clip_data.get_clip(app, id).await?;
         if clip.is_none() {
             continue;
         }
         let clip = clip.unwrap();
-        let c_json = clip.to_json_string();
-        if let Err(e) = c_json {
-            return Err(error::Error::ExportError(e.to_string()));
-        }
-        let c_json = c_json.unwrap();
+        let c_json = clip.to_json_string()?;
         let c_json = base64::engine::general_purpose::STANDARD.encode(c_json.as_bytes());
-        let res = e.write_all(c_json.as_bytes());
-        if let Err(e) = res {
-            return Err(error::Error::ExportError(e.to_string()));
-        }
-        let res = e.write_all(":".as_bytes());
-        if let Err(e) = res {
-            return Err(error::Error::ExportError(e.to_string()));
-        }
+        e.write_all(c_json.as_bytes())?;
+        e.write_all(":".as_bytes())?;
     }
     drop(clip_data);
 
-    let res = e.finish();
-    if let Err(e) = res {
-        return Err(error::Error::ExportError(e.to_string()));
-    }
-    let mut file = res.unwrap();
+    let mut file = e.finish()?;
 
-    let res = file.flush();
-    if let Err(err) = res {
-        return Err(error::Error::ExportError(err.to_string()));
-    }
+    file.flush()?;
 
-    let res = file.sync_all();
-    if let Err(err) = res {
-        return Err(error::Error::ExportError(err.to_string()));
-    }
+    file.sync_all()?;
 
     #[cfg(debug_assertions)]
     debug!("export data success");
@@ -160,35 +121,27 @@ async fn export_data(app: &AppHandle, path: String) -> Result<(), error::Error> 
 pub async fn export_data_invoke(
     app: tauri::AppHandle,
     event_sender: tauri::State<'_, EventSender>,
-) -> Result<(), error::Error> {
+) -> Result<(), String> {
     // save to user download dir
     // get the download dir
     let path = directories::UserDirs::new();
     if path.is_none() {
-        return Err(error::Error::ExportError(
-            "can not get user download dir".to_string(),
-        ));
+        return Err("can not get user download dir".to_string());
     }
     let path = path.unwrap();
     let path = path.download_dir();
     if path.is_none() {
-        return Err(error::Error::ExportError(
-            "can not get user download dir".to_string(),
-        ));
+        return Err("can not get user download dir".to_string());
     }
     let path = path.unwrap();
     let path = path.to_str();
     if path.is_none() {
-        return Err(error::Error::ExportError(
-            "can not get user download dir".to_string(),
-        ));
+        return Err("can not get user download dir".to_string());
     }
     let path = path.unwrap();
     let path = path.to_string();
-    let res = export_data(&app, path).await;
-    if let Err(err) = res {
-        warn!("{}", err);
-        return Err(err);
+    if let Err(err) = export_data(&app, path).await {
+        return Err(err.to_string());
     }
 
     event_sender

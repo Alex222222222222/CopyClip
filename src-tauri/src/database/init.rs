@@ -236,7 +236,7 @@ fn init_labels_table(connection: &Connection) -> Result<(), anyhow::Error> {
     )?;
 
     // get all the labels from the labels table
-    let labels = super::get_all_labels(connection)?;
+    let labels = get_all_labels(connection)?;
 
     // create the label_base32(label_name) tables for each label
     for label in labels {
@@ -290,4 +290,22 @@ fn insert_version(connection: &Connection, version: String) -> Result<(), anyhow
     connection.execute("INSERT INTO version (version) VALUES (?)", [&version])?;
 
     Ok(())
+}
+
+/// Get all labels from the labels table
+/// This function is used to get all the labels from the labels table
+/// and return a Vec<String> of the labels
+fn get_all_labels(connection: &Connection) -> Result<Vec<String>, anyhow::Error> {
+    // get all the labels from the labels table
+    let mut labels: Vec<String> = Vec::new();
+    let mut statement = connection.prepare("SELECT name FROM labels")?;
+    let statement = statement.query_map([], |row| row.get(0))?;
+    for label in statement {
+        match label {
+            Ok(label) => labels.push(label),
+            Err(err) => return Err(err.into()),
+        }
+    }
+
+    Ok(labels)
 }
