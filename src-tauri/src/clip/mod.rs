@@ -1,7 +1,6 @@
 pub mod clip_data;
 mod image_clip;
 pub mod monitor;
-pub mod search;
 
 use tauri::{AppHandle, Manager};
 
@@ -12,47 +11,27 @@ use crate::{
 
 use self::clip_data::ClipStateMutex;
 
-/// get the unix epoch timestamp in seconds
-pub fn get_system_timestamp() -> i64 {
-    let now = std::time::SystemTime::now();
-    let unix_epoch = now
-        .duration_since(std::time::UNIX_EPOCH)
-        .expect("Time went backwards");
-    unix_epoch.as_secs() as i64
-}
-
 /// copy the clip to the clipboard
-pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(), Error> {
+pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(), anyhow::Error> {
     let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
     let res = match clip.clip_type {
-        clip::ClipType::Text => clipboard_manager.write_text((*clip.text).clone()),
+        clip::ClipType::Text => clipboard_manager.write_text(clip.decompress_text()?),
         clip::ClipType::Image => {
-            let img = image_clip::get_img(&clip.text)?;
+            let img = image_clip::get_img(&clip.decompress_text()?)?;
             clipboard_manager.write_image_binary(img)
         }
         clip::ClipType::File => {
             // json deserialize the json encoded file uri
-            let file: Vec<String> = match serde_json::from_str(&clip.text) {
-                Ok(file) => file,
-                Err(e) => {
-                    return Err(Error::WriteToSystemClipboardErr(
-                        "file".to_string(),
-                        e.to_string(),
-                    ))
-                }
-            };
+            let file: Vec<String> = serde_json::from_str(&clip.decompress_text()?)?;
             clipboard_manager.write_files_uris(file)
         }
-        clip::ClipType::Html => clipboard_manager.write_html((*clip.text).clone()),
-        clip::ClipType::Rtf => clipboard_manager.write_rtf((*clip.text).clone()),
+        clip::ClipType::Html => clipboard_manager.write_html(clip.decompress_text()?),
+        clip::ClipType::Rtf => clipboard_manager.write_rtf(clip.decompress_text()?),
     };
 
     match res {
         Ok(_) => Ok(()),
-        Err(err) => Err(Error::WriteToSystemClipboardErr(
-            clip.clip_type.to_string(),
-            err.to_string(),
-        )),
+        Err(err) => Err(Error::WriteToSystemClipboardErr("".to_string(), err).into()),
     }
 }
 
@@ -92,7 +71,7 @@ pub async fn copy_clip_to_clipboard(
     let clip_data = clip_data.unwrap();
     let res = copy_clip_to_clipboard_in(&clip_data, &app);
     if let Err(err) = res {
-        return Err(err.message());
+        return Err(err.to_string());
     }
 
     event_sender

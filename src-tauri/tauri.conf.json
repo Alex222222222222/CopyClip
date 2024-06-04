@@ -8,12 +8,15 @@
   },
   "package": {
     "productName": "CopyClip",
-    "version": "0.3.9"
+    "version": "0.3.10"
   },
   "tauri": {
     "allowlist": {
       "fs": {
-        "all": true
+        "all": true,
+        "scope": [
+          "$RESOURCE/*"
+        ]
       },
       "notification": {
         "all": true
@@ -29,10 +32,10 @@
         "icons/icon.ico"
       ],
       "identifier": "org.eu.huazifan.copyclip",
-      "targets": "all"
-    },
-    "security": {
-      "csp": null
+      "targets": "all",
+      "resources": [
+        "../ocr_models/*"
+      ]
     },
     "updater": {
       "active": false

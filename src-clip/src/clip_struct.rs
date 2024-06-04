@@ -40,8 +40,11 @@ impl Clip {
     where
         T: Into<ClipType> + Copy,
     {
+        use log::debug;
+
         use crate::{compress_text, convert_text_to_search_text};
 
+        debug!("Trying to convert data");
         let st = convert_text_to_search_text(clip_type, text)?;
         let compressed_data = compress_text(text)?;
 

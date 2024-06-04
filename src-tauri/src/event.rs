@@ -168,10 +168,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                     let res = clip_data.update_clipboard(&app).await;
                     debug!("Clipboard updated");
                     if let Err(err) = res {
-                        panic_app(&format!(
-                            "Failed to update clipboard, error: {}",
-                            err.message()
-                        ));
+                        panic_app(&format!("Failed to update clipboard, error: {}", err,));
                     }
                 }
             }),

@@ -1,12 +1,13 @@
 use std::{fmt, path};
 
+use log::debug;
 use ocrs::{ImageSource, OcrEngine, OcrEngineParams};
 use once_cell::sync::OnceCell;
 use rtf_parser::document;
 
 use crate::ClipType;
 
-const MAX_SEARCH_TEXT_LENGTH: usize = 1000;
+const MAX_SEARCH_TEXT_LENGTH: u64 = 1000;
 const HTML_READ_WIDTH: usize = 80;
 static OCR_ENGINE: OnceCell<OcrEngine> = OnceCell::new();
 
@@ -61,51 +62,45 @@ fn image_to_search_text(image: &str) -> Result<String, anyhow::Error> {
 
     // see https://github.com/robertknight/ocrs/blob/main/ocrs/examples/hello_ocr.rs
     let image = image::open(image)?.into_rgb8();
-    let image = ImageSource::from_bytes(&image.as_raw(), image.dimensions())?;
+    let image = ImageSource::from_bytes(image.as_raw(), image.dimensions())?;
     let image = engine.prepare_input(image)?;
     let word_rectangles = engine.detect_words(&image)?;
     let line_rectangles = engine.find_text_lines(&image, &word_rectangles);
     let line_texts = engine.recognize_text(&image, &line_rectangles)?;
     let mut text = String::new();
-    for line_text in line_texts {
-        if let Some(r) = line_text {
-            text.push_str(format!("{}\n", r).as_str());
-        }
+    for line_text in line_texts.into_iter().flatten() {
+        text.push_str(format!("{}\n", line_text).as_str());
     }
 
-    Ok(trim_search_text(&text))
-}
-
-fn trim_search_text(text: &str) -> String {
-    let mut text = text.trim().to_string();
-    if text.len() > MAX_SEARCH_TEXT_LENGTH {
-        text.truncate(MAX_SEARCH_TEXT_LENGTH);
-    }
-    text
+    Ok(crate::trimming_clip_text(&text, MAX_SEARCH_TEXT_LENGTH))
 }
 
 fn rtf_to_search_text(rtf: &str) -> Result<String, anyhow::Error> {
     match document::RtfDocument::try_from(rtf) {
         Ok(document) => {
             let text = document.get_text();
-            Ok(trim_search_text(&text))
+            Ok(crate::trimming_clip_text(&text, MAX_SEARCH_TEXT_LENGTH))
         }
         Err(err) => Err(anyhow::Error::msg(err.to_string())),
     }
 }
 
 fn html_to_search_text(html: &str) -> String {
-    trim_search_text(&html2text::from_read(html.as_bytes(), HTML_READ_WIDTH))
+    crate::trimming_clip_text(
+        &html2text::from_read(html.as_bytes(), HTML_READ_WIDTH),
+        MAX_SEARCH_TEXT_LENGTH,
+    )
 }
 
 pub fn convert_text_to_search_text<T: Into<ClipType>>(
     clip_type: T,
     text: &str,
 ) -> Result<String, anyhow::Error> {
+    debug!("Tring to covert to search text");
     match clip_type.into() {
-        crate::ClipType::Text => Ok(trim_search_text(text)),
+        crate::ClipType::Text => Ok(crate::trimming_clip_text(text, MAX_SEARCH_TEXT_LENGTH)),
         crate::ClipType::Image => image_to_search_text(text),
-        crate::ClipType::File => Ok(trim_search_text(text)),
+        crate::ClipType::File => Ok(crate::trimming_clip_text(text, MAX_SEARCH_TEXT_LENGTH)),
         crate::ClipType::Html => Ok(html_to_search_text(text)),
         crate::ClipType::Rtf => rtf_to_search_text(text),
     }

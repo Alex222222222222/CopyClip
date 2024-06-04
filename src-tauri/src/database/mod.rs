@@ -11,7 +11,8 @@ use data_encoding::BASE32;
 ///  - clips table
 ///     - id INTEGER PRIMARY KEY AUTOINCREMENT
 ///     - type INTEGER
-///     - text TEXT
+///     - data BLOB (gz compressed data)
+///     - search_text TEXT (Using for search, trimmed under 10000 chars)
 ///     - timestamp INTEGER
 ///  - label_base32(label_name) tables for each label
 ///     - used to store the clips id for each label
@@ -52,7 +53,7 @@ impl DatabaseStateMutex {
 
 /// init the database connection and create the table
 /// also init the clips mutex
-pub fn init_database_connection(app: &AppHandle) -> Result<Connection, Error> {
+pub fn init_database_connection(app: &AppHandle) -> Result<Connection, anyhow::Error> {
     // get the app data dir
     let app_data_dir = get_and_create_app_data_dir(app);
     let app_data_dir = app_data_dir?;
@@ -76,10 +77,7 @@ pub fn init_database_connection(app: &AppHandle) -> Result<Connection, Error> {
     // init the labels table
     init_labels_table(&connection)?;
 
-    let res = connection.cache_flush();
-    if let Err(err) = res {
-        return Err(Error::DatabaseWriteErr(err.to_string()));
-    }
+    connection.cache_flush()?;
 
     Ok(connection)
 }
@@ -206,7 +204,10 @@ fn get_save_version(connection: &Connection) -> Result<String, Error> {
 /// this function will
 ///     - insert the current version into the version table
 #[warn(unused_must_use)]
-fn first_lunch_the_version_table(connection: &Connection, app: &AppHandle) -> Result<(), Error> {
+fn first_lunch_the_version_table(
+    connection: &Connection,
+    app: &AppHandle,
+) -> Result<(), anyhow::Error> {
     let current_version = get_current_version(app)?;
 
     // insert the current version into the version table
@@ -216,11 +217,10 @@ fn first_lunch_the_version_table(connection: &Connection, app: &AppHandle) -> Re
 #[warn(unused_must_use)]
 /// Insert a row into the version table
 /// This function is used to insert a new version into the version table
-fn insert_version(connection: &Connection, version: String) -> Result<(), Error> {
-    match connection.execute("INSERT INTO version (version) VALUES (?)", [&version]) {
-        Ok(_) => Ok(()),
-        Err(err) => Err(Error::InsertVersionErr(version, err.to_string())),
-    }
+fn insert_version(connection: &Connection, version: String) -> Result<(), anyhow::Error> {
+    connection.execute("INSERT INTO version (version) VALUES (?)", [&version])?;
+
+    Ok(())
 }
 
 /// this function will
@@ -232,7 +232,7 @@ fn check_save_version_and_current_version(
     save_version: String,
     connection: &Connection,
     app: &AppHandle,
-) -> Result<(), Error> {
+) -> Result<(), anyhow::Error> {
     let current_version = get_current_version(app)?;
 
     debug!("save version: {}", save_version);
@@ -258,15 +258,12 @@ fn check_save_version_and_current_version(
 ///     - if the save version is not 0.0.0, check if the save version is the same as the current version
 ///     - if not, trigger backward_comparability and update the version table
 #[warn(unused_must_use)]
-fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), Error> {
+fn init_version_table(connection: &Connection, app: &AppHandle) -> Result<(), anyhow::Error> {
     // create the version table if it does not exist
-    match connection.execute(
+    connection.execute(
         "CREATE TABLE IF NOT EXISTS version (id INTEGER PRIMARY KEY AUTOINCREMENT, version TEXT NOT NULL)",
         [],
-    ) {
-        Ok(_) => {}
-        Err(err) => return Err(Error::CreateVersionTableErr(err.to_string())),
-    };
+    )?;
 
     // try get the save version
     let save_version = get_save_version(connection)?;
@@ -293,7 +290,8 @@ fn init_clips_table(connection: &Connection) -> Result<(), Error> {
         "CREATE TABLE IF NOT EXISTS clips (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             type INTEGER NOT NULL DEFAULT 0,
-            text TEXT NOT NULL,
+            data BLOB NOT NULL,
+            search_text TEXT NOT NULL,
             timestamp INTEGER NOT NULL
         )",
         [],

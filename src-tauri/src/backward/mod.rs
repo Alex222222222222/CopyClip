@@ -7,6 +7,7 @@ use crate::{backward, error::Error};
 mod v0_2_x_to_0_3_0_database;
 mod v0_3_7_to_0_3_8_database;
 mod v0_3_8_to_0_3_9_database;
+mod v0_3_9_to_0_3_10_database;
 mod v0_3_x_to_0_3_3_config;
 mod v0_3_x_to_0_3_5_database;
 mod v0_3_x_to_0_3_7_database;
@@ -41,7 +42,7 @@ pub fn backward_comparability(
     app: &AppHandle,
     connection: &Connection,
     save_version: String,
-) -> Result<String, Error> {
+) -> Result<String, anyhow::Error> {
     debug!("start to deal with the backward comparability");
 
     // get the three version number from save_version
@@ -94,6 +95,13 @@ pub fn backward_comparability(
     if major == 0 && minor == 3 && patch < 9 {
         v0_3_8_to_0_3_9_database::upgrade(connection)?;
         patch = 9;
+    }
+
+    // when moving from 0.3.9 to 0.3.10
+    // we need to update the clips table
+    if major == 0 && minor == 3 && patch < 10 {
+        v0_3_9_to_0_3_10_database::upgrade(connection)?;
+        patch = 10;
     }
 
     Ok(format!("{}.{}.{}", major, minor, patch))

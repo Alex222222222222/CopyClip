@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use copy_clip::{
-    clip::{self, clip_data::ClipStateMutex},
+    clip::clip_data::ClipStateMutex,
     config::{self, Config, ConfigMutex},
     database::{init_database_connection, DatabaseStateMutex},
     event::{event_daemon, event_sender, CopyClipEvent, EventSender},
@@ -27,6 +27,35 @@ fn main() {
         .manage(ClipStateMutex::default())
         .manage(DatabaseStateMutex::default())
         .setup(|app| {
+            // init the clip search to enable the search feature
+            let detection_model_path = match app
+                .path_resolver()
+                .resolve_resource("../ocr_models/text-detection.rten")
+            {
+                Some(path) => path,
+                None => {
+                    error!("failed to resolve text-detection.rten");
+                    return Err("failed to resolve text-detection.rten".into());
+                }
+            };
+            let recognition_model_path = match app
+                .path_resolver()
+                .resolve_resource("../ocr_models/text-recognition.rten")
+            {
+                Some(path) => path,
+                None => {
+                    error!("failed to resolve text-recognition.rten");
+                    return Err("failed to resolve text-recognition.rten".into());
+                }
+            };
+            match clip::init_search(detection_model_path, recognition_model_path) {
+                Ok(_) => (),
+                Err(err) => {
+                    error!("failed to init search: {err}", err = err);
+                    return Err(err.into());
+                }
+            }
+
             // set up the database connection and create the table
             // will also init the clip data state
             let app_handle = app.handle();
@@ -85,7 +114,7 @@ fn main() {
             let app_handle = app.handle();
             tauri::async_runtime::spawn(async move {
                 // the daemon to monitor the system clip board change and trigger the tray update
-                clip::monitor::monitor_clip_board(&app_handle).await;
+                copy_clip::clip::monitor::monitor_clip_board(&app_handle).await;
             });
 
             // initial the tray
@@ -115,13 +144,11 @@ fn main() {
             config::command::get_auto_delete_duplicate_clip,
             config::command::set_auto_delete_duplicate_clip,
             export::export_data_invoke,
-            clip::switch_pinned_status,
-            clip::copy_clip_to_clipboard,
-            clip::delete_clip_from_database,
-            clip::change_favourite_clip,
-            clip::search::search_clips,
-            clip::search::get_max_id,
-            clip::id_is_pinned,
+            copy_clip::clip::switch_pinned_status,
+            copy_clip::clip::copy_clip_to_clipboard,
+            copy_clip::clip::delete_clip_from_database,
+            copy_clip::clip::change_favourite_clip,
+            copy_clip::clip::id_is_pinned,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -11,7 +11,7 @@ repository = "https://github.com/Alex222222222222/CopyClip"
 documentation = "https://github.com/Alex222222222222/CopyClip"
 homepage = "https://github.com/Alex222222222222/CopyClip"
 readme = "README.md"
-version = "0.3.9"
+version = "0.3.10"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,12 +24,9 @@ default-language = "en-GB"
 available-locales = ["en-GB", "zh-CN", "en", "de"]
 
 [dependencies]
+anyhow = "1.0.86"
 md5 = "0.7.0"
-rtf-parser = "0.3.0"
-html2text = "0.12.5"
 rust-i18n = "3.0.1"
-unicode-segmentation = "1.11.0"
-unicode-width = "0.1.11"
 directories = "5.0.0"
 base64 = "0.22.1"
 flate2 = "1.0"

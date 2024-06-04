@@ -1,18 +1,13 @@
 use crate::{
-    clip::get_system_timestamp,
     config::ConfigMutex,
     database::{label_name_to_table_name, DatabaseStateMutex},
     error::Error,
     event::{CopyClipEvent, EventSender},
 };
-use std::sync::Arc;
 
 use clip::{Clip, ClipType};
 use log::debug;
-use once_cell::sync::Lazy;
-use rtf_parser::document::RtfDocument;
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::{copy_clip_to_clipboard_in, image_clip};
 
@@ -378,24 +373,12 @@ impl ClipState {
         // get the clip from the database
         let db_connection = app.state::<DatabaseStateMutex>();
         let db_connection = db_connection.database_connection.lock().await;
-        fn get_clip_from_row(row: &rusqlite::Row) -> Result<Clip, rusqlite::Error> {
-            let id: u64 = row.get(0)?;
-            let clip_type: u8 = row.get(1)?;
-            let text: String = row.get(2)?;
-            let timestamp: i64 = row.get(3)?;
-            Ok(Clip {
-                id,
-                text: Arc::new(text),
-                timestamp,
-                clip_type: ClipType::from(clip_type),
-                labels: Vec::new(),
-            })
-        }
+
         debug!("Starting to query the clip");
         let mut res = match db_connection.query_row(
-            "SELECT id, type, text, timestamp FROM clips WHERE id = ?",
+            "SELECT id, type, data, timestamp, search_text FROM clips WHERE id = ?",
             [id],
-            get_clip_from_row,
+            Clip::from_database_row,
         ) {
             Ok(res) => res,
             Err(rusqlite::Error::QueryReturnedNoRows) => return Ok(None),
@@ -487,43 +470,26 @@ impl ClipState {
     pub async fn new_clip(
         &mut self,
         app: &AppHandle,
-        clip_type: ClipType,
-        text: Arc<String>,
-    ) -> Result<u64, Error> {
+        clip: &mut Clip,
+    ) -> Result<u64, anyhow::Error> {
         debug!("Create a new clip");
-        let id: u64 = if let Some(id) = self.get_latest_clip_id(app).await? {
-            id + 1
-        } else {
-            1
-        };
-
-        let timestamp = get_system_timestamp();
 
         let db_connection = app.state::<DatabaseStateMutex>();
         let db_connection = db_connection.database_connection.lock().await;
 
-        let clip_type: u8 = clip_type.into();
-
-        let id: u64 = match db_connection.query_row(
-            "INSERT INTO clips (id, text, timestamp, type)
+        let id: u64 = db_connection.query_row(
+            "INSERT INTO clips (data, timestamp, type, search_text)
             VALUES (?, ?, ?, ?)
             RETURNING id",
             [
-                id.to_string(),
-                text.to_string(),
-                timestamp.to_string(),
-                clip_type.to_string(),
+                clip.get_data_database(),
+                clip.get_timestamp_database(),
+                clip.get_clip_type_database(),
+                clip.get_search_text_database(),
             ],
-            |row| row.get(0),
-        ) {
-            Ok(id) => id,
-            Err(err) => {
-                return Err(Error::InsertClipIntoDatabaseErr(
-                    (*text).clone(),
-                    err.to_string(),
-                ));
-            }
-        };
+            |row| row.get("id"),
+        )?;
+        clip.id = id;
 
         // change the current clip to the last one
         self.current_clip = Some(id);
@@ -539,15 +505,10 @@ impl ClipState {
         drop(config);
 
         debug!("Start auto delete duplicate clip");
-        match db_connection.execute(
-            "DELETE FROM clips WHERE text = ? AND id != ?",
-            [text.to_string(), id.to_string()],
-        ) {
-            Ok(_) => (),
-            Err(err) => {
-                return Err(Error::DeleteClipFromDatabaseErr(id, err.to_string()));
-            }
-        };
+        db_connection.execute(
+            "DELETE FROM clips WHERE data = ? AND id != ?",
+            [clip.get_data_database(), clip.get_id_database()],
+        )?;
 
         self.trigger_tray_update_event(app).await;
         Ok(id)
@@ -586,7 +547,11 @@ impl ClipState {
     ///
     /// If id is None, then change to the latest clip.
     #[warn(unused_must_use)]
-    pub async fn select_clip(&mut self, app: &AppHandle, id: Option<u64>) -> Result<(), Error> {
+    pub async fn select_clip(
+        &mut self,
+        app: &AppHandle,
+        id: Option<u64>,
+    ) -> Result<(), anyhow::Error> {
         // try get the clip
         let c = self.get_clip(app, id).await?;
         if c.is_none() {
@@ -635,7 +600,7 @@ impl ClipState {
     ///
     /// Will trigger a tray update event.
     #[warn(unused_must_use)]
-    pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), Error> {
+    pub async fn update_clipboard(&mut self, app: &AppHandle) -> Result<(), anyhow::Error> {
         debug!("Clipboard changed");
         // get the current clip text
         let (clipboard_clip_type, clipboard_clip_text) = clip_data_from_system_clipboard(app)?;
@@ -646,41 +611,38 @@ impl ClipState {
             return Ok(());
         }
 
+        let mut clipboard_clip =
+            Clip::new_clip_with_id(0, &clipboard_clip_text, clipboard_clip_type)?;
+
         // get the current clip text
         let current_clip = self.get_current_clip(app).await?;
-        let (current_clip_type, current_clip_text) = if let Some(current_clip_text) = current_clip {
-            (current_clip_text.clip_type, current_clip_text.text)
-        } else {
-            (ClipType::Text, Arc::new("".to_string()))
-        };
-
         // if the clip in the clipboard is the same as the current clip, then return
-        if current_clip_type == clipboard_clip_type && *clipboard_clip_text == *current_clip_text {
-            debug!(
-                "The clipboard text is the same as the current clip text, do not create a new clip"
-            );
-            return Ok(());
-        }
-
-        // if the current clip text is the same as the last clip text, then return
-        let latest_clip_id = self.get_latest_clip_id(app).await?;
-        if self.current_clip != latest_clip_id {
-            let (clip_type, clip) = match self.get_clip(app, latest_clip_id).await? {
-                Some(clip) => (clip.clip_type, clip.text),
-                None => (ClipType::Text, Arc::new("".to_string())),
-            };
-
-            if clip_type == clipboard_clip_type && *clip == *clipboard_clip_text {
+        if let Some(current_clip) = current_clip {
+            if current_clip.clip_type == clipboard_clip.clip_type
+                && current_clip.data == clipboard_clip.data
+            {
                 debug!(
-                "The clipboard text is the same as the last clip text, do not create a new clip"
-            );
+                    "The clipboard text is the same as the current clip text, do not create a new clip"
+                );
                 return Ok(());
             }
         }
 
-        let id = self
-            .new_clip(app, clipboard_clip_type, clipboard_clip_text.clone())
-            .await?;
+        // if the current clip text is the not same as the last clip text, then compare the last clip with the clip in the clipboard
+        let latest_clip_id = self.get_latest_clip_id(app).await?;
+        if self.current_clip != latest_clip_id {
+            let latest_clip = self.get_clip(app, latest_clip_id).await?;
+            if let Some(latest_clip) = latest_clip {
+                if latest_clip.clip_type == clipboard_clip.clip_type
+                    && latest_clip.data == clipboard_clip.data
+                {
+                    debug!("The clipboard text is the same as the latest clip text, do not create a new clip");
+                    return Ok(());
+                }
+            }
+        }
+
+        let id = self.new_clip(app, &mut clipboard_clip).await?;
         self.current_clip = Some(id);
 
         // update the tray
@@ -770,9 +732,8 @@ impl ClipState {
             }
             let c = c.unwrap();
 
-            let text = c.text.clone();
-            let text = display_clip_text(c.clip_type, text, max_clip_length)?;
-            let res = tray_clip_sub_menu.set_title(text);
+            let text = clip::trimming_clip_text(&c.search_text, max_clip_length);
+            let res: Result<(), tauri::Error> = tray_clip_sub_menu.set_title(text);
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
@@ -850,9 +811,7 @@ impl ClipState {
                 }
             };
 
-            let pinned_clip_type = pinned_clip.clip_type;
-            let pinned_clip = pinned_clip.text;
-            let pinned_clip = display_clip_text(pinned_clip_type, pinned_clip, max_clip_length)?;
+            let pinned_clip = clip::trimming_clip_text(&pinned_clip.search_text, max_clip_length);
             let pinned_clip_item: tauri::SystemTrayMenuItemHandle =
                 app.tray_handle().get_item(&format!("pinned_clip_{}", i));
             let res = pinned_clip_item.set_title(pinned_clip);
@@ -889,10 +848,8 @@ impl ClipState {
                 }
             };
 
-            let favourite_clip_type = favourite_clip.clip_type;
-            let favourite_clip_text = favourite_clip.text.clone();
             let favourite_clip_text =
-                display_clip_text(favourite_clip_type, favourite_clip_text, max_clip_length)?;
+                clip::trimming_clip_text(&favourite_clip.search_text, max_clip_length);
             let favourite_clip_id = "favourite_clip_".to_string() + &i.to_string();
             let favourite_clip_item: tauri::SystemTrayMenuItemHandle =
                 app.tray_handle().get_item(&favourite_clip_id);
@@ -975,7 +932,7 @@ impl ClipState {
 /// - the html if the clip type is html
 /// - the json formatted vec<FileURI> if the clip type is file
 /// - a string of the image that indicate where the image is saved if the clip type is image
-fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<String>), Error> {
+fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, String), Error> {
     let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
     if match clipboard_manager.has_image() {
         Ok(has_image) => has_image,
@@ -991,7 +948,7 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
                     None => return Err(Error::GetAppDataDirErr),
                 };
                 let image_path = image_clip::store_img_return_path(user_data_dir, &clip)?;
-                return Ok((ClipType::Image, Arc::new(image_path)));
+                return Ok((ClipType::Image, image_path));
             }
             Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
         }
@@ -1007,7 +964,7 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
             Ok(clip) => {
                 // convert the clip to json
                 let clip = serde_json::to_string(&clip).unwrap();
-                return Ok((ClipType::File, Arc::new(clip)));
+                return Ok((ClipType::File, clip));
             }
             Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
         }
@@ -1020,7 +977,7 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
         }
     } {
         match clipboard_manager.read_html() {
-            Ok(clip) => return Ok((ClipType::Html, Arc::new(clip))),
+            Ok(clip) => return Ok((ClipType::Html, clip)),
             Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
         }
     }
@@ -1032,7 +989,7 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
         }
     } {
         match clipboard_manager.read_rtf() {
-            Ok(clip) => return Ok((ClipType::Rtf, Arc::new(clip))),
+            Ok(clip) => return Ok((ClipType::Rtf, clip)),
             Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
         }
     }
@@ -1044,84 +1001,11 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, Arc<Str
         }
     } {
         match clipboard_manager.read_text() {
-            Ok(clip) => return Ok((ClipType::Text, Arc::new(clip))),
+            Ok(clip) => return Ok((ClipType::Text, clip)),
             Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
         }
     }
 
     // The only possible type left is unknown
-    return Ok((ClipType::Text, Arc::new("".to_string())));
-}
-
-/// chars that consider as white space
-static WHITE_SPACE: Lazy<Vec<&str>> = Lazy::new(|| vec![" ", "\t", "\n", "\r"]);
-
-/// Convert the text to display friendly text
-///
-/// If the text is in rtf or html, then try get the inner text,
-/// and then trim the text to the max_clip_length.
-fn display_clip_text(clip_type: ClipType, text: Arc<String>, l: u64) -> Result<String, Error> {
-    let res = match clip_type {
-        ClipType::Rtf => {
-            let doc: RtfDocument = match RtfDocument::try_from((*text).as_str()) {
-                Ok(doc) => doc,
-                Err(err) => {
-                    return Err(Error::ParseRtfHtmlErr(err.to_string()));
-                }
-            };
-            Arc::new(doc.get_text())
-        }
-        ClipType::Html => {
-            let text = html2text::from_read(std::io::Cursor::new((*text).as_bytes()), 256);
-            Arc::new(text)
-        }
-        _ => text,
-    };
-
-    Ok(trimming_clip_text(res, l))
-}
-
-/// Trim the text to the given length.
-///
-/// Also take care of slicing the text in the middle of a unicode character
-/// Also take care of the width of a unicode character
-///
-/// l is treated as 20 if l <= 6
-fn trimming_clip_text(text: Arc<String>, l: u64) -> String {
-    // trim the leading white space
-    let mut text = text.graphemes(true);
-    let l = if l <= 6 { 20 } else { l };
-
-    let mut res: String = String::new();
-    loop {
-        let char = text.next();
-        if char.is_none() {
-            break;
-        }
-        let char = char.unwrap();
-        if WHITE_SPACE.contains(&char) {
-            continue;
-        } else {
-            res += char;
-            break;
-        }
-    }
-
-    let mut final_width = 0;
-    loop {
-        let char = text.next();
-        if char.is_none() {
-            break;
-        }
-        let char = char.unwrap();
-        let width = unicode_width::UnicodeWidthStr::width(char);
-        if final_width + width > l as usize {
-            res.push_str("...");
-            break;
-        }
-        final_width += width;
-        res.push_str(char);
-    }
-
-    res
+    Ok((ClipType::Text, "".to_string()))
 }

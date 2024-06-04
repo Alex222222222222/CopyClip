@@ -6,7 +6,7 @@ use yewdux::{functional::use_store, store::Store};
 
 use crate::{
     components::preferences::language_config::LanguagesConfigState,
-    pages::{home::Home, preferences::Preferences, search::Search},
+    pages::{home::Home, preferences::Preferences},
 };
 
 #[derive(Clone, Routable, PartialEq)]
@@ -18,9 +18,6 @@ pub enum Route {
     #[at("/preferences")]
     /// Preferences page
     Preferences,
-    #[at("/search")]
-    /// Search page
-    Search,
     #[not_found]
     #[at("/404")]
     /// 404 page
@@ -35,9 +32,6 @@ fn switch(routes: Route) -> Html {
         },
         Route::Preferences => html! {
             <Preferences />
-        },
-        Route::Search => html! {
-            <Search />
         },
         Route::NotFound => html! { <h1>{ "404" }</h1> },
     }
