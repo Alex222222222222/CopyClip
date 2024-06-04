@@ -759,6 +759,7 @@ dependencies = [
  "data-encoding",
  "directories",
  "flate2",
+ "image 0.25.1",
  "log",
  "md5",
  "once_cell",

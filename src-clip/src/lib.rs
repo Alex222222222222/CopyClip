@@ -6,7 +6,7 @@ mod compress_data;
 mod search_text;
 mod search_constraint;
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{path::{Path, PathBuf}, time::{SystemTime, UNIX_EPOCH}};
 
 pub use clip_struct::Clip;
 pub use clip_type::ClipType;
@@ -28,6 +28,16 @@ pub fn timestamp() -> i64 {
         Ok(time_now) => time_now.as_secs() as i64,
         Err(_) => -(UNIX_EPOCH.duration_since(time_now).unwrap().as_secs() as i64),
     }
+}
+
+/// Calculate the thumbnail path of an img if given an img path
+/// the thumbnail path is like [img_path]_thumbnail
+pub fn thumbnail_path(img_path: &Path) -> PathBuf {
+    let mut thumbnail_path = img_path.to_path_buf();
+    let file_name = thumbnail_path.file_name().unwrap().to_str().unwrap();
+    let file_name = file_name.split('.').collect::<Vec<&str>>().join("_thumbnail.");
+    thumbnail_path.set_file_name(file_name);
+    thumbnail_path
 }
 
 /// chars that consider as white space

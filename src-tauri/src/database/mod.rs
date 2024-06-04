@@ -1,8 +1,6 @@
 mod init;
 mod search;
 
-use std::borrow::Borrow;
-
 use clip::{Clip, SearchConstraint};
 use data_encoding::BASE32;
 use log::debug;

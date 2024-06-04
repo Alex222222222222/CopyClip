@@ -1,4 +1,7 @@
-use std::{fmt, path};
+use std::{
+    fmt,
+    path::{self, PathBuf},
+};
 
 use log::debug;
 use ocrs::{ImageSource, OcrEngine, OcrEngineParams};
@@ -60,8 +63,15 @@ fn image_to_search_text(image: &str) -> Result<String, anyhow::Error> {
         None => return Err(OcrEngineNotInitialisedError {}.into()),
     };
 
+    // Test if the thumbnail is valid
+    let mut image_path = PathBuf::from(image);
+    let thumbnail_path = crate::thumbnail_path(&image_path);
+    if thumbnail_path.exists() {
+        image_path = thumbnail_path;
+    }
+
     // see https://github.com/robertknight/ocrs/blob/main/ocrs/examples/hello_ocr.rs
-    let image = image::open(image)?.into_rgb8();
+    let image = image::open(image_path)?.into_rgb8();
     let image = ImageSource::from_bytes(image.as_raw(), image.dimensions())?;
     let image = engine.prepare_input(image)?;
     let word_rectangles = engine.detect_words(&image)?;
@@ -69,6 +79,12 @@ fn image_to_search_text(image: &str) -> Result<String, anyhow::Error> {
     let line_texts = engine.recognize_text(&image, &line_rectangles)?;
     let mut text = String::new();
     for line_text in line_texts.into_iter().flatten() {
+        let line_text = format!("{}", line_text);
+        // if line_text is empty, or only contains white space, or only contains one character
+        let cnt = line_text.chars().filter(|c| !c.is_whitespace()).count();
+        if cnt == 0 || cnt == 1 {
+            continue;
+        }
         text.push_str(format!("{}\n", line_text).as_str());
     }
 

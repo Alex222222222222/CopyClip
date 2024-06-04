@@ -1,5 +1,5 @@
 use clip::{Clip, SearchConstraint};
-use rusqlite::{params, params_from_iter, Connection, Params, ParamsFromIter};
+use rusqlite::{params_from_iter, Connection};
 use tauri::async_runtime::Mutex;
 
 use crate::database::label_name_to_table_name;
@@ -80,7 +80,7 @@ fn group_constraints_by_sql_statement_type(
     let mut join_constraints = Vec::new();
 
     for constraint in constraints {
-        match sql_statement_type_of_search_constraint(&constraint) {
+        match sql_statement_type_of_search_constraint(constraint) {
             SQLStatementType::Where => where_constraints.push(constraint),
             SQLStatementType::Limit => limit_constraints.push(constraint),
             SQLStatementType::Join => join_constraints.push(constraint),
@@ -93,8 +93,8 @@ fn group_constraints_by_sql_statement_type(
 /// Verify the validity of limit constraints
 /// There should be at most one limit constraint, if not the first one is used
 /// If there is no limit constraint, the default limit is used
-fn verify_limit_constraints(constraints: &Vec<&SearchConstraint>) -> SearchConstraint {
-    if constraints.len() == 0 {
+fn verify_limit_constraints(constraints: &[&SearchConstraint]) -> SearchConstraint {
+    if constraints.is_empty() {
         SearchConstraint::Limit(DEFAULT_SEARCH_LIMIT)
     } else {
         constraints[0].clone()
@@ -102,16 +102,19 @@ fn verify_limit_constraints(constraints: &Vec<&SearchConstraint>) -> SearchConst
 }
 
 /// Convert a list of search constraints to a SQL query
-fn search_constraints_to_sql(constraints: &Vec<SearchConstraint>) -> String {
+/// Convert a list of search constraints to a list of rusqlite::types::Value
+fn search_constraints_to_sql_and_paras(
+    constraints: &Vec<SearchConstraint>,
+) -> (String, Vec<rusqlite::types::Value>) {
     let (where_constraints, limit_constraints, join_constraints) =
         group_constraints_by_sql_statement_type(constraints);
     let limit_constraint = verify_limit_constraints(&limit_constraints);
 
+    // calculate query
     let mut query = String::from(
         "SELECT id, type, data, search_text, timestamp FROM clips ORDER BY timestamp DESC",
     );
     query.push('\n');
-
     for (i, constraint) in where_constraints.iter().enumerate() {
         if i == 0 {
             query.push_str(" WHERE ");
@@ -122,38 +125,24 @@ fn search_constraints_to_sql(constraints: &Vec<SearchConstraint>) -> String {
         query.push_str(&search_constraint_to_sql(constraint, i as u64 + 1));
         query.push('\n');
     }
-
     query.push_str(&search_constraint_to_sql(
         &limit_constraint,
         where_constraints.len() as u64 + 1,
     ));
     query.push('\n');
-
     for (i, constraint) in join_constraints.iter().enumerate() {
         query.push_str(&search_constraint_to_sql(constraint, i as u64 + 1));
         query.push('\n');
     }
 
-    query
-}
-
-/// Convert a list of search constraints to a list of rusqlite::types::Value
-fn search_constraints_to_params(
-    constraints: &Vec<SearchConstraint>,
-) -> Vec<rusqlite::types::Value> {
-    let (where_constraints, limit_constraints, _) =
-        group_constraints_by_sql_statement_type(constraints);
-    let limit_constraint = verify_limit_constraints(&limit_constraints);
-
+    // calculate params
     let mut params = Vec::new();
-
     for constraint in where_constraints {
-        params.push(search_constraint_to_value(&constraint));
+        params.push(search_constraint_to_value(constraint));
     }
-
     params.push(search_constraint_to_value(&limit_constraint));
 
-    params
+    (query, params)
 }
 
 /// search the database for clips that match the search constraints
@@ -161,12 +150,12 @@ pub async fn search_clips(
     connection: &Mutex<Connection>,
     constraints: Vec<SearchConstraint>,
 ) -> Result<Vec<clip::Clip>, anyhow::Error> {
-    let params = search_constraints_to_params(&constraints);
+    let (query, params) = search_constraints_to_sql_and_paras(&constraints);
     let params = params_from_iter(params.iter());
 
     let connection = connection.lock().await;
 
-    let mut stmt = connection.prepare(&search_constraints_to_sql(&constraints))?;
+    let mut stmt = connection.prepare(&query)?;
     let clips = stmt
         .query_map(params, Clip::from_database_row)?
         .collect::<Result<Vec<clip::Clip>, _>>()?;

@@ -96,14 +96,14 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                     }
                 };
                 // get the number of favourite clips
-                let favourite_clips = match ClipState::get_label_clip_number(&app, "favourite").await
-                {
-                    Ok(res) => res,
-                    Err(err) => {
-                        error!("Failed to get favourite clips, error: {}", err);
-                        return;
-                    }
-                };
+                let favourite_clips =
+                    match ClipState::get_label_clip_number(&app, "favourite").await {
+                        Ok(res) => res,
+                        Err(err) => {
+                            error!("Failed to get favourite clips, error: {}", err);
+                            return;
+                        }
+                    };
                 // get paused state
                 let paused = app.state::<ConfigMutex>();
                 let paused = paused.config.lock().await.pause_monitoring;
@@ -126,10 +126,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
 
                 let res = clip_data.update_tray(&app).await;
                 if let Err(err) = res {
-                    panic_app(&format!(
-                        "Failed to update tray menu, error: {}",
-                        err.to_string()
-                    ));
+                    panic_app(&format!("Failed to update tray menu, error: {}", err));
                 }
                 drop(clip_data);
             }),

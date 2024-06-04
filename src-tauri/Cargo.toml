@@ -24,6 +24,7 @@ default-language = "en-GB"
 available-locales = ["en-GB", "zh-CN", "en", "de"]
 
 [dependencies]
+image = { version = "0.25.1", default-features = false, features = ["png"] }
 anyhow = "1.0.86"
 md5 = "0.7.0"
 rust-i18n = "3.0.1"

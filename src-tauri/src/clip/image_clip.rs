@@ -86,6 +86,14 @@ pub fn store_img_return_path(user_data_dir: PathBuf, img: &Vec<u8>) -> Result<St
             }
         }
         std::fs::write(&path, img).unwrap();
+        let size = img.len();
+        // if size is larger than 32KB, create a thumbnail
+        if size > 32 * 1024 {
+            let thumbnail_path = clip::thumbnail_path(&path);
+            let img = image::load_from_memory(img).unwrap();
+            let thumbnail = img.thumbnail(50, 50);
+            thumbnail.save(thumbnail_path).unwrap();
+        }
     }
 
     Ok(path.to_string_lossy().to_string())
