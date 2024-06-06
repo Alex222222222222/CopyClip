@@ -15,6 +15,8 @@ mod invoke;
 mod pages;
 /// Route table for the app
 mod route;
+/// Main search page
+mod search;
 
 // Load I18n macro, for allow you use `t!` macro in anywhere.
 #[macro_use]

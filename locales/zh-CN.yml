@@ -16,25 +16,9 @@ head_bar:
   search: 搜索
 
 search:
-  title: 搜索
-  search_box: 搜索框
-  normal: 普通
-  regex: 正则
-  fuzzy: 模糊
-  fast: 快速
-  search_method: 搜索方式
-  order_by: 排序方式
-  time: 时间
-  score: 分数
-  id: ID
-  text: 文本
-  length: 长度
-  desc: 降序
-  asc: 升序
-  number_of_results: 搜索数量
-  min_id: 最小ID
-  max_id: 最大ID
-  press_to_search: 搜索
+  search_placeholder: 输入 "/" 进行搜索
+  enable_regex_search: 启用正则表达式搜索
+  enable_fuzzy_search: 启用模糊搜索
 
 export:
   export_button: 导出数据到下载文件夹

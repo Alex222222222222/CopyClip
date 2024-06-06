@@ -43,6 +43,12 @@ yew_icons = { version = "0.8", features = [
   "BootstrapHeart",
   "BootstrapPinAngle",
   "BootstrapPinAngleFill",
+  "FontAwesomeSolidSun",
+  "BootstrapMoonStarsFill",
+  "FontAwesomeSolidMagnifyingGlass",
+  "LucideRegex",
+  "HeroiconsMiniSolidMagnifyingGlassPlus",
+  "HeroiconsOutlineListBullet",
 ] }
 # for logging
 tauri-plugin-logging = { path = "./tauri-plugin-logging", features = ["api"] }

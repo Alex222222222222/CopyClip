@@ -17,3 +17,10 @@ pub enum SearchConstraint {
     /// Limit the number of results
     Limit(usize),
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TextSearchMethod {
+    Contains,
+    Regex,
+    Fuzzy,
+}

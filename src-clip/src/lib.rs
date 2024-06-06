@@ -20,6 +20,7 @@ pub use search_text::init_search;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub use search_constraint::SearchConstraint;
+pub use search_constraint::TextSearchMethod;
 
 /// return the unix epoch in seconds
 pub fn timestamp() -> i64 {

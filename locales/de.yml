@@ -20,25 +20,9 @@ head_bar:
   home: Startseite
 
 search:
-  title: Suche
-  search_box: Suchfeld
-  normal: Normal
-  regex: Regex
-  fuzzy: Fuzzy
-  fast: Schnell
-  search_method: Such Methode
-  order_by: Sortieren nach
-  time: Zeit
-  score: Score
-  id: Id
-  text: Text
-  length: Länge
-  desc: Absteigend
-  asc: Aufsteigend
-  number_of_results: Anzahl der Ergebnisse
-  min_id: Min Id
-  max_id: Max Id
-  press_to_search: Suche starten
+  search_placeholder: Tippe "/" um zu suchen
+  enable_regex_search: Regex Suche aktivieren
+  enable_fuzzy_search: Fuzzy Suche aktivieren
 
 export:
   export_button: Drücke um deine Daten nach ~/Downloads zu exportieren

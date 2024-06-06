@@ -20,25 +20,9 @@ head_bar:
   home: Home
 
 search:
-  title: Search
-  search_box: Search Box
-  normal: Normal
-  regex: Regex
-  fuzzy: Fuzzy
-  fast: Fast
-  search_method: Search Method
-  order_by: Order By
-  time: Time
-  score: Score
-  id: Id
-  text: Text
-  length: Length
-  desc: Desc
-  asc: Asc
-  number_of_results: Number Of Results
-  min_id: Min Id
-  max_id: Max Id
-  press_to_search: Press To Search
+  search_placeholder: Type "/" to search
+  enable_regex_search: Enable Regex Search
+  enable_fuzzy_search: Enable Fuzzy Search
 
 export:
   export_button: Press To Export Data to ~/Downloads
