@@ -386,6 +386,8 @@ impl ClipState {
         app: &AppHandle,
         id: Option<u64>,
     ) -> Result<(), anyhow::Error> {
+        debug!("Select a clip");
+
         // try get the clip
         let c = self.get_clip(app, id).await?;
         if c.is_none() {
@@ -438,6 +440,9 @@ impl ClipState {
         debug!("Clipboard changed");
         // get the current clip text
         let (clipboard_clip_type, clipboard_clip_text) = clip_data_from_system_clipboard(app)?;
+
+        debug!("Clipboard text: {}", clipboard_clip_text);
+        debug!("Clipboard type: {:?}", clipboard_clip_type);
 
         // if the current clip text is empty, then return
         if clipboard_clip_text.is_empty() {
@@ -768,17 +773,18 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, String)
         }
     }
 
-    if match clipboard_manager.has_html() {
-        Ok(has_html) => has_html,
-        Err(err) => {
-            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
-        }
-    } {
-        match clipboard_manager.read_html() {
-            Ok(clip) => return Ok((ClipType::Html, clip)),
-            Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
-        }
-    }
+    // TODO There is a problem writing html to the clipboard, vscode can't read it
+    // if match clipboard_manager.has_html() {
+    //     Ok(has_html) => has_html,
+    //     Err(err) => {
+    //        return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
+    //     }
+    // } {
+    //     match clipboard_manager.read_html() {
+    //         Ok(clip) => return Ok((ClipType::Html, clip)),
+    //         Err(err) => return Err(Error::ReadFromSystemClipboardErr(err.to_string())),
+    //     }
+    // }
 
     if match clipboard_manager.has_rtf() {
         Ok(has_rtf) => has_rtf,

@@ -73,9 +73,7 @@ impl Clip {
     /// Get the decompressed data of a clip
     #[cfg(feature = "compress")]
     pub fn decompress_text(&self) -> Result<String, anyhow::Error> {
-        use crate::decompress_text;
-
-        decompress_text(&self.data)
+        crate::decompress_text(&self.data)
     }
 
     /// Create a clip from a database row,

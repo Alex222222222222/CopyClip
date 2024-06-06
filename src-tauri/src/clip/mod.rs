@@ -3,6 +3,7 @@ mod image_clip;
 pub mod monitor;
 
 use clip_data::ClipState;
+use log::debug;
 use tauri::{AppHandle, Manager};
 
 use crate::{
@@ -29,6 +30,8 @@ pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(
         clip::ClipType::Html => clipboard_manager.write_html(clip.decompress_text()?),
         clip::ClipType::Rtf => clipboard_manager.write_rtf(clip.decompress_text()?),
     };
+
+    debug!("write to clipboard result: {:?}", res);
 
     match res {
         Ok(_) => Ok(()),
