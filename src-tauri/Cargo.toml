@@ -26,7 +26,7 @@ available-locales = ["en-GB", "zh-CN", "en", "de"]
 [dependencies]
 rust-i18n = "3.0.1"
 unicode-segmentation = "1.11.0"
-unicode-width = "0.1.11"
+unicode-width = "0.1.13"
 directories = "5.0.0"
 base64 = "0.22.1"
 flate2 = "1.0"
