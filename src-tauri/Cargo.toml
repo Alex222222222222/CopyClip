@@ -38,7 +38,7 @@ tauri-plugin-logging = { path = "../tauri-plugin-logging", features = [
     "tauri",
 ] }
 once_cell = "1.19.0"
-regex = "1.10.3"
+regex = "1.10.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rusqlite = { version = "0.31.0", features = [
