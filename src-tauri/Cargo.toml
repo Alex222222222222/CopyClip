@@ -52,7 +52,7 @@ rusqlite = { version = "0.31.0", features = [
 ] }
 data-encoding = "2.6.0"
 sublime_fuzzy = "0.7.0"
-tauri = { version = "1.6.7", features = [
+tauri = { version = "1.6.8", features = [
     # requireed api
     "notification-all",
     # requireed api
@@ -66,7 +66,7 @@ tauri = { version = "1.6.7", features = [
     "system-tray",
     "windows7-compat",
 ] }
-tauri-plugin-clipboard = "1.0"
+tauri-plugin-clipboard = "1.1.3"
 clip = { path = "../src-clip" }
 
 [features]
