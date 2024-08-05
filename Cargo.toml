@@ -15,7 +15,7 @@ available-locales = ["en-GB", "zh-CN", "en", "de"]
 rust-i18n = "3.0.1"
 chrono = "0.4.37"
 js-sys = "0.3.47"
-regex = "1.10.3"
+regex = "1.10.6"
 serde = { version = "1.0.202", features = ["derive"] }
 serde-wasm-bindgen = "0.6.3"
 sublime_fuzzy = "0.7.0"
