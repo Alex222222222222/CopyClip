@@ -24,24 +24,24 @@ default-language = "en-GB"
 available-locales = ["en-GB", "zh-CN", "en", "de"]
 
 [dependencies]
-rust-i18n = "3.0.1"
-unicode-segmentation = "1.11.0"
-unicode-width = "0.1.11"
-directories = "5.0.0"
-base64 = "0.22.1"
-flate2 = "1.0"
-chrono = "0.4.37"
+rust-i18n = "3.1"
+unicode-segmentation = "1.11"
+unicode-width = "0.1"
+directories = "5.0"
+base64 = "0.22"
+flate2 = "1"
+chrono = "0.4"
 clipboard-master = { git = "https://github.com/DoumanAsh/clipboard-master.git" }
 # for logging
 log = "0.4"
 tauri-plugin-logging = { path = "../tauri-plugin-logging", features = [
     "tauri",
 ] }
-once_cell = "1.19.0"
-regex = "1.10.3"
+once_cell = "1.19"
+regex = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rusqlite = { version = "0.31.0", features = [
+rusqlite = { version = "0.32", features = [
     "bundled",
     "chrono",
     "serde_json",
@@ -49,9 +49,9 @@ rusqlite = { version = "0.31.0", features = [
     "vtab",
     "functions",
 ] }
-data-encoding = "2.6.0"
-sublime_fuzzy = "0.7.0"
-tauri = { version = "1.6.8", features = [
+data-encoding = "2.6"
+sublime_fuzzy = "0.7"
+tauri = { version = "1.7", features = [
     # requireed api
     "notification-all",
     # requireed api
