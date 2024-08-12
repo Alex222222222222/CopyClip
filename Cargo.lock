@@ -616,14 +616,15 @@ dependencies = [
 
 [[package]]
 name = "clipboard-master"
-version = "4.0.0-beta.5"
-source = "git+https://github.com/DoumanAsh/clipboard-master.git#3042d19aa1bcd666b1f2836b7a646556b1e5fed0"
+version = "4.0.0-beta.6"
+source = "git+https://github.com/DoumanAsh/clipboard-master.git#1b00814ecc83cec4a6db0f7979eff93480c02274"
 dependencies = [
  "objc",
  "objc-foundation",
  "objc_id",
  "windows-win",
  "x11-clipboard",
+ "x11rb",
 ]
 
 [[package]]
@@ -635,7 +636,7 @@ dependencies = [
  "clipboard-win",
  "cocoa 0.25.0",
  "image 0.25.1",
- "x11rb 0.13.0",
+ "x11rb",
 ]
 
 [[package]]
@@ -1568,16 +1569,6 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
-]
-
-[[package]]
-name = "gethostname"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb65d4ba3173c56a500b555b532f72c42e8d1fe64962b518897f8959fae2c177"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -5410,15 +5401,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "winapi-wsapoll"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1eafc5f679c576995526e81635d0cf9695841736712b4e892f87abbe6fed3f28"
-dependencies = [
- "winapi",
-]
-
-[[package]]
 name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5849,11 +5831,12 @@ dependencies = [
 
 [[package]]
 name = "x11-clipboard"
-version = "0.8.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b41aca1115b1f195f21c541c5efb423470848d48143127d0f07f8b90c27440df"
+checksum = "b98785a09322d7446e28a13203d2cae1059a0dd3dfb32cb06d0a225f023d8286"
 dependencies = [
- "x11rb 0.12.0",
+ "libc",
+ "x11rb",
 ]
 
 [[package]]
@@ -5869,35 +5852,13 @@ dependencies = [
 
 [[package]]
 name = "x11rb"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1641b26d4dec61337c35a1b1aaf9e3cba8f46f0b43636c609ab0291a648040a"
-dependencies = [
- "gethostname 0.3.0",
- "nix 0.26.4",
- "winapi",
- "winapi-wsapoll",
- "x11rb-protocol 0.12.0",
-]
-
-[[package]]
-name = "x11rb"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8f25ead8c7e4cba123243a6367da5d3990e0d3affa708ea19dce96356bd9f1a"
 dependencies = [
- "gethostname 0.4.3",
+ "gethostname",
  "rustix",
- "x11rb-protocol 0.13.0",
-]
-
-[[package]]
-name = "x11rb-protocol"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82d6c3f9a0fb6701fab8f6cea9b0c0bd5d6876f1f89f7fada07e558077c344bc"
-dependencies = [
- "nix 0.26.4",
+ "x11rb-protocol",
 ]
 
 [[package]]
