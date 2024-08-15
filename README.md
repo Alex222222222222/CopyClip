@@ -215,27 +215,30 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
 
 <!-- readme: contributors -start -->
 <table>
-<tr>
-    <td align="center">
-        <a href="https://github.com/Alex222222222222">
-            <img src="https://avatars.githubusercontent.com/u/61620490?v=4" width="100;" alt="Alex222222222222"/>
-            <br />
-            <sub><b>Zifan Hua</b></sub>
-        </a>
-    </td>
-    <td align="center">
-        <a href="https://github.com/ChloeWKY">
-            <img src="https://avatars.githubusercontent.com/u/118044032?v=4" width="100;" alt="ChloeWKY"/>
-            <br />
-            <sub><b>Chloe</b></sub>
-        </a>
-    </td>
-    <td align="center">
-        <a href="https://github.com/LingkKang">
-            <img src="https://avatars.githubusercontent.com/u/104191582?v=4" width="100;" alt="LingkKang"/>
-            <br />
-            <sub><b>Lingkang</b></sub>
-        </a>
-    </td></tr>
+	<tbody>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/Alex222222222222">
+                    <img src="https://avatars.githubusercontent.com/u/61620490?v=4" width="100;" alt="Alex222222222222"/>
+                    <br />
+                    <sub><b>Zifan Hua</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/ChloeWKY">
+                    <img src="https://avatars.githubusercontent.com/u/118044032?v=4" width="100;" alt="ChloeWKY"/>
+                    <br />
+                    <sub><b>Chloe</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/LingkKang">
+                    <img src="https://avatars.githubusercontent.com/u/104191582?v=4" width="100;" alt="LingkKang"/>
+                    <br />
+                    <sub><b>Lingkang</b></sub>
+                </a>
+            </td>
+		</tr>
+	<tbody>
 </table>
 <!-- readme: contributors -end -->
