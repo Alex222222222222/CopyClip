@@ -65,7 +65,7 @@ tauri = { version = "1.7", features = [
     "system-tray",
     "windows7-compat",
 ] }
-tauri-plugin-clipboard = "1.0"
+tauri-plugin-clipboard = "2.1"
 clip = { path = "../src-clip" }
 
 [features]
