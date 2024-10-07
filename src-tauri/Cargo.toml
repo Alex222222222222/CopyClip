@@ -16,7 +16,7 @@ version = "0.3.9"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.5", features = [] }
+tauri-build = { version = "2.0", features = [] }
 
 [package.metadata.i18n]
 load-path = "../locales"
