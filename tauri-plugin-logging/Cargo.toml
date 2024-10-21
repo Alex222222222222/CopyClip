@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 tauri = { version = "*", optional = true }
 # used to setup logging
-fern = { version = "0.6", optional = true }
+fern = { version = "0.7", optional = true }
 log = { version = "*", optional = true }
 # used to read user configuration
 serde_json = { version = "*", optional = true }
