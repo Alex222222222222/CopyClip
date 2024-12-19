@@ -232,6 +232,13 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/shweeh">
+                    <img src="https://avatars.githubusercontent.com/u/192089265?v=4" width="100;" alt="shweeh"/>
+                    <br />
+                    <sub><b>shweeh</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/LingkKang">
                     <img src="https://avatars.githubusercontent.com/u/104191582?v=4" width="100;" alt="LingkKang"/>
                     <br />
