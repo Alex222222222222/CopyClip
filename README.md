@@ -219,21 +219,28 @@ Check out [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for more information.
 		<tr>
             <td align="center">
                 <a href="https://github.com/Alex222222222222">
-                    <img src="https://avatars.githubusercontent.com/u/61620490?v=4" width="100;" alt="Alex222222222222"/>
+                    <img src="https://private-avatars.githubusercontent.com/u/61620490?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTEiLCJleHAiOjE3MzQ2NjAwMDAsIm5iZiI6MTczNDY1ODgwMCwicGF0aCI6Ii91LzYxNjIwNDkwIn0.gB98NpC_GwJ6pkakTgr3uwo2Ma4A91wVZyQibqutDdU&v=4" width="100;" alt="Alex222222222222"/>
                     <br />
                     <sub><b>Zifan Hua</b></sub>
                 </a>
             </td>
             <td align="center">
                 <a href="https://github.com/ChloeWKY">
-                    <img src="https://avatars.githubusercontent.com/u/118044032?v=4" width="100;" alt="ChloeWKY"/>
+                    <img src="https://private-avatars.githubusercontent.com/u/118044032?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTEiLCJleHAiOjE3MzQ2NTk3NjAsIm5iZiI6MTczNDY1ODU2MCwicGF0aCI6Ii91LzExODA0NDAzMiJ9.R7xi8mXgAZQX4y7h0HvS5JG2xSkCxE4aoQr4wvshbYw&v=4" width="100;" alt="ChloeWKY"/>
                     <br />
                     <sub><b>Chloe</b></sub>
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/shweeh">
+                    <img src="https://private-avatars.githubusercontent.com/u/192089265?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTEiLCJleHAiOjE3MzQ2NTk0MDAsIm5iZiI6MTczNDY1ODIwMCwicGF0aCI6Ii91LzE5MjA4OTI2NSJ9.F5wMPLxQvfpvPKVDuLK4US0D_ZLAbW6UzdR9vTOf2w8&v=4" width="100;" alt="shweeh"/>
+                    <br />
+                    <sub><b>shweeh</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/LingkKang">
-                    <img src="https://avatars.githubusercontent.com/u/104191582?v=4" width="100;" alt="LingkKang"/>
+                    <img src="https://private-avatars.githubusercontent.com/u/104191582?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTEiLCJleHAiOjE3MzQ2NTk4ODAsIm5iZiI6MTczNDY1ODY4MCwicGF0aCI6Ii91LzEwNDE5MTU4MiJ9.HTncHR90c88jYZbqFZCqoSLhnhLRMhPAINEWDWv8Ul4&v=4" width="100;" alt="LingkKang"/>
                     <br />
                     <sub><b>Lingkang</b></sub>
                 </a>
