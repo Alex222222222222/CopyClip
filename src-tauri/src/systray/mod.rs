@@ -1,27 +1,14 @@
 use log::{debug, error, info, warn};
-use tauri::{
-    AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
-    SystemTrayMenuItem, SystemTraySubmenu,
-};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_logging::panic_app;
 
+use tauri::menu::MenuItemBuilder;
+
 use crate::{
-    clip::clip_data::{ClipState, ClipStateMutex},
+    clip_frontend::clip_data::{ClipState, ClipStateMutex},
     config::ConfigMutex,
     event::{event_sender, CopyClipEvent, EventSender},
 };
-
-/// create the tray
-pub fn create_tray(
-    page_len: i64,
-    pinned_clips_num: i64,
-    favourite_clips_num: i64,
-    paused: bool,
-) -> SystemTray {
-    let tray_menu = create_tray_menu(page_len, pinned_clips_num, favourite_clips_num, paused);
-
-    SystemTray::new().with_menu(tray_menu)
-}
 
 /// create the tray menu
 /// the menu is created with the given number of clips
@@ -42,69 +29,79 @@ pub fn create_tray_menu(
     pinned_clips_num: i64,
     favourite_clips_num: i64,
     paused: bool,
-) -> SystemTrayMenu {
+    app: &AppHandle,
+) -> anyhow::Result<tauri::menu::Menu<tauri::Wry>> {
     // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
 
     let notice_select =
-        CustomMenuItem::new("notice_select".to_string(), t!("tray_menu.notice_select")).disabled();
+        MenuItemBuilder::with_id("notice_select".to_string(), t!("tray_menu.notice_select"))
+            .enabled(false)
+            .build(app)?;
 
-    let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
-    let prev_page = CustomMenuItem::new("prev_page".to_string(), t!("tray_menu.prev_page"))
-        .accelerator("CommandOrControl+A");
-    let next_page = CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page"))
-        .accelerator("CommandOrControl+D");
-    let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
+    let page_info = MenuItemBuilder::with_id("page_info".to_string(), "")
+        .enabled(false)
+        .build(app)?; // Total clips: 0, Current page: 0/0
+    let prev_page = MenuItemBuilder::with_id("prev_page".to_string(), t!("tray_menu.prev_page"))
+        .accelerator("CommandOrControl+A")
+        .build(app)?;
+    let next_page = MenuItemBuilder::with_id("next_page".to_string(), t!("tray_menu.next_page"))
+        .accelerator("CommandOrControl+D")
+        .build(app)?;
+    let first_page = MenuItemBuilder::with_id("first_page".to_string(), t!("tray_menu.first_page"))
+        .build(app)?;
 
-    let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
-    let search = CustomMenuItem::new("search".to_string(), t!("tray_menu.search"));
+    let preferences =
+        MenuItemBuilder::with_id("preferences".to_string(), t!("tray_menu.preferences"))
+            .build(app)?;
+    let search =
+        MenuItemBuilder::with_id("search".to_string(), t!("tray_menu.search")).build(app)?;
     let text = if paused {
         t!("tray_menu.resume_monitoring")
     } else {
         t!("tray_menu.pause_monitoring")
     };
-    let pause = CustomMenuItem::new("pause".to_string(), text);
+    let pause = MenuItemBuilder::with_id("pause".to_string(), text).build(app)?;
 
-    let quit = CustomMenuItem::new("quit".to_string(), t!("tray_menu.quit"));
-    let mut tray_menu = SystemTrayMenu::new()
-        .add_item(notice_select)
-        .add_native_item(SystemTrayMenuItem::Separator);
+    let quit = MenuItemBuilder::with_id("quit".to_string(), t!("tray_menu.quit")).build(app)?;
+
+    let mut tray_menu = tauri::menu::MenuBuilder::new(app)
+        .item(&notice_select)
+        .separator();
 
     // add the pinned clips slot
     for i in 0..pinned_clips_num {
-        let clip = CustomMenuItem::new("pinned_clip_".to_string() + &i.to_string(), "");
-        tray_menu = tray_menu.add_item(clip);
+        let clip =
+            MenuItemBuilder::with_id("pinned_clip_".to_string() + &i.to_string(), "").build(app)?;
+        tray_menu = tray_menu.item(&clip);
     }
-    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
+    tray_menu = tray_menu.separator();
 
     // add the label submenus
     //    -default label: favourites
-    let mut favourite_menu = SystemTrayMenu::new();
+    let mut favourite = tauri::menu::SubmenuBuilder::new(app, t!("tray_menu.favourite"));
     for i in 0..favourite_clips_num {
-        let clip = CustomMenuItem::new("favourite_clip_".to_string() + &i.to_string(), "");
-        favourite_menu = favourite_menu.add_item(clip);
+        let clip = MenuItemBuilder::with_id("favourite_clip_".to_string() + &i.to_string(), "")
+            .build(app)?;
+        favourite = favourite.item(&clip);
     }
-    let favourite = SystemTraySubmenu::new(t!("tray_menu.favourite"), favourite_menu);
-    tray_menu = tray_menu.add_submenu(favourite);
-    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
+    let favourite = favourite.build()?;
+    tray_menu = tray_menu.item(&favourite).separator();
 
     // add the clips slot
     for i in 0..page_len {
-        let clip = CustomMenuItem::new("tray_clip_".to_string() + &i.to_string(), "");
-        tray_menu = tray_menu.add_item(clip);
+        let clip =
+            MenuItemBuilder::with_id("tray_clip_".to_string() + &i.to_string(), "").build(app)?;
+        tray_menu = tray_menu.item(&clip);
     }
 
-    tray_menu
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(page_info)
-        .add_item(prev_page)
-        .add_item(next_page)
-        .add_item(first_page)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(preferences)
-        .add_item(search)
-        .add_item(pause)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(quit)
+    Ok(tray_menu
+        .separator()
+        .items(&[&page_info, &prev_page, &next_page, &first_page])
+        .separator()
+        .items(&[&preferences, &search, &pause])
+        .separator()
+        .item(&quit)
+        .build()?)
 }
 
 #[cfg(target_os = "windows")]
@@ -181,15 +178,9 @@ pub fn create_tray_menu(
 }
 
 /// handle the tray event
-pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
-    match event {
-        SystemTrayEvent::MenuItemClick { id, .. } => {
-            event_sender(app, CopyClipEvent::TrayMenuItemClickEvent(id));
-        }
-        _ => {
-            // do nothing
-        }
-    }
+pub fn handle_tray_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
+    let id = event.id().as_ref();
+    event_sender(app, CopyClipEvent::TrayMenuItemClickEvent(id.to_string()));
 }
 
 /// handle the menu item click
@@ -269,7 +260,7 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             debug!("Preferences clicked, Opening preferences window");
             // open the preferences window
             // test if the window is already open
-            let windows = app.windows();
+            let windows = app.webview_windows();
             let preferences_window = windows.get("preferences");
             if let Some(preferences_window) = preferences_window {
                 let res = preferences_window.show();
@@ -277,16 +268,26 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                     panic_app(&format!("Failed to show preferences window: {e}"));
                 }
             } else {
-                let app_handle = app.app_handle();
+                let app_handle = app.app_handle().clone();
                 std::thread::spawn(move || {
-                    let preferences_window = tauri::WindowBuilder::new(
-                        &app_handle,
+                    // TODO check error
+                    let preferences_window =
+                        tauri::window::WindowBuilder::new(&app_handle, "preferences")
+                            .title("Copy Clip")
+                            .focused(true)
+                            .build()
+                            .unwrap();
+                    let preferences_webview = tauri::WebviewBuilder::new(
                         "preferences",
-                        tauri::WindowUrl::App("preferences".into()),
-                    )
-                    .title("Copy Clip")
-                    .build();
-                    if let Err(e) = preferences_window {
+                        tauri::WebviewUrl::App("preferences".into()),
+                    );
+                    let webview = preferences_window.add_child(
+                        preferences_webview,
+                        tauri::LogicalPosition::new(0, 0),
+                        preferences_window.inner_size().unwrap(),
+                    );
+                    // .title("Copy Clip")
+                    if let Err(e) = webview {
                         panic_app(&format!("Failed to open preferences window: {e}"));
                     }
                 });
@@ -304,16 +305,24 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                     panic_app(&format!("Failed to show search window: {e}"));
                 }
             } else {
-                let app_handle = app.app_handle();
+                let app_handle = app.app_handle().clone();
                 std::thread::spawn(move || {
-                    let preferences_window = tauri::WindowBuilder::new(
-                        &app_handle,
+                    // TODO check error
+                    let search_window = tauri::WindowBuilder::new(&app_handle, "search")
+                        .title("Copy Clip")
+                        .focused(true)
+                        .build()
+                        .unwrap();
+                    let seach_webview = tauri::WebviewBuilder::new(
                         "search",
-                        tauri::WindowUrl::App("search".into()),
-                    )
-                    .title("Copy Clip")
-                    .build();
-                    if let Err(e) = preferences_window {
+                        tauri::WebviewUrl::App("search".into()),
+                    );
+                    let webview = search_window.add_child(
+                        seach_webview,
+                        tauri::LogicalPosition::new(0, 0),
+                        search_window.inner_size().unwrap(),
+                    );
+                    if let Err(e) = webview {
                         panic_app(&format!("Failed to open search window: {e}"));
                     }
                 });

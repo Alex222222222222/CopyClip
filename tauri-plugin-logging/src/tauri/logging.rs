@@ -1,7 +1,7 @@
 use std::{fmt::Display, fs, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tauri::PathResolver;
+use tauri::path::PathResolver;
 
 use log::warn;
 
@@ -108,9 +108,12 @@ impl From<String> for LogLevelFilter {
     }
 }
 
-pub fn setup_logger(path_resolver: &PathResolver) -> Result<(), fern::InitError> {
+pub fn setup_logger<R: tauri::Runtime>(
+    path_resolver: &PathResolver<R>,
+) -> Result<(), fern::InitError> {
     let path = get_user_log_path(path_resolver);
-    if path.is_none() {
+    if path.is_err() {
+        // TODO return the error
         return Ok(());
     }
     let path = path.unwrap();
@@ -150,7 +153,9 @@ pub fn setup_logger(path_resolver: &PathResolver) -> Result<(), fern::InitError>
 }
 
 /// get the app log path
-pub fn get_user_log_path(path_resolver: &PathResolver) -> Option<PathBuf> {
+pub fn get_user_log_path<R: tauri::Runtime>(
+    path_resolver: &PathResolver<R>,
+) -> Result<PathBuf, tauri::Error> {
     let log_dir = path_resolver.app_log_dir();
     let mut log_dir = log_dir?;
 
@@ -166,15 +171,16 @@ pub fn get_user_log_path(path_resolver: &PathResolver) -> Option<PathBuf> {
         std::fs::File::create(&log_dir).unwrap();
     }
 
-    Some(log_dir)
+    Ok(log_dir)
 }
 
 /// get the user log level
-fn get_user_log_level(path_resolver: &PathResolver) -> log::LevelFilter {
+fn get_user_log_level<R: tauri::Runtime>(path_resolver: &PathResolver<R>) -> log::LevelFilter {
     // warn in this functions will not go to the correct place as the logger is not yet setup
 
     let data_dir = path_resolver.app_data_dir();
-    if data_dir.is_none() {
+    if let Err(err) = data_dir {
+        warn!("can not find app data dir with err: {}", err);
         warn!("can not find app data dir");
         return log::LevelFilter::Info;
     }

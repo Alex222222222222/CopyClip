@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::clip::clip_data::{ClipState, ClipStateMutex};
+use crate::clip_frontend::clip_data::{ClipState, ClipStateMutex};
 use crate::config::ConfigMutex;
 
 use crate::event::EventSender;

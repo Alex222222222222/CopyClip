@@ -15,7 +15,7 @@ use self::clip_data::ClipStateMutex;
 
 /// copy the clip to the clipboard
 pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(), anyhow::Error> {
-    let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
+    let clipboard_manager = app.state::<tauri_plugin_clipboard::Clipboard>();
     let res = match clip.clip_type {
         clip::ClipType::Text => clipboard_manager.write_text(clip.decompress_text()?),
         clip::ClipType::Image => {

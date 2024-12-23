@@ -1,5 +1,9 @@
 {
 	"devDependencies": {
 		"tailwindcss": "^3.4.2"
+	},
+	"dependencies": {
+		"@tauri-apps/plugin-fs": "^2.2.0",
+		"@tauri-apps/plugin-notification": "^2.2.0"
 	}
 }

@@ -538,7 +538,11 @@ impl ClipState {
         // put text in
         for i in 0..current_page_clips.len() {
             let tray_id = "tray_clip_".to_string() + &i.to_string();
-            let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
+            let tray_clip_sub_menu = app.tray_by_id(&tray_id);
+            if tray_clip_sub_menu.is_none() {
+                continue;
+            }
+            let tray_clip_sub_menu = tray_clip_sub_menu.unwrap();
 
             let c = current_page_clips.get(i);
             if c.is_none() {
@@ -547,14 +551,19 @@ impl ClipState {
             let c = c.unwrap();
 
             let text = clip::trimming_clip_text(&c.search_text, max_clip_length);
-            tray_clip_sub_menu.set_title(text)?;
+            tray_clip_sub_menu.set_title(Some(text))?;
         }
 
         // clean out the rest of the tray
         for i in current_page_clips.len()..clips_per_page as usize {
             let tray_id = "tray_clip_".to_string() + &i.to_string();
-            let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
-            tray_clip_sub_menu.set_title("".to_string())?
+            let tray_clip_sub_menu = app.tray_by_id(&tray_id);
+            if tray_clip_sub_menu.is_none() {
+                continue;
+            }
+            tray_clip_sub_menu
+                .unwrap()
+                .set_title(Some("".to_string()))?
         }
 
         Ok(())
@@ -575,7 +584,11 @@ impl ClipState {
         current_page: u64,
         whole_pages: u64,
     ) -> Result<(), Error> {
-        let tray_page_info_item = app.tray_handle().get_item("page_info");
+        let tray_page_info_item = app.tray_by_id("page_info");
+        if tray_page_info_item.is_none() {
+            return Err(Error::GetSystemTrayItemErr("page_info".to_string()));
+        }
+        let tray_page_info_item = tray_page_info_item.unwrap();
         let tray_page_info_title = format!(
             "{}: {}, {}: {}/{}",
             t!("tray_menu.total_clips"),
@@ -584,7 +597,7 @@ impl ClipState {
             current_page + 1,
             whole_pages + 1
         );
-        let res = tray_page_info_item.set_title(tray_page_info_title);
+        let res = tray_page_info_item.set_title(Some(tray_page_info_title));
         if res.is_err() {
             return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
         }
@@ -620,9 +633,12 @@ impl ClipState {
             };
 
             let pinned_clip = clip::trimming_clip_text(&pinned_clip.search_text, max_clip_length);
-            let pinned_clip_item: tauri::SystemTrayMenuItemHandle =
-                app.tray_handle().get_item(&format!("pinned_clip_{}", i));
-            pinned_clip_item.set_title(pinned_clip)?;
+            let pinned_clip_item = app.tray_by_id(&format!("pinned_clip_{}", i));
+            if pinned_clip_item.is_none() {
+                continue;
+            }
+            let pinned_clip_item = pinned_clip_item.unwrap();
+            pinned_clip_item.set_title(Some(pinned_clip))?;
         }
 
         Ok(())
@@ -657,9 +673,12 @@ impl ClipState {
             let favourite_clip_text =
                 clip::trimming_clip_text(&favourite_clip.search_text, max_clip_length);
             let favourite_clip_id = "favourite_clip_".to_string() + &i.to_string();
-            let favourite_clip_item: tauri::SystemTrayMenuItemHandle =
-                app.tray_handle().get_item(&favourite_clip_id);
-            favourite_clip_item.set_title(favourite_clip_text)?
+            let favourite_clip_item = app.tray_by_id(&favourite_clip_id);
+            if favourite_clip_item.is_none() {
+                continue;
+            }
+            let favourite_clip_item = favourite_clip_item.unwrap();
+            favourite_clip_item.set_title(Some(favourite_clip_text))?
         }
 
         Ok(())
@@ -736,7 +755,7 @@ impl ClipState {
 /// - the json formatted vec<FileURI> if the clip type is file
 /// - a string of the image that indicate where the image is saved if the clip type is image
 fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, String), Error> {
-    let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
+    let clipboard_manager = app.state::<tauri_plugin_clipboard::Clipboard>();
     if match clipboard_manager.has_image() {
         Ok(has_image) => has_image,
         Err(err) => {
@@ -746,9 +765,11 @@ fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<(ClipType, String)
         match clipboard_manager.read_image_binary() {
             Ok(clip) => {
                 // get path of the image
-                let user_data_dir = match app.path_resolver().app_data_dir() {
-                    Some(user_data_dir) => user_data_dir,
-                    None => return Err(Error::GetAppDataDirErr),
+                let user_data_dir = match app.path().app_data_dir() {
+                    Ok(user_data_dir) => user_data_dir,
+                    Err(err) => {
+                        return Err(Error::GetAppDataDirErr(err.to_string()));
+                    }
                 };
                 let image_path = image_clip::store_img_return_path(user_data_dir, &clip)?;
                 return Ok((ClipType::Image, image_path));

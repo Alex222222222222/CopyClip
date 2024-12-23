@@ -2,54 +2,41 @@
   "build": {
     "beforeDevCommand": "bash ./scripts/tailwindcss.sh && trunk serve",
     "beforeBuildCommand": "bash ./scripts/tailwindcss.sh && trunk build --release && bash ./scripts/wasm-opt.sh",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist",
-    "withGlobalTauri": true
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420"
   },
-  "package": {
-    "productName": "CopyClip",
-    "version": "0.3.10"
+  "bundle": {
+    "active": true,
+    "icon": [
+      "../public/icons/32x32.png",
+      "../public/icons/128x128.png",
+      "../public/icons/128x128@2x.png",
+      "../public/icons/icon.icns",
+      "../public/icons/icon.ico"
+    ],
+    "resources": [
+      "../ocr_models/*"
+    ],
+    "targets": "all"
   },
-  "tauri": {
-    "allowlist": {
-      "fs": {
-        "all": true,
-        "scope": [
-          "$RESOURCE/*"
-        ]
-      },
-      "notification": {
-        "all": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "icon": [
-        "../public/icons/32x32.png",
-        "../public/icons/128x128.png",
-        "../public/icons/128x128@2x.png",
-        "../public/icons/icon.icns",
-        "../public/icons/icon.ico"
-      ],
-      "identifier": "org.eu.huazifan.copyclip",
-      "targets": "all",
-      "resources": [
-        "../ocr_models/*"
-      ]
-    },
-    "updater": {
-      "active": false
-    },
+  "productName": "CopyClip",
+  "mainBinaryName": "CopyClip",
+  "version": "0.3.10",
+  "identifier": "org.eu.huazifan.copyclip",
+  "plugins": {},
+  "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "search",
         "title": "Copy Clip",
         "url": "search",
         "width": 1280,
-        "height": 800
+        "height": 800,
+        "useHttpsScheme": true
       }
     ],
-    "systemTray": {
+    "trayIcon": {
       "iconPath": "../public/icons/icon.png",
       "iconAsTemplate": true
     }

@@ -36,7 +36,7 @@ pub enum Error {
     /// the first string is the error message
     ExportError(String),
     /// failed to get the app data dir, using tauri path resolver
-    GetAppDataDirErr,
+    GetAppDataDirErr(String),
     /// get clip data from the database failed
     /// the error message is the error message from the sqlite::query_row
     /// the first i64 is the id of the clip, the second string is the error message
@@ -100,6 +100,9 @@ pub enum Error {
     /// failed to write to system clipboard
     /// the string is the text that failed to write to the system clipboard, the second string is the error message
     WriteToSystemClipboardErr(String, String),
+    /// failed to get an item in the system tray
+    /// the string is the id of the item
+    GetSystemTrayItemErr(String),
 }
 
 impl Error {
@@ -115,7 +118,7 @@ impl Error {
             Error::DatabaseWriteErr(err) => format!("failed to write to database error, error message: {}", err),
             Error::DeleteClipFromDatabaseErr(id, err) => format!("delete clip from the database failed, id: {}, error message: {}", id, err),
             Error::ExportError(err) => format!("error occurred when exporting data, error message: {}", err),
-            Error::GetAppDataDirErr => "failed to get the app data dir, using tauri path resolver".to_string(),
+            Error::GetAppDataDirErr(err) => format!("failed to get the app data dir, error message: {}", err),
             Error::GetClipDataFromDatabaseErr(id, err) => format!("get clip data from the database failed, id: {}, error message: {}", id, err),
             Error::GetConfigFilePathErr(err) => format!("get config file path error, error message: {}", err),
             Error::GetFavouriteClipsErr(err) => format!("failed to get favourite clips from the database, error message: {}", err),
@@ -138,6 +141,7 @@ impl Error {
             Error::WholeListIDSEmptyErr => "the whole ids list is empty".to_string(),
             Error::WriteConfigFileErr(err) => format!("failed to write config file to the disk, error message: {}", err),
             Error::WriteToSystemClipboardErr(clip, err) => format!("failed to write to system clipboard, clip data: {}, error message: {}", clip, err),
+            Error::GetSystemTrayItemErr(id) => format!("failed to get an item in the system tray, id: {}", id),
         }
     }
 

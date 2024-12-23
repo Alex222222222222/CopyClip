@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_logging::LogLevelFilter;
 
 use crate::{config::Config, error};
@@ -15,9 +15,12 @@ struct ConfigBefore {
 
 pub fn upgrade(app: &AppHandle) -> Result<(), error::Error> {
     // find the config file
-    let data_dir = app.path_resolver().app_data_dir();
-    if data_dir.is_none() {
-        return Err(error::Error::GetAppDataDirErr);
+    let data_dir = app.path().app_data_dir();
+    if let Err(err) = data_dir {
+        return Err(error::Error::GetAppDataDirErr(format!(
+            "can not get app data dir: {}",
+            err
+        )));
     }
 
     let data_dir = data_dir.unwrap();
@@ -26,8 +29,11 @@ pub fn upgrade(app: &AppHandle) -> Result<(), error::Error> {
 
     // test if data_dir exist
     let data_dir_exist = data_dir.try_exists();
-    if data_dir_exist.is_err() {
-        return Err(error::Error::GetAppDataDirErr);
+    if let Err(err) = data_dir_exist {
+        return Err(error::Error::GetAppDataDirErr(format!(
+            "can not verify existence of app data dir: {}",
+            err
+        )));
     }
 
     let data_dir_exist = data_dir_exist.unwrap();

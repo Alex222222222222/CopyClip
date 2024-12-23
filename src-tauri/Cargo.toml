@@ -16,7 +16,7 @@ version = "0.3.10"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.5", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [package.metadata.i18n]
 load-path = "../locales"
@@ -52,24 +52,24 @@ rusqlite = { version = "0.32", features = [
 ] }
 data-encoding = "2.6"
 sublime_fuzzy = "0.7"
-tauri = { version = "1.7", features = [
-    # requireed api
-    "notification-all",
-    # requireed api
-    "fs-all",
-
+tauri = { version = "2", features = [
+    "unstable",
     "config-json5",
-
-    "icon-ico",
-    "icon-png",
-
-    "system-tray",
-    "windows7-compat",
+    "tray-icon",
+    "image-png",
+    "image-ico",
 ] }
-tauri-plugin-clipboard = "1.1.3"
+tauri-plugin-clipboard = "2.1.3"
 clip = { path = "../src-clip" }
+tauri-plugin-notification = { version = "2", features = ["windows7-compat"] }
+tauri-plugin-fs = "2"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+
+# Output lib for mobile platforms
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib", "lib"]

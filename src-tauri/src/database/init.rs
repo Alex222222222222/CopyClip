@@ -1,6 +1,6 @@
 use log::debug;
 use rusqlite::Connection;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 /// The functions related to the initialization of the database.
 
@@ -40,9 +40,9 @@ pub fn init_database_connection(app: &AppHandle) -> Result<Connection, anyhow::E
 /// get the app data dir and create it if it does not exist
 fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, anyhow::Error> {
     // get the app data dir
-    let app_data_dir = app.path_resolver().app_data_dir();
-    if app_data_dir.is_none() {
-        return Err(crate::error::Error::GetAppDataDirErr.into());
+    let app_data_dir = app.path().app_data_dir();
+    if let Err(err) = app_data_dir {
+        return Err(crate::error::Error::GetAppDataDirErr(err.to_string()).into());
     }
     let app_data_dir = app_data_dir.unwrap();
 
@@ -186,7 +186,7 @@ fn first_lunch_the_version_table(
 
 /// get the current version from the tauri config
 fn get_current_version(app: &AppHandle) -> Result<String, anyhow::Error> {
-    let current_version = app.config().package.version.clone();
+    let current_version = app.config().version.clone();
     if current_version.is_none() {
         return Err(crate::error::Error::GetVersionFromTauriErr.into());
     }
