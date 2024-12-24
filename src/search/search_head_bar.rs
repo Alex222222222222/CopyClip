@@ -138,6 +138,7 @@ fn toggle_dark_mode_icon() -> Html {
     html! {
         <a class="h-12 text-black dark:text-white mx-2 hover:cursor-pointer"
             onclick={toggle_dark_mode}
+            title={t!("search.toggle_dark_mode")}
         >
             if dark_mode_config.is_dark {
                 <Icon class="my-3" icon_id={IconId::BootstrapMoonStarsFill}/>
@@ -180,7 +181,7 @@ pub fn search() -> Html {
             <Icon
                 class="h-12 text-black dark:text-white mr-2 py-3 hover:cursor-pointer"
                 icon_id={IconId::HeroiconsOutlineListBullet}
-                title="Preferences"
+                title={t!("search.preferences")}
                 // TODO add preferences page
             />
         </div>

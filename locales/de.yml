@@ -23,6 +23,11 @@ search:
   search_placeholder: Tippe "/" um zu suchen
   enable_regex_search: Regex Suche aktivieren
   enable_fuzzy_search: Fuzzy Suche aktivieren
+  toggle_dark_mode: Dunklen Modus umschalten
+  preferences: Einstellungen
+  click_to_display_clip_does_not_have_this_label: Klicke um Clips anzuzeigen, die dieses Label nicht haben
+  click_to_display_clip_have_this_label: Klicke um Clips anzuzeigen, die dieses Label haben
+  click_to_remove_label_constraint: Klicke um Label Einschränkung zu entfernen
 
 export:
   export_button: Drücke um deine Daten nach ~/Downloads zu exportieren

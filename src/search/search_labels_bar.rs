@@ -36,31 +36,43 @@ fn search_labels_bar_button(LabelButtonProps { label }: &LabelButtonProps) -> Ht
             if search_constraint.neutral_label.contains(label.as_ref()) {
                 let label_new = label.clone();
                 html! {
-                    <button class="py-1 px-2" onclick={move |_| {
+                    <button
+                        class="py-1 px-2"
+                        title={t!("search.click_to_display_clip_does_not_have_this_label")}
+                        onclick={move |_| {
                         search_constraint_dispatch.reduce_mut( |state| {
                             state.neutral_label.remove(label_new.as_ref());
                             state.exclude_label.insert(label_new.as_ref().clone());
-                        });}}>
+                        });}}
+                    >
                         { label }
                     </button>
                 }
             } else if search_constraint.exclude_label.contains(label.as_ref()) {
                 let label_new = label.clone();
                 html! {
-                    <button class="py-1 px-2 bg-red-200" onclick={move |_| {
+                    <button
+                        class="py-1 px-2 bg-red-200 dark:bg-red-600"
+                        title={t!("search.click_to_display_clip_have_this_label")}
+                        onclick={move |_| {
                         search_constraint_dispatch.reduce_mut( |state| {
                             state.exclude_label.remove(label_new.as_ref());
-                        });}}>
+                        });}}
+                    >
                         {label}
                     </button>
                 }
             } else {
                 let label_new = label.clone();
                 html! {
-                    <button class="py-1 px-2 bg-green-200" onclick={move |_| {
+                    <button
+                        class="py-1 px-2 bg-green-200 dark:bg-green-600"
+                        title={t!("search.click_to_remove_label_constraint")}
+                        onclick={move |_| {
                         search_constraint_dispatch.reduce_mut( |state| {
                             state.neutral_label.insert(label_new.as_ref().clone());
-                        });}}>
+                        });}}
+                    >
                         {label}
                     </button>
                 }
@@ -93,7 +105,7 @@ pub fn search() -> yew::Html {
 
     yew::html! {
         // a flex bar to display all labels with gray background color with a line separator
-        <div class="flex flex-nowrap overflow-x-auto bg-gray-200 dark:bg-gray-800 text-black dark:text-white divide-x-2 divide-gray-600 dark:divide-gray-600 no-scrollbar">
+        <div class="flex flex-nowrap overflow-x-auto bg-gray-200 dark:bg-gray-600 text-black dark:text-white divide-x-2 divide-gray-600 dark:divide-gray-400 no-scrollbar">
             <SearchLabelsBarButton label="favorite" />
             <SearchLabelsBarButton label="pinned" />
             { for all_labels.label.iter().map(|label| {

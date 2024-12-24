@@ -19,6 +19,11 @@ search:
   search_placeholder: 输入 "/" 进行搜索
   enable_regex_search: 启用正则表达式搜索
   enable_fuzzy_search: 启用模糊搜索
+  toggle_dark_mode: 切换深色模式
+  preferences: 设置
+  click_to_display_clip_does_not_have_this_label: 点击显示不包含此标签的记录
+  click_to_display_clip_have_this_label: 点击显示包含此标签的记录
+  click_to_remove_label_constraint: 点击移除标签约束
 
 export:
   export_button: 导出数据到下载文件夹
