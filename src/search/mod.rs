@@ -1,5 +1,6 @@
 mod search_head_bar;
 mod search_labels_bar;
+mod search_display;
 
 use std::collections::HashSet;
 

@@ -69,6 +69,20 @@ tauri-plugin-fs = "2"
 # DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
 
+[profile.release]
+# Strip all the debug symbles
+strip = true
+# less code to include into binary
+panic = 'abort'
+# optimization over all codebase ( better optimization, slower build )
+codegen-units = 1
+# optimization for size ( more aggressive )
+opt-level = 'z'
+# optimization for size
+# opt-level = 's'
+# link time optimization using whole-program analysis
+lto = true
+
 # Output lib for mobile platforms
 [lib]
 name = "app_lib"

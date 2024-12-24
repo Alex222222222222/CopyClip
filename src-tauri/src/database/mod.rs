@@ -25,6 +25,7 @@ use log::debug;
 use rusqlite::Connection;
 
 pub use init::init_database_connection;
+use tauri::State;
 
 /// Convert the label name to the table name
 ///
@@ -55,6 +56,19 @@ impl Default for DatabaseStateMutex {
                 Connection::open_in_memory().unwrap(),
             ),
         }
+    }
+}
+
+/// The search function is used to search the clips in the database
+#[tauri::command]
+pub async fn search_clips(
+    database: State<'_, DatabaseStateMutex>,
+    constraints: Vec<SearchConstraint>,
+) -> Result<Vec<clip::Clip>, String> {
+    let res = database.search_clips(constraints).await;
+    match res {
+        Ok(res) => Ok(res),
+        Err(err) => Err(err.to_string()),
     }
 }
 

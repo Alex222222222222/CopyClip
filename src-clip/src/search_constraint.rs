@@ -14,6 +14,8 @@ pub enum SearchConstraint {
     TimestampLessThan(i64),
     /// Has the given label
     HasLabel(String),
+    /// Does not have the given label
+    NotHasLabel(String),
     /// Limit the number of results
     Limit(usize),
 }

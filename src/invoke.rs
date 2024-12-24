@@ -9,5 +9,4 @@ extern "C" {
     // invoke with arguments (default)
     #[wasm_bindgen(js_namespace = ["window", "__TAURI__", "core"])]
     pub async fn invoke(cmd: &str, args: JsValue) -> JsValue;
-
 }

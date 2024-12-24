@@ -25,6 +25,7 @@ fn sql_statement_type_of_search_constraint(
         SearchConstraint::TimestampGreaterThan(_) => SQLStatementType::Where,
         SearchConstraint::TimestampLessThan(_) => SQLStatementType::Where,
         SearchConstraint::HasLabel(_) => SQLStatementType::Join,
+        SearchConstraint::NotHasLabel(_) => SQLStatementType::Where,
         SearchConstraint::Limit(_) => SQLStatementType::Limit,
     }
 }
@@ -43,6 +44,13 @@ fn search_constraint_to_sql(search_constraint: &SearchConstraint, pos: u64) -> S
             let table_name = label_name_to_table_name(label);
             format!("INNER JOIN {} ON clips.id = {}.id;", table_name, table_name)
         }
+        SearchConstraint::NotHasLabel(label) => {
+            let table_name = label_name_to_table_name(label);
+            format!(
+                "NOT EXISTS (SELECT id FROM {} WHERE clips.id = {}.id)",
+                table_name, table_name
+            )
+        }
         SearchConstraint::Limit(_) => format!("LIMIT ?{}", pos),
     }
 }
@@ -60,6 +68,7 @@ fn search_constraint_to_value(search_constraint: &SearchConstraint) -> rusqlite:
             rusqlite::types::Value::Integer(*timestamp)
         }
         SearchConstraint::HasLabel(_) => rusqlite::types::Value::Null,
+        SearchConstraint::NotHasLabel(_) => rusqlite::types::Value::Null,
         SearchConstraint::Limit(limit) => rusqlite::types::Value::Integer(*limit as i64),
     }
 }
