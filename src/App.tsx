@@ -1,9 +1,11 @@
 import "./App.css";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import Search from "./pages/search";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import Search from "./search/search";
 
 function Layout() {
-  return <></>;
+  return <>
+    <Outlet />
+  </>;
 }
 
 function App() {

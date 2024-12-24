@@ -35,6 +35,13 @@ use tauri_plugin_logging::panic_app;
 
 const EVENT_CHANNEL_SIZE: usize = 1000;
 
+/// Get the translation for the given key.
+#[tauri::command]
+async fn i18n_t(key: String) -> Result<String, String> {
+    let res = t!(key);
+    Ok(res.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -197,6 +204,7 @@ pub fn run() {
             crate::clip_frontend::id_is_pinned,
             crate::clip_frontend::get_all_labels,
             database::search_clips,
+            i18n_t,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
