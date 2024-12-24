@@ -81,6 +81,24 @@ pub async fn copy_clip_to_clipboard(
     Ok(())
 }
 
+/// get all labels except "favourite" and "pinned"
+#[tauri::command]
+pub async fn get_all_labels(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    debug!("get all labels");
+    let res = ClipState::get_all_labels(&app).await;
+    debug!("get all labels result: {:?}", res);
+    let res = match res {
+        Ok(res) => res,
+        Err(err) => return Err(err.to_string()),
+    };
+
+    // remove "favourite" and "pinned"
+    Ok(res
+        .into_iter()
+        .filter(|x| *x != "favourite" && *x != "pinned")
+        .collect())
+}
+
 /// Delete a normal clip from the database
 #[tauri::command]
 pub async fn delete_clip_from_database(

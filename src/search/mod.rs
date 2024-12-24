@@ -1,14 +1,19 @@
 mod search_head_bar;
+mod search_labels_bar;
+
+use std::collections::HashSet;
 
 use clip::TextSearchMethod;
 use search_head_bar::SearchHeadBar;
+use search_labels_bar::SearchLabelsBar;
 use yew::{function_component, html, Html};
 
 #[derive(Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, yewdux::Store)]
 #[store(storage = "local", storage_tab_sync)]
 struct SearchConstraintStruct {
     search_text: String,
-    label: Vec<String>,
+    neutral_label: HashSet<String>,
+    exclude_label: HashSet<String>,
     text_search_method: TextSearchMethod,
 }
 
@@ -16,7 +21,8 @@ impl Default for SearchConstraintStruct {
     fn default() -> Self {
         Self {
             search_text: String::new(),
-            label: Vec::new(),
+            neutral_label: HashSet::new(),
+            exclude_label: HashSet::new(),
             text_search_method: TextSearchMethod::Contains,
         }
     }
@@ -53,6 +59,7 @@ pub fn search() -> Html {
     html! {
         <div class="h-full w-full">
             <SearchHeadBar />
+            <SearchLabelsBar />
         </div>
     }
 }

@@ -195,6 +195,7 @@ pub fn run() {
             crate::clip_frontend::delete_clip_from_database,
             crate::clip_frontend::change_favourite_clip,
             crate::clip_frontend::id_is_pinned,
+            crate::clip_frontend::get_all_labels,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
