@@ -3,11 +3,11 @@ use once_cell::sync::OnceCell;
 use tauri::{
     async_runtime::Mutex,
     menu::{Menu, MenuBuilder, MenuItem, MenuItemBuilder},
-    tray::{self, TrayIcon},
+    tray::TrayIcon,
     AppHandle, Manager,
 };
 
-use crate::clip_frontend::clip_data::{self, ClipState};
+use crate::clip_frontend::clip_data::ClipState;
 
 /// The struct to manage the system tray menu.
 /// The first init will set the tray icon.
@@ -120,6 +120,7 @@ impl SystemTrayMenuMutex {
             .clip_max_show_length;
 
         let mut tray_menu = self.menu.lock().await;
+        tray_menu.recent_clips.clear();
 
         // add the clips
         for i in 0..page_len {
@@ -145,7 +146,7 @@ impl SystemTrayMenuMutex {
 
             let clip = clip::trimming_clip_text(&clip.search_text, max_clip_length);
             let recent_clip_item =
-                MenuItemBuilder::with_id(format!("tray_clip_{}", clip_id), clip).build(app)?;
+                MenuItemBuilder::with_id(format!("clip_{}", clip_id), clip).build(app)?;
             tray_menu.recent_clips.push(recent_clip_item);
         }
 
@@ -159,7 +160,7 @@ impl SystemTrayMenuMutex {
     /// - `app`: the app handle
     async fn update_favourite_clips(&self, app: &AppHandle) -> anyhow::Result<()> {
         // get the necessary info
-        let favourite_clips_num: u64 = ClipState::get_label_clip_number(&app, "favourite").await?;
+        let favourite_clips_num: u64 = ClipState::get_label_clip_number(app, "favourite").await?;
         let max_clip_length = app
             .state::<crate::config::ConfigMutex>()
             .config
@@ -172,7 +173,7 @@ impl SystemTrayMenuMutex {
         tray_menu.favourite_clips.clear();
 
         for i in 0..favourite_clips_num {
-            let clip_id = match ClipState::get_label_clip_id_with_pos(&app, "favourite", i).await? {
+            let clip_id = match ClipState::get_label_clip_id_with_pos(app, "favourite", i).await? {
                 Some(clip_id) => clip_id,
                 None => {
                     break;
@@ -181,7 +182,7 @@ impl SystemTrayMenuMutex {
 
             let clip_data = app.state::<crate::clip_frontend::clip_data::ClipStateMutex>();
             let clip_data = clip_data.clip_state.lock().await;
-            let clip = match clip_data.get_clip(&app, Some(clip_id)).await? {
+            let clip = match clip_data.get_clip(app, Some(clip_id)).await? {
                 Some(clip) => clip,
                 None => {
                     break;
@@ -191,7 +192,7 @@ impl SystemTrayMenuMutex {
 
             let clip = clip::trimming_clip_text(&clip.search_text, max_clip_length);
             let favourite_clip_item =
-                MenuItemBuilder::with_id(format!("favourite_clip_{}", clip_id), clip).build(app)?;
+                MenuItemBuilder::with_id(format!("clip_{}", clip_id), clip).build(app)?;
             tray_menu.favourite_clips.push(favourite_clip_item);
         }
 
@@ -205,7 +206,7 @@ impl SystemTrayMenuMutex {
     /// - `app`: the app handle
     async fn update_pinned_clips(&self, app: &AppHandle) -> anyhow::Result<()> {
         // get the necessary info
-        let pinned_clips_num: u64 = ClipState::get_label_clip_number(&app, "pinned").await?;
+        let pinned_clips_num: u64 = ClipState::get_label_clip_number(app, "pinned").await?;
         let max_clip_length = app.state::<crate::config::ConfigMutex>();
         let max_clip_length = max_clip_length.config.lock().await;
         let max_clip_length = max_clip_length.clip_max_show_length;
@@ -215,7 +216,7 @@ impl SystemTrayMenuMutex {
         tray_menu.pinned_clips.clear();
 
         for i in 0..pinned_clips_num {
-            let clip_id = match ClipState::get_label_clip_id_with_pos(&app, "pinned", i).await? {
+            let clip_id = match ClipState::get_label_clip_id_with_pos(app, "pinned", i).await? {
                 Some(clip_id) => clip_id,
                 None => {
                     break;
@@ -224,7 +225,7 @@ impl SystemTrayMenuMutex {
 
             let clip_data = app.state::<crate::clip_frontend::clip_data::ClipStateMutex>();
             let clip_data = clip_data.clip_state.lock().await;
-            let clip = match clip_data.get_clip(&app, Some(clip_id)).await? {
+            let clip = match clip_data.get_clip(app, Some(clip_id)).await? {
                 Some(clip) => clip,
                 None => {
                     break;
@@ -234,7 +235,7 @@ impl SystemTrayMenuMutex {
 
             let clip = clip::trimming_clip_text(&clip.search_text, max_clip_length);
             let pinned_clip_item =
-                MenuItemBuilder::with_id(format!("pinned_clip_{}", clip_id), clip).build(app)?;
+                MenuItemBuilder::with_id(format!("clip_{}", clip_id), clip).build(app)?;
             tray_menu.pinned_clips.push(pinned_clip_item);
         }
 

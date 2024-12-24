@@ -3,118 +3,14 @@ mod system_tray_menu;
 pub use system_tray_menu::SystemTrayMenuMutex;
 
 use log::{debug, error, info, warn};
-use tauri::{async_runtime::Mutex, AppHandle, Manager};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_logging::panic_app;
 
-use tauri::menu::MenuItemBuilder;
-
 use crate::{
-    clip_frontend::clip_data::{ClipState, ClipStateMutex},
+    clip_frontend::clip_data::ClipStateMutex,
     config::ConfigMutex,
-    event::{event_sender, CopyClipEvent, EventSender},
+    event::{CopyClipEvent, EventSender},
 };
-
-
-
-/// create the tray menu
-/// the menu is created with the given number of clips
-/// the menu is created with the following items:
-/// - notice select
-/// - pinned clips slot
-/// - clips slot
-/// - page info
-/// - prev page
-/// - next page
-/// - first page
-/// - preferences
-/// - search
-/// - quit
-#[cfg(not(target_os = "windows"))]
-pub fn create_tray_menu(
-    page_len: i64,
-    pinned_clips_num: i64,
-    favourite_clips_num: i64,
-    paused: bool,
-    app: &AppHandle,
-) -> anyhow::Result<tauri::menu::Menu<tauri::Wry>> {
-    // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
-
-    let notice_select =
-        MenuItemBuilder::with_id("notice_select".to_string(), t!("tray_menu.notice_select"))
-            .enabled(false)
-            .build(app)?;
-
-    let page_info = MenuItemBuilder::with_id("page_info".to_string(), "")
-        .enabled(false)
-        .build(app)?; // Total clips: 0, Current page: 0/0
-    let prev_page = MenuItemBuilder::with_id("prev_page".to_string(), t!("tray_menu.prev_page"))
-        .accelerator("CommandOrControl+A")
-        .build(app)?;
-    let next_page = MenuItemBuilder::with_id("next_page".to_string(), t!("tray_menu.next_page"))
-        .accelerator("CommandOrControl+D")
-        .build(app)?;
-    let first_page = MenuItemBuilder::with_id("first_page".to_string(), t!("tray_menu.first_page"))
-        .build(app)?;
-
-    let preferences =
-        MenuItemBuilder::with_id("preferences".to_string(), t!("tray_menu.preferences"))
-            .build(app)?;
-    let search =
-        MenuItemBuilder::with_id("search".to_string(), t!("tray_menu.search")).build(app)?;
-    let text = if paused {
-        t!("tray_menu.resume_monitoring")
-    } else {
-        t!("tray_menu.pause_monitoring")
-    };
-    let pause = MenuItemBuilder::with_id("pause".to_string(), text).build(app)?;
-
-    let quit = MenuItemBuilder::with_id("quit".to_string(), t!("tray_menu.quit")).build(app)?;
-
-    let mut tray_menu = tauri::menu::MenuBuilder::new(app)
-        .item(&notice_select)
-        .separator();
-
-    // add the pinned clips slot
-    for i in 0..pinned_clips_num {
-        let clip =
-            MenuItemBuilder::with_id("pinned_clip_".to_string() + &i.to_string(), "").build(app)?;
-        tray_menu = tray_menu.item(&clip);
-    }
-    tray_menu = tray_menu.separator();
-
-    // add the label submenus
-    //    -default label: favourites
-    let mut favourite = tauri::menu::SubmenuBuilder::new(app, t!("tray_menu.favourite"));
-    for i in 0..favourite_clips_num {
-        let clip = MenuItemBuilder::with_id("favourite_clip_".to_string() + &i.to_string(), "")
-            .build(app)?;
-        favourite = favourite.item(&clip);
-    }
-    let favourite = favourite.build()?;
-    tray_menu = tray_menu.item(&favourite).separator();
-
-    // add the clips slot
-    for i in 0..page_len {
-        let clip =
-            MenuItemBuilder::with_id("tray_clip_".to_string() + &i.to_string(), "").build(app)?;
-        tray_menu = tray_menu.item(&clip);
-    }
-
-    Ok(tray_menu
-        .separator()
-        .items(&[&page_info, &prev_page, &next_page, &first_page])
-        .separator()
-        .items(&[&preferences, &search, &pause])
-        .separator()
-        .item(&quit)
-        .build()?)
-}
-
-/// handle the tray event
-pub fn handle_tray_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
-    let id = event.id().as_ref();
-    event_sender(app, CopyClipEvent::TrayMenuItemClickEvent(id.to_string()));
-}
 
 /// handle the menu item click
 /// this function is called when the user clicks on a menu item
@@ -241,6 +137,7 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                 let app_handle = app.app_handle().clone();
                 std::thread::spawn(move || {
                     // TODO check error
+                    // TODO fix open window size and resizeable
                     let search_window = tauri::WindowBuilder::new(&app_handle, "search")
                         .title("Copy Clip")
                         .focused(true)
@@ -277,110 +174,18 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             }
         }
         _ => {
-            if id.starts_with("tray_clip_") {
+            if id.starts_with("clip_") {
                 // test if the id is a tray_clip
                 debug!("Tray clip clicked: {}", id);
 
                 // get the index of the clip
-                let index = id.replace("tray_clip_", "").parse::<u64>().unwrap();
+                let id = id.replace("clip_", "").parse::<u64>().unwrap();
 
                 // select the index
                 let clip_data = app.state::<ClipStateMutex>();
                 let mut clip_data = clip_data.clip_state.lock().await;
 
-                // try calculate the pos of the clip using current page and page_len
-                // and total number of clips
-                let item_id = match clip_data
-                    .get_id_with_pos_in_current_page(app, Some(index))
-                    .await
-                {
-                    Ok(res) => match res {
-                        Some(res) => res,
-                        None => {
-                            error!("Failed to get the item id for the tray id: {}", index);
-                            return;
-                        }
-                    },
-                    Err(_) => {
-                        error!("Failed to get the item id for the tray id: {}", index);
-                        return;
-                    }
-                };
-
-                let res = clip_data.select_clip(app, Some(item_id)).await;
-                if res.is_err() {
-                    warn!("Failed to select the clip: {}", res.err().unwrap());
-                    return;
-                }
-            } else if id.starts_with("pinned_clip_") {
-                // test if the id is a pinned_clip
-
-                // get the index of the clip
-                let index = id.replace("pinned_clip_", "").parse::<u64>().unwrap();
-
-                // select the index
-                let clip_data = app.state::<ClipStateMutex>();
-                let mut clip_data = clip_data.clip_state.lock().await;
-
-                let item_id =
-                    match ClipState::get_label_clip_id_with_pos(app, "pinned", index).await {
-                        Ok(res) => match res {
-                            Some(res) => res,
-                            None => {
-                                error!(
-                                    "Failed to get the item id for the pinned clip id: {}",
-                                    index
-                                );
-                                return;
-                            }
-                        },
-                        Err(_) => {
-                            error!(
-                                "Failed to get the item id for the pinned clip id: {}",
-                                index
-                            );
-                            return;
-                        }
-                    };
-
-                let res = clip_data.select_clip(app, Some(item_id)).await;
-                if res.is_err() {
-                    warn!("Failed to select the clip: {}", res.err().unwrap());
-                    return;
-                }
-            } else if id.starts_with("favourite_clip_") {
-                // test if the id is a favourite_clip
-
-                // get the index of the clip
-                let index = id.replace("favourite_clip_", "").parse::<u64>().unwrap();
-
-                // select the index
-                let item_id =
-                    match ClipState::get_label_clip_id_with_pos(app, "favourite", index).await {
-                        Ok(res) => match res {
-                            Some(res) => res,
-                            None => {
-                                error!(
-                                    "Failed to get the item id for the favourite clip id: {}",
-                                    index
-                                );
-                                return;
-                            }
-                        },
-                        Err(_) => {
-                            error!(
-                                "Failed to get the item id for the favourite clip id: {}",
-                                index
-                            );
-                            return;
-                        }
-                    };
-
-                let clip_data = app.state::<ClipStateMutex>();
-                let mut clip_data = clip_data.clip_state.lock().await;
-                let res = clip_data.select_clip(app, Some(item_id)).await;
-                drop(clip_data);
-
+                let res = clip_data.select_clip(app, Some(id)).await;
                 if res.is_err() {
                     warn!("Failed to select the clip: {}", res.err().unwrap());
                     return;

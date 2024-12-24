@@ -28,21 +28,15 @@ cargo check
 # cargo clippy for frontend
 cargo clippy --all-targets --all-features -- -D warnings
 # cargo clippy for backend
-cd src-tauri
-cargo clippy --all-targets --all-features -- -D warnings
-cd ..
+cargo clippy --all-targets --all-features --manifest-path src-tauri/Cargo.toml -- -D warnings
 # cargo clippy for clip struct
-cd src-clip
-cargo clippy --all-targets --all-features -- -D warnings
-cd ..
+cargo clippy --all-targets --all-features --manifest-path src-clip/Cargo.toml -- -D warnings
 # cargo clippy for logging
-cd tauri-plugin-logging
-cargo clippy --all-targets --all-features -- -D warnings
-cd ..
-# try to build the app
-cargo tauri build
+cargo clippy --all-targets --all-features --manifest-path tauri-plugin-logging/Cargo.toml -- -D warnings
 # cargo fmt
 cargo fmt --all -- --check
+# try to build the app
+cargo tauri build
 ```
 
 ## Documentation

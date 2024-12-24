@@ -26,19 +26,11 @@ use crate::{
     config::{Config, ConfigMutex},
     database::{init_database_connection, DatabaseStateMutex},
     event::{event_daemon, event_sender, CopyClipEvent, EventSender},
-    systray::handle_tray_event,
 };
 use log::{error, info};
-use once_cell::sync::OnceCell;
 use rust_i18n::set_locale;
 use systray::SystemTrayMenuMutex;
-use tauri::{
-    async_runtime::Mutex,
-    menu::{Menu, MenuItem},
-    path::BaseDirectory,
-    tray::{TrayIcon, TrayIconBuilder},
-    EventLoopMessage, Manager,
-};
+use tauri::{async_runtime::Mutex, path::BaseDirectory, Manager};
 use tauri_plugin_logging::panic_app;
 
 const EVENT_CHANNEL_SIZE: usize = 1000;
@@ -158,6 +150,10 @@ pub fn run() {
                 .icon(tauri::image::Image::from_path(icon_resource).unwrap())
                 .icon_as_template(true)
                 .menu_on_left_click(true)
+                .on_menu_event(|app, event| {
+                    let id = event.id().as_ref();
+                    event_sender(app, CopyClipEvent::TrayMenuItemClickEvent(id.to_string()));
+                })
                 .build(&app_handle)
                 .unwrap();
             tauri::async_runtime::spawn(async move {

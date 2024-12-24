@@ -2,11 +2,14 @@ mod clip_struct;
 mod clip_type;
 #[cfg(feature = "compress")]
 mod compress_data;
+mod search_constraint;
 #[cfg(feature = "search")]
 mod search_text;
-mod search_constraint;
 
-use std::{path::{Path, PathBuf}, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 pub use clip_struct::Clip;
 pub use clip_type::ClipType;
@@ -36,7 +39,10 @@ pub fn timestamp() -> i64 {
 pub fn thumbnail_path(img_path: &Path) -> PathBuf {
     let mut thumbnail_path = img_path.to_path_buf();
     let file_name = thumbnail_path.file_name().unwrap().to_str().unwrap();
-    let file_name = file_name.split('.').collect::<Vec<&str>>().join("_thumbnail.");
+    let file_name = file_name
+        .split('.')
+        .collect::<Vec<&str>>()
+        .join("_thumbnail.");
     thumbnail_path.set_file_name(file_name);
     thumbnail_path
 }

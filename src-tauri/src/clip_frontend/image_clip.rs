@@ -42,7 +42,7 @@ fn get_img_path(user_data_dir: PathBuf, img: &Vec<u8>) -> (PathBuf, bool) {
         }
 
         path.pop();
-        path.push(&format!("{}-{}", &hash[4..], index));
+        path.push(format!("{}-{}", &hash[4..], index));
         index += 1;
         path_final = path.with_extension("png");
     }

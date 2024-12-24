@@ -1,18 +1,13 @@
 use log::{debug, error};
 use tauri::async_runtime::{Receiver, Sender};
 
-use tauri::menu::{Menu, MenuItem};
-use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_logging::panic_app;
 use tauri_plugin_notification::NotificationExt;
 
-use crate::clip_frontend::clip_data::{ClipState, ClipStateMutex};
+use crate::clip_frontend::clip_data::ClipStateMutex;
 use crate::systray::SystemTrayMenuMutex;
-use crate::{
-    config::ConfigMutex,
-    systray::{create_tray_menu, handle_menu_item_click},
-};
+use crate::{config::ConfigMutex, systray::handle_menu_item_click};
 
 /// all the events that can be sent to the event daemon
 #[derive(Debug)]

@@ -18,7 +18,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("logging")
         .setup(|app_handle: &AppHandle<R>, _plugin_api: PluginApi<R, ()>| {
             // set up the logger
-            match logging::setup_logger(&app_handle.path()) {
+            match logging::setup_logger(app_handle.path()) {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e.to_string().into()),
             }

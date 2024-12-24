@@ -1,8 +1,7 @@
+/// The functions related to the initialization of the database.
 use log::debug;
 use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
-
-/// The functions related to the initialization of the database.
 
 type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
