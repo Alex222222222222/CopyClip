@@ -29,8 +29,16 @@ use crate::{
     systray::handle_tray_event,
 };
 use log::{error, info};
+use once_cell::sync::OnceCell;
 use rust_i18n::set_locale;
-use tauri::{async_runtime::Mutex, path::BaseDirectory, EventLoopMessage, Manager};
+use systray::SystemTrayMenuMutex;
+use tauri::{
+    async_runtime::Mutex,
+    menu::{Menu, MenuItem},
+    path::BaseDirectory,
+    tray::{TrayIcon, TrayIconBuilder},
+    EventLoopMessage, Manager,
+};
 use tauri_plugin_logging::panic_app;
 
 const EVENT_CHANNEL_SIZE: usize = 1000;
@@ -48,6 +56,7 @@ pub fn run() {
         })
         .manage(ClipStateMutex::default())
         .manage(DatabaseStateMutex::default())
+        .manage(SystemTrayMenuMutex::default())
         .setup(|app| {
             // init the clip search to enable the search feature
             let detection_model_path = match app
@@ -139,9 +148,27 @@ pub fn run() {
                 crate::clip_frontend::monitor::monitor_clip_board(&app_handle).await;
             });
 
-            // initial the tray
-            let app_handle = &app.handle().clone();
-            event_sender(app_handle, CopyClipEvent::RebuildTrayMenuEvent);
+            // init the system tray
+            let app_handle = app.handle().clone();
+            let icon_resource = app_handle
+                .path()
+                .resolve("../public/icons/icon.ico", BaseDirectory::Resource)
+                .unwrap();
+            let tray_icon = tauri::tray::TrayIconBuilder::new()
+                .icon(tauri::image::Image::from_path(icon_resource).unwrap())
+                .icon_as_template(true)
+                .menu_on_left_click(true)
+                .build(&app_handle)
+                .unwrap();
+            tauri::async_runtime::spawn(async move {
+                // set the tray icon
+                let menu = app_handle.state::<SystemTrayMenuMutex>();
+                menu.set_tray_icon(tray_icon).await.unwrap();
+                menu.init_once_cell(&app_handle).await.unwrap();
+
+                // update the tray icon
+                event_sender(&app_handle, CopyClipEvent::RebuildTrayMenuEvent);
+            });
 
             info!("app setup finished");
 

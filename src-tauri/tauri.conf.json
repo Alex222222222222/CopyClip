@@ -15,7 +15,8 @@
       "../public/icons/icon.ico"
     ],
     "resources": [
-      "../ocr_models/*"
+      "../ocr_models/*",
+      "../public/icons/icon.ico"
     ],
     "targets": "all"
   },
@@ -35,10 +36,6 @@
         "height": 800,
         "useHttpsScheme": true
       }
-    ],
-    "trayIcon": {
-      "iconPath": "../public/icons/icon.png",
-      "iconAsTemplate": true
-    }
+    ]
   }
 }

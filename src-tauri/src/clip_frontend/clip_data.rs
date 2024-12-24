@@ -737,6 +737,7 @@ impl ClipState {
             current_page,
         )
         .await?;
+
         debug!("Updating the favourite clips");
         self.update_favourite_clips(app, max_clip_length).await?;
 

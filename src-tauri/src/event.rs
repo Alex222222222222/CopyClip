@@ -1,11 +1,14 @@
 use log::{debug, error};
 use tauri::async_runtime::{Receiver, Sender};
 
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_logging::panic_app;
 use tauri_plugin_notification::NotificationExt;
 
 use crate::clip_frontend::clip_data::{ClipState, ClipStateMutex};
+use crate::systray::SystemTrayMenuMutex;
 use crate::{
     config::ConfigMutex,
     systray::{create_tray_menu, handle_menu_item_click},
@@ -85,58 +88,11 @@ pub async fn event_daemon<R: tauri::Runtime>(mut rx: Receiver<CopyClipEvent>, ap
         match event {
             // rebuild the tray menu
             CopyClipEvent::RebuildTrayMenuEvent => tauri::async_runtime::spawn(async move {
-                // get number of clips to show from config
-                let page_len = app.state::<ConfigMutex>();
-                let page_len = page_len.config.lock().await.clip_per_page;
-                // get the number of pinned clips
-                let pinned_clips = match ClipState::get_label_clip_number(&app, "pinned").await {
-                    Ok(res) => res,
-                    Err(err) => {
-                        error!("Failed to get pinned clips, error: {}", err);
-                        return;
-                    }
-                };
-                // get the number of favourite clips
-                let favourite_clips =
-                    match ClipState::get_label_clip_number(&app, "favourite").await {
-                        Ok(res) => res,
-                        Err(err) => {
-                            error!("Failed to get favourite clips, error: {}", err);
-                            return;
-                        }
-                    };
-                // get paused state
-                let paused = app.state::<ConfigMutex>();
-                let paused = paused.config.lock().await.pause_monitoring;
-
-                // TODO handle error
-                let menu = create_tray_menu(
-                    page_len as i64,
-                    pinned_clips as i64,
-                    favourite_clips as i64,
-                    paused,
-                    &app,
-                ).unwrap();
-                // TODO: handle error and check if the menu is created
-                let res = tauri::tray::TrayIconBuilder::new()
-                    .menu(&menu)
-                    .menu_on_left_click(true)
-                    .build(&app);
-                if res.is_err() {
-                    panic_app(&format!(
-                        "Failed to set tray menu, error: {}",
-                        res.err().unwrap()
-                    ));
-                }
-
-                let clip_data = app.state::<ClipStateMutex>();
-                let mut clip_data = clip_data.clip_state.lock().await;
-
-                let res = clip_data.update_tray(&app).await;
+                let tray = app.state::<SystemTrayMenuMutex>();
+                let res = tray.update_tray_icon(&app).await;
                 if let Err(err) = res {
-                    panic_app(&format!("Failed to update tray menu, error: {}", err));
+                    error!("Failed to update tray icon, error: {}", err);
                 }
-                drop(clip_data);
             }),
             // pinned clips changed event
             CopyClipEvent::PinnedClipsChangedEvent => tauri::async_runtime::spawn(async move {
