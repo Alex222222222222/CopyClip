@@ -1,9 +1,10 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
   "build": {
-    "beforeDevCommand": "bash ./scripts/tailwindcss.sh && trunk serve",
-    "beforeBuildCommand": "bash ./scripts/tailwindcss.sh && trunk build --release && bash ./scripts/wasm-opt.sh",
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420"
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
   },
   "bundle": {
     "active": true,

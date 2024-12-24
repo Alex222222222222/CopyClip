@@ -1,12 +1,15 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <title>CopyClip</title>
-    <link data-trunk rel="css" href="style.css" />
-    <link data-trunk rel="css" href="tailwind.css" />
-    <link data-trunk rel="copy-dir" href="public" />
-    <link rel="rust" href="Cargo.toml" data-cargo-all-features data-wasm-opt="z">
+    <meta charset="UTF-8" />
+    <!-- TODO CHANGE ICON and title -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tauri + React + Typescript</title>
   </head>
-  <body></body>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

@@ -1,11 +1,13 @@
-export const mode = 'all';
-export const darkMode = 'class';
-export const content = [
-    "./src/**/*.rs",
-    "./index.html",
-    "./src/**/*.html",
-    "./src/**/*.css",
-];
-export const theme = {};
-export const variants = {};
-export const plugins = [];
+/** @type {import('tailwindcss').Config} */
+export default {
+    content: [
+        "./index.html",
+        "./src/**/*.{js,ts,jsx,tsx}",
+    ],
+    theme: {
+        extend: {},
+    },
+    plugins: [],
+    mode: 'all',
+    darkMode: 'class',
+}
