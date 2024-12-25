@@ -115,6 +115,8 @@ fn verify_limit_constraints(constraints: &[&SearchConstraint]) -> SearchConstrai
 fn search_constraints_to_sql_and_paras(
     constraints: &Vec<SearchConstraint>,
 ) -> (String, Vec<rusqlite::types::Value>) {
+    // TODO add cache for speed up conversion
+
     let (where_constraints, limit_constraints, join_constraints) =
         group_constraints_by_sql_statement_type(constraints);
     let limit_constraint = verify_limit_constraints(&limit_constraints);
@@ -157,9 +159,9 @@ fn search_constraints_to_sql_and_paras(
 /// search the database for clips that match the search constraints
 pub async fn search_clips(
     connection: &Mutex<Connection>,
-    constraints: Vec<SearchConstraint>,
+    constraints: &Vec<SearchConstraint>,
 ) -> Result<Vec<clip::Clip>, anyhow::Error> {
-    let (query, params) = search_constraints_to_sql_and_paras(&constraints);
+    let (query, params) = search_constraints_to_sql_and_paras(constraints);
     let params = params_from_iter(params.iter());
 
     let connection = connection.lock().await;

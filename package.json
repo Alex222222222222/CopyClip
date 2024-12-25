@@ -11,12 +11,14 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
+    "async-lock": "^1.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.4.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
+    "@types/async-lock": "^1.4.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",

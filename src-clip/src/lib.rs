@@ -13,8 +13,7 @@ use std::{
 
 pub use clip_struct::Clip;
 pub use clip_type::ClipType;
-#[cfg(feature = "compress")]
-use compress_data::{compress_text, decompress_text};
+
 use once_cell::sync::Lazy;
 #[cfg(feature = "search")]
 use search_text::convert_text_to_search_text;
@@ -24,6 +23,11 @@ use unicode_segmentation::UnicodeSegmentation;
 
 pub use search_constraint::SearchConstraint;
 pub use search_constraint::TextSearchMethod;
+
+#[cfg(feature = "compress")]
+pub use compress_data::compress_text;
+#[cfg(feature = "compress")]
+pub use compress_data::decompress_text;
 
 /// return the unix epoch in seconds
 pub fn timestamp() -> i64 {

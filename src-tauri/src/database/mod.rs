@@ -1,9 +1,12 @@
 mod init;
 mod search;
 
-use clip::{Clip, SearchConstraint};
+use std::{collections::HashSet, os::unix::thread, thread::sleep, u64};
+
+use clip::{Clip, ClipType, SearchConstraint};
 use data_encoding::BASE32;
 use log::debug;
+use once_cell::sync::Lazy;
 /// The database module is used to deal with the database connection and the database table
 /// Database design:
 ///   - version table
@@ -25,6 +28,7 @@ use log::debug;
 use rusqlite::Connection;
 
 pub use init::init_database_connection;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 /// Convert the label name to the table name
@@ -59,17 +63,112 @@ impl Default for DatabaseStateMutex {
     }
 }
 
+static SEARCH_JOB: Lazy<tauri::async_runtime::Mutex<Option<u64>>> =
+    Lazy::new(|| tauri::async_runtime::Mutex::new(None));
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchRes {
+    pub clip: SearchResClip,
+    pub session_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResClip {
+    /// The text of the clip.
+    /// After the clip is created, the text should not be changed
+    pub data: String,
+    /// The search text of the clip
+    pub search_text: String,
+    /// The type of the clip
+    pub clip_type: ClipType,
+    /// in seconds
+    pub timestamp: i64,
+    /// the id of the clip
+    pub id: u64,
+    /// the labels of the clip
+    /// each label is a string
+    pub labels: Vec<String>,
+}
+
 /// The search function is used to search the clips in the database
 #[tauri::command]
 pub async fn search_clips(
     database: State<'_, DatabaseStateMutex>,
+    session_id: u64,
     constraints: Vec<SearchConstraint>,
-) -> Result<Vec<clip::Clip>, String> {
-    let res = database.search_clips(constraints).await;
-    match res {
-        Ok(res) => Ok(res),
-        Err(err) => Err(err.to_string()),
+    on_event: tauri::ipc::Channel<SearchRes>,
+) -> Result<(), String> {
+    let mut search_job = SEARCH_JOB.lock().await;
+    if *search_job == Some(session_id) {
+        return Ok(());
     }
+    *search_job = Some(session_id);
+    drop(search_job);
+
+    let mut limit = usize::MAX;
+    for constraint in &constraints {
+        if let SearchConstraint::Limit(l) = constraint {
+            if *l < limit {
+                limit = *l;
+            }
+        }
+    }
+
+    let mut clips_num = 0;
+
+    let mut constraints = constraints;
+    constraints.push(SearchConstraint::Limit(1));
+
+    while clips_num < limit {
+        let search_job = SEARCH_JOB.lock().await;
+        if *search_job != Some(session_id) {
+            return Ok(());
+        }
+
+        let res = database.search_clips(&constraints).await;
+        let res = match res {
+            Ok(res) => res,
+            Err(err) => return Err(err.to_string()),
+        };
+        if res.is_empty() {
+            break;
+        }
+        res.into_iter().for_each(|clip| {
+            clips_num += 1;
+
+            let search_res_clip = SearchResClip {
+                data: if clip.clip_type == ClipType::Image {
+                    clip::decompress_text(&clip.data).unwrap_or_default()
+                } else {
+                    "".to_string()
+                },
+                search_text: clip.search_text,
+                clip_type: clip.clip_type,
+                timestamp: clip.timestamp,
+                id: clip.id,
+                labels: clip.labels,
+            };
+
+            let res = on_event.send(SearchRes {
+                clip: search_res_clip,
+                session_id,
+            });
+            match res {
+                Ok(_) => {
+                    debug!("send clip: {:?}", clip.id);
+                }
+                Err(err) => {
+                    debug!("failed to send clip: {}", err);
+                }
+            }
+        });
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    Ok(())
 }
 
 impl DatabaseStateMutex {
@@ -86,7 +185,7 @@ impl DatabaseStateMutex {
     /// search the database for clips that match the search constraints
     pub async fn search_clips(
         &self,
-        constraints: Vec<SearchConstraint>,
+        constraints: &Vec<SearchConstraint>,
     ) -> Result<Vec<clip::Clip>, anyhow::Error> {
         search::search_clips(&self.database_connection, constraints).await
     }

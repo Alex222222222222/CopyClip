@@ -1,6 +1,9 @@
-import { useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import SearchHeadBar from "./SearchHeadBar";
 import SearchLabelsBar from "./SearchLabelsBar";
+import { Channel, invoke, SERIALIZE_TO_IPC_FN } from "@tauri-apps/api/core";
+import AsyncLock from "async-lock";
+import SearchDisplay from "./SearchDisplay";
 
 export enum TextSearchMethod {
   Contains = "contains",
@@ -48,6 +51,149 @@ function search_constraint_struct_reducer(
   }
 }
 
+/// use lock to ensure only one insert operation is running
+let SEARCH_LOCK = new AsyncLock();
+interface SearchResult {
+  clips: Map<number, Clip[]>;
+}
+
+export const SEARCH_RESULT: SearchResult = {
+  clips: new Map<number, Clip[]>(),
+};
+
+function search_result_insert(
+  set_rebuild_num: React.Dispatch<React.SetStateAction<number>>,
+  data: {
+    clip: Clip;
+    sessionId: number;
+  }
+) {
+  SEARCH_LOCK.acquire("search_result_insert", async () => {
+    // get the keys of the SEARCH_RESULT
+    let keys = Array.from(SEARCH_RESULT.clips.keys());
+    // sort the keys
+    keys.sort();
+    // get the last key
+    let last_key = keys[keys.length - 1];
+    if (last_key === undefined || data.sessionId > last_key) {
+      // if the data is new, insert it
+      SEARCH_RESULT.clips.set(data.sessionId, [data.clip]);
+
+      // clean up the old data
+      for (let key of keys) {
+        SEARCH_RESULT.clips.delete(key);
+      }
+    } else if (data.sessionId < last_key) {
+      // do nothing if the data is outdated
+      return;
+    } else if (data.sessionId === last_key) {
+      // if the data is the same session, append it
+      SEARCH_RESULT.clips.get(data.sessionId)?.push(data.clip);
+    }
+
+    // add rebuild num to the current unix timestamp after insert to force rebuild
+    set_rebuild_num(new Date().getTime());
+  });
+}
+
+let SEARCH_SESSION_ID: number = 0;
+
+enum ClipType {
+  Text = "text",
+  Image = "image",
+  File = "file",
+  Html = "html",
+  Rtf = "rtf",
+}
+
+interface Clip {
+  /// The text of the clip.
+  /// After the clip is created, the text should not be changed
+  data: String;
+  /// The search text of the clip
+  searchText: String;
+  /// The type of the clip
+  clipType: ClipType;
+  /// in seconds
+  timestamp: number;
+  /// the id of the clip
+  id: number;
+  /// the labels of the clip
+  /// each label is a string
+  labels: String[];
+}
+
+type SearchConstraint =
+  /// Search for the text that contains the given text
+  | {
+      type: "textContains";
+
+      data: String;
+    }
+  /// Search for the text that match the regex
+  | {
+      type: "textRegex";
+      data: String;
+    }
+  /// Search for the text that match the fuzzy search
+  | {
+      type: "textFuzzy";
+      data: String;
+    }
+  /// Timestamp that is greater than the given timestamp
+  | {
+      type: "timestampGreaterThan";
+      data: number;
+    }
+  /// Timestamp that is less than the given timestamp
+  | {
+      type: "timestampLessThan";
+      data: number;
+    }
+  /// Has the given label
+  | {
+      type: "hasLabel";
+      data: String;
+    }
+  /// Does not have the given label
+  | {
+      type: "notHasLabel";
+      data: String;
+    }
+  /// Limit the number of results
+  | {
+      type: "limit";
+      data: number;
+    };
+
+function search_invoke(
+  session_id: number,
+  set_rebuild_num: React.Dispatch<React.SetStateAction<number>>,
+  search_constraint_struct: SearchConstraintStruct,
+  additional_constraints: SearchConstraint[] = []
+) {
+  const onEvent = new Channel<{
+    clip: Clip;
+    sessionId: number;
+  }>();
+  onEvent.onmessage = (message) => {
+    search_result_insert(set_rebuild_num, message);
+  };
+
+  const constraints: SearchConstraint[] = [
+    {
+      type: "limit",
+      data: 10,
+    },
+  ];
+
+  invoke("search_clips", {
+    onEvent,
+    constraints,
+    sessionId: session_id,
+  });
+}
+
 export default function Search() {
   const [search_constraint_struct, set_search_constraint_struct] = useReducer(
     search_constraint_struct_reducer,
@@ -59,6 +205,14 @@ export default function Search() {
     }
   );
 
+  const [rebuild_num, set_rebuild_num] = useState<number>(0);
+
+  useEffect(() => {
+    SEARCH_SESSION_ID += 1;
+    const session_id = SEARCH_SESSION_ID;
+    search_invoke(session_id, set_rebuild_num, search_constraint_struct);
+  }, [search_constraint_struct]);
+
   return (
     <div className="h-full w-full">
       <SearchHeadBar
@@ -69,6 +223,7 @@ export default function Search() {
         set_search_constraint_struct={set_search_constraint_struct}
         search_constraint_struct={search_constraint_struct}
       />
+      <SearchDisplay rebuild_num={rebuild_num} />
     </div>
   );
 }

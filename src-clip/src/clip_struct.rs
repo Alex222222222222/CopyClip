@@ -5,6 +5,7 @@ use crate::ClipType;
 /// a single clip
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "yew", derive(yew::Properties, PartialEq))]
+#[serde(rename_all = "camelCase")]
 pub struct Clip {
     /// The text of the clip.
     /// After the clip is created, the text should not be changed

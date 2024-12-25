@@ -49,8 +49,6 @@ function SearchLabelsBarButton(props: {
     });
   }, []); // run once
 
-  console.log(props.search_constraint_struct);
-
   if (
     props.search_constraint_struct.neutral_label.size !== 0 &&
     props.search_constraint_struct.neutral_label.has(props.label)
