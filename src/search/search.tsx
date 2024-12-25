@@ -183,7 +183,7 @@ function search_invoke(
   const constraints: SearchConstraint[] = [
     {
       type: "limit",
-      data: 10,
+      data: 30,
     },
   ];
 
@@ -214,7 +214,7 @@ export default function Search() {
   }, [search_constraint_struct]);
 
   return (
-    <div className="h-full w-full">
+    <div className="h-screen w-screen">
       <SearchHeadBar
         set_search_constraint_struct={set_search_constraint_struct}
         search_constraint_struct={search_constraint_struct}

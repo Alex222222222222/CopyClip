@@ -55,7 +55,7 @@ function SearchLabelsBarButton(props: {
   ) {
     return (
       <button
-        className="py-1 px-2"
+        className="py-1 px-2 text-base"
         title={click_to_display_clip_does_not_have_this_label_title}
         onClick={() => {
           props.set_search_constraint_struct({

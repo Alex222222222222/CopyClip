@@ -3,7 +3,7 @@ import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import Search from "./Search/Search";
 
 function Layout() {
-  return <main className="bg-white dark:bg-gray-800 text-black dark:text-white min-h-screen">
+  return <main className="bg-white dark:bg-gray-800 text-black dark:text-white h-screen w-screen">
     <Outlet />
   </main>;
 }

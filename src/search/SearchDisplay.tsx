@@ -18,13 +18,20 @@ export default function SearchDisplay(props: { rebuild_num: number }) {
           No search result
         </div>
       ) : (
-        SEARCH_RESULT.clips.get(last_key)?.map((clip) => {
-          return (
-            <div key={clip.id} className="p-2">
-              <div className="text-lg font-semibold">{clip.searchText}</div>
-            </div>
-          );
-        })
+        <div className="flex flex-row w-screen divide-x-4 divide-gray-800 h-[calc(100vh-80px)]">
+          <div className="grid-cols-1 overflow-y-auto flex-nowrap w-2/5 text-base divide-y-2 divide-gray-600 h-full">
+            {SEARCH_RESULT.clips.get(last_key)?.map((clip) => {
+              return (
+                <div key={clip.id} className="line-clamp-3 bg-green-50">
+                  
+                    {clip.searchText}
+                  
+                </div>
+              );
+            })}
+          </div>
+          <div className="bg-green-500"></div>
+        </div>
       )}
     </>
   );
