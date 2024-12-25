@@ -11,3 +11,7 @@ export default function T(props: { t_key: string }) {
 
   return <>{t_res}</>;
 }
+
+export async function t(t_key: string): Promise<string> {
+  return await invoke<string>("i18n_t", { key: t_key });
+}
