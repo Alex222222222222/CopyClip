@@ -1,5 +1,6 @@
 import { useReducer } from "react";
 import SearchHeadBar from "./SearchHeadBar";
+import SearchLabelsBar from "./SearchLabelsBar";
 
 export enum TextSearchMethod {
   Contains = "contains",
@@ -64,9 +65,10 @@ export default function Search() {
         set_search_constraint_struct={set_search_constraint_struct}
         search_constraint_struct={search_constraint_struct}
       />
-      {
-        //<SearchLabelsBar />
-      }
+      <SearchLabelsBar
+        set_search_constraint_struct={set_search_constraint_struct}
+        search_constraint_struct={search_constraint_struct}
+      />
     </div>
   );
 }
