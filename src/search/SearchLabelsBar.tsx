@@ -11,8 +11,8 @@ function SearchLabelsBarButton(props: {
       action: {
         type:
           | "set_search_text"
-          | "insert_neutral_label"
-          | "remove_neutral_label"
+          | "insert_include_label"
+          | "remove_include_label"
           | "insert_exclude_label"
           | "remove_exclude_label"
           | "set_text_search_method";
@@ -50,16 +50,16 @@ function SearchLabelsBarButton(props: {
   }, []); // run once
 
   if (
-    props.search_constraint_struct.neutral_label.size !== 0 &&
-    props.search_constraint_struct.neutral_label.has(props.label)
+    props.search_constraint_struct.include_label.size !== 0 &&
+    props.search_constraint_struct.include_label.has(props.label)
   ) {
     return (
       <button
-        className="py-1 px-2 text-base"
+        className="py-1 px-2 bg-green-200 dark:bg-green-600"
         title={click_to_display_clip_does_not_have_this_label_title}
         onClick={() => {
           props.set_search_constraint_struct({
-            type: "remove_neutral_label",
+            type: "remove_include_label",
             value: props.label,
           });
           props.set_search_constraint_struct({
@@ -78,7 +78,7 @@ function SearchLabelsBarButton(props: {
     return (
       <button
         className="py-1 px-2 bg-red-200 dark:bg-red-600"
-        title={click_to_display_clip_have_this_label_title}
+        title={click_to_remove_label_constraint_title}
         onClick={() => {
           props.set_search_constraint_struct({
             type: "remove_exclude_label",
@@ -92,11 +92,11 @@ function SearchLabelsBarButton(props: {
   } else {
     return (
       <button
-        className="py-1 px-2 bg-green-200 dark:bg-green-600"
-        title={click_to_remove_label_constraint_title}
+        className="py-1 px-2"
+        title={click_to_display_clip_have_this_label_title}
         onClick={() => {
           props.set_search_constraint_struct({
-            type: "insert_neutral_label",
+            type: "insert_include_label",
             value: props.label,
           });
         }}
@@ -114,8 +114,8 @@ export default function SearchLabelsBar(props: {
       action: {
         type:
           | "set_search_text"
-          | "insert_neutral_label"
-          | "remove_neutral_label"
+          | "insert_include_label"
+          | "remove_include_label"
           | "insert_exclude_label"
           | "remove_exclude_label"
           | "set_text_search_method";
@@ -136,7 +136,7 @@ export default function SearchLabelsBar(props: {
   return (
     <div className="flex flex-nowrap overflow-x-auto bg-gray-200 dark:bg-gray-600 text-black dark:text-white divide-x-2 divide-gray-600 dark:divide-gray-400 no-scrollbar">
       <SearchLabelsBarButton
-        label="favorite"
+        label="favourite"
         search_constraint_struct={props.search_constraint_struct}
         set_search_constraint_struct={props.set_search_constraint_struct}
       />

@@ -16,8 +16,8 @@ function EnableFuzzySearchIcon(props: {
       action: {
         type:
           | "set_search_text"
-          | "insert_neutral_label"
-          | "remove_neutral_label"
+          | "insert_include_label"
+          | "remove_include_label"
           | "insert_exclude_label"
           | "remove_exclude_label"
           | "set_text_search_method";
@@ -80,8 +80,8 @@ function EnableRegexSearchIcon(props: {
       action: {
         type:
           | "set_search_text"
-          | "insert_neutral_label"
-          | "remove_neutral_label"
+          | "insert_include_label"
+          | "remove_include_label"
           | "insert_exclude_label"
           | "remove_exclude_label"
           | "set_text_search_method";
@@ -144,8 +144,8 @@ function SearchInputBox(props: {
       action: {
         type:
           | "set_search_text"
-          | "insert_neutral_label"
-          | "remove_neutral_label"
+          | "insert_include_label"
+          | "remove_include_label"
           | "insert_exclude_label"
           | "remove_exclude_label"
           | "set_text_search_method";
@@ -264,8 +264,8 @@ export default function SearchHeadBar(props: {
       action: {
         type:
           | "set_search_text"
-          | "insert_neutral_label"
-          | "remove_neutral_label"
+          | "insert_include_label"
+          | "remove_include_label"
           | "insert_exclude_label"
           | "remove_exclude_label"
           | "set_text_search_method";

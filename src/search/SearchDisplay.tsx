@@ -22,13 +22,20 @@ export default function SearchDisplay(props: { rebuild_num: number }) {
           <div className="grid-cols-1 overflow-y-auto flex-nowrap w-2/5 text-base divide-y-2 divide-gray-600 h-full">
             {SEARCH_RESULT.clips.get(last_key)?.map((clip) => {
               return (
-                <div key={clip.id} className="line-clamp-3 bg-green-50">
-                  
-                    {clip.searchText}
-                  
+                <div key={clip.id} className="px-2 line-clamp-3 bg-green-50">
+                  {clip.searchText}
                 </div>
               );
             })}
+            <div
+              key={"load_more"}
+              onClick={() => {
+                // load more
+              }}
+              className="px-2 line-clamp-3 bg-green-50"
+            >
+              Load more
+            </div>
           </div>
           <div className="bg-green-500"></div>
         </div>

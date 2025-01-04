@@ -1,3 +1,5 @@
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 /// The functions related to the initialization of the database.
 use log::debug;
 use rusqlite::Connection;
@@ -64,11 +66,16 @@ fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connectio
 /// create and load the fuzzy search function to the database
 fn create_fuzzy_search_function(connection: &Connection) -> Result<(), anyhow::Error> {
     fn fuzzy_search(ctx: &rusqlite::functions::Context) -> Result<isize, rusqlite::Error> {
-        let pattern = ctx.get::<String>(0)?;
-        let text = ctx.get::<String>(1)?;
+        let pattern = ctx.get::<String>(1)?;
+        let text = ctx.get::<String>(0)?;
 
-        match sublime_fuzzy::best_match(&pattern, &text) {
-            Some(score) => Ok(score.score()),
+        let matcher = SkimMatcherV2::default();
+
+        match matcher.fuzzy_match(&text, &pattern) {
+            Some(score) => {
+                debug!("score: {}", score);
+                Ok(score as isize)
+            }
             None => Ok(0),
         }
     }

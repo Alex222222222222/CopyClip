@@ -100,6 +100,8 @@ pub async fn search_clips(
     constraints: Vec<SearchConstraint>,
     on_event: tauri::ipc::Channel<SearchRes>,
 ) -> Result<(), String> {
+debug!("get constraints: {:?}", constraints);
+
     let mut search_job = SEARCH_JOB.lock().await;
     if *search_job == Some(session_id) {
         return Ok(());
@@ -121,13 +123,23 @@ pub async fn search_clips(
     let mut constraints = constraints;
     constraints.push(SearchConstraint::Limit(1));
 
+    let mut last_timestamp = None;
+
     while clips_num < limit {
         let search_job = SEARCH_JOB.lock().await;
         if *search_job != Some(session_id) {
             return Ok(());
         }
 
+        if let Some(SearchConstraint::TimestampLessThan(_)) = constraints.last() {
+            constraints.pop();
+        }
+        if let Some(last_timestamp) = last_timestamp {
+            constraints.push(SearchConstraint::TimestampLessThan(last_timestamp));
+        }
+
         let res = database.search_clips(&constraints).await;
+        debug!("search clips: {:?}", res);
         let res = match res {
             Ok(res) => res,
             Err(err) => return Err(err.to_string()),
@@ -155,6 +167,11 @@ pub async fn search_clips(
                 clip: search_res_clip,
                 session_id,
             });
+
+            if last_timestamp.is_none() || last_timestamp.unwrap() > clip.timestamp {
+                last_timestamp = Some(clip.timestamp);
+            }
+
             match res {
                 Ok(_) => {
                     debug!("send clip: {:?}", clip.id);

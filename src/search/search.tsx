@@ -13,9 +13,54 @@ export enum TextSearchMethod {
 
 export interface SearchConstraintStruct {
   search_text: String;
-  neutral_label: Set<String>;
+  include_label: Set<String>;
   exclude_label: Set<String>;
   text_search_method: TextSearchMethod;
+}
+
+function search_constraint_struct_2_list(
+  search_constraint_struct: SearchConstraintStruct
+): SearchConstraint[] {
+  let constraints: SearchConstraint[] = [];
+
+  if (search_constraint_struct.search_text !== "") {
+    switch (search_constraint_struct.text_search_method) {
+      case TextSearchMethod.Contains:
+        constraints.push({
+          type: "textContains",
+          data: search_constraint_struct.search_text,
+        });
+        break;
+      case TextSearchMethod.Regex:
+        constraints.push({
+          type: "textRegex",
+          data: search_constraint_struct.search_text,
+        });
+        break;
+      case TextSearchMethod.Fuzzy:
+        constraints.push({
+          type: "textFuzzy",
+          data: search_constraint_struct.search_text,
+        });
+        break;
+    }
+  }
+
+  for (let label of search_constraint_struct.include_label) {
+    constraints.push({
+      type: "hasLabel",
+      data: label,
+    });
+  }
+
+  for (let label of search_constraint_struct.exclude_label) {
+    constraints.push({
+      type: "notHasLabel",
+      data: label,
+    });
+  }
+
+  return constraints;
 }
 
 function search_constraint_struct_reducer(
@@ -23,8 +68,8 @@ function search_constraint_struct_reducer(
   action: {
     type:
       | "set_search_text"
-      | "insert_neutral_label"
-      | "remove_neutral_label"
+      | "insert_include_label"
+      | "remove_include_label"
       | "insert_exclude_label"
       | "remove_exclude_label"
       | "set_text_search_method";
@@ -34,12 +79,12 @@ function search_constraint_struct_reducer(
   switch (action.type) {
     case "set_search_text":
       return { ...state, search_text: action.value };
-    case "insert_neutral_label":
-      state.neutral_label.add(action.value);
-      return { ...state, neutral_label: state.neutral_label };
-    case "remove_neutral_label":
-      state.neutral_label.delete(action.value);
-      return { ...state, neutral_label: state.neutral_label };
+    case "insert_include_label":
+      state.include_label.add(action.value);
+      return { ...state, include_label: state.include_label };
+    case "remove_include_label":
+      state.include_label.delete(action.value);
+      return { ...state, include_label: state.include_label };
     case "insert_exclude_label":
       state.exclude_label.add(action.value);
       return { ...state, exclude_label: state.exclude_label };
@@ -180,12 +225,15 @@ function search_invoke(
     search_result_insert(set_rebuild_num, message);
   };
 
-  const constraints: SearchConstraint[] = [
+  let constraints: SearchConstraint[] = [
     {
       type: "limit",
       data: 30,
     },
   ];
+
+  constraints = constraints.concat(additional_constraints);
+  constraints = constraints.concat(search_constraint_struct_2_list(search_constraint_struct));
 
   invoke("search_clips", {
     onEvent,
@@ -199,7 +247,7 @@ export default function Search() {
     search_constraint_struct_reducer,
     {
       search_text: "",
-      neutral_label: new Set<String>(),
+      include_label: new Set<String>(),
       exclude_label: new Set<String>(),
       text_search_method: TextSearchMethod.Contains,
     }

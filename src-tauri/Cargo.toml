@@ -51,7 +51,7 @@ rusqlite = { version = "0.32", features = [
     "functions",
 ] }
 data-encoding = "2.6"
-sublime_fuzzy = "0.7"
+fuzzy-matcher = "0.3.7"
 tauri = { version = "2", features = [
     "unstable",
     "config-json5",
