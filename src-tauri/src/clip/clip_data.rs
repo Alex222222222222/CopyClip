@@ -291,6 +291,29 @@ impl ClipState {
         Ok(())
     }
 
+    /// Delete all clips from the database and the cache, except pinned clips.
+    ///
+    /// Will trigger a tray update event.
+    pub async fn clear_clips(&mut self, app: &AppHandle) -> Result<(), Error> {
+        let db_connection = app.state::<DatabaseStateMutex>();
+        let db_connection = db_connection.database_connection.lock().await;
+        match db_connection.execute(
+            &format!(
+                "DELETE FROM clips WHERE id NOT IN (SELECT id FROM {})",
+                label_name_to_table_name("pinned")
+            ),
+            [],
+        ) {
+            Ok(_) => (),
+            Err(err) => return Err(Error::DatabaseWriteErr(err.to_string())),
+        };
+        drop(db_connection);
+
+        self.trigger_tray_update_event(app).await;
+
+        Ok(())
+    }
+
     /// Change the current page to the first page.
     ///
     /// Will try lock `clips`.

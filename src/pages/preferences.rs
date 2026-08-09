@@ -3,7 +3,7 @@ use yew::{function_component, html, Html};
 use crate::components::{
     head_bar::HeadBar,
     preferences::{
-        clips_per_page_config::ClipsPerPageConfig,
+        clear_history_button::ClearHistoryButton, clips_per_page_config::ClipsPerPageConfig,
         clips_search_per_batch::SearchClipPerBatchConfig, dark_mode_switch::DarkModeSwitch,
         export_button::ExportButton, language_config::LanguagesConfig,
         log_level_filter_config::LogLevelFilterConfig, max_clip_len_config::MaxClipLenConfig,
@@ -29,6 +29,8 @@ pub fn preferences() -> Html {
                 <LanguagesConfig></LanguagesConfig>
                 <br />
                 <ExportButton></ExportButton>
+                <br />
+                <ClearHistoryButton></ClearHistoryButton>
             </div>
 
             <h2 class="text-center text-4xl m-0">{ t!("preferences.advanced_title") }</h2>

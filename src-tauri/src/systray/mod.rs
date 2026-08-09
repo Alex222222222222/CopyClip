@@ -63,6 +63,8 @@ pub fn create_tray_menu(
         t!("tray_menu.pause_monitoring")
     };
     let pause = CustomMenuItem::new("pause".to_string(), text);
+    let clear_history =
+        CustomMenuItem::new("clear_history".to_string(), t!("tray_menu.clear_history"));
 
     let quit = CustomMenuItem::new("quit".to_string(), t!("tray_menu.quit"));
     let mut tray_menu = SystemTrayMenu::new()
@@ -103,6 +105,7 @@ pub fn create_tray_menu(
         .add_item(preferences)
         .add_item(search)
         .add_item(pause)
+        .add_item(clear_history)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit)
 }
@@ -134,12 +137,15 @@ pub fn create_tray_menu(
         t!("tray_menu.pause_monitoring")
     };
     let pause = CustomMenuItem::new("pause".to_string(), text);
+    let clear_history =
+        CustomMenuItem::new("clear_history".to_string(), t!("tray_menu.clear_history"));
 
     let quit = CustomMenuItem::new("quit".to_string(), t!("tray_menu.quit"));
     let mut tray_menu = SystemTrayMenu::new();
     tray_menu = tray_menu
         .add_item(quit)
         .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(clear_history)
         .add_item(pause)
         .add_item(search)
         .add_item(preferences)
@@ -318,6 +324,28 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                     }
                 });
             }
+        }
+        "clear_history" => {
+            debug!("Clear history clicked, asking for confirmation");
+            let app_handle = app.app_handle();
+            tauri::api::dialog::ask(
+                None::<&tauri::Window>,
+                t!("tray_menu.clear_history"),
+                t!("tray_menu.clear_history_confirm"),
+                move |confirmed| {
+                    if !confirmed {
+                        return;
+                    }
+                    tauri::async_runtime::spawn(async move {
+                        let clip_data = app_handle.state::<ClipStateMutex>();
+                        let mut clip_data = clip_data.clip_state.lock().await;
+                        let res = clip_data.clear_clips(&app_handle).await;
+                        if let Err(e) = res {
+                            warn!("Failed to clear history: {}", e);
+                        }
+                    });
+                },
+            );
         }
         "pause" => {
             debug!("Pause clicked, Toggling pause monitoring");

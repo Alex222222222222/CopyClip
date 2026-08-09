@@ -13,6 +13,8 @@ preferences:
   language: Language
   search_clip_per_batch: Search Clips Per Batch
   enable_auto_delete_duplications: Enable Auto Delete Duplications
+  clear_history_button: Clear History
+  clear_history_confirm_button: Click again to confirm
 
 head_bar:
   home: Home
@@ -62,5 +64,7 @@ tray_menu:
   preferences: Preferences
   search: Search
   quit: Quit
+  clear_history: Clear History
+  clear_history_confirm: This will permanently delete all clips in your history, except pinned clips. Continue?
   total_clips: Total Clips
   current_page: Current Page

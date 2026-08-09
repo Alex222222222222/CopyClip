@@ -9,6 +9,8 @@ preferences:
   language: 语言
   search_clip_per_batch: 每次搜索的数量
   enable_auto_delete_duplications: 自动删除重复记录
+  clear_history_button: 清空历史记录
+  clear_history_confirm_button: 再次点击以确认
 
 head_bar:
   home: 主页
@@ -58,5 +60,7 @@ tray_menu:
   preferences: 设置
   search: 搜索
   quit: 退出
+  clear_history: 清空历史记录
+  clear_history_confirm: 此操作将永久删除历史记录中的所有记录（置顶记录除外），是否继续？
   total_clips: 总历史记录
   current_page: 当前页

@@ -106,6 +106,31 @@ pub async fn delete_clip_from_database(
     Ok(())
 }
 
+/// Delete all clips from the database, except pinned clips
+#[tauri::command]
+pub async fn clear_clip_history(
+    app: tauri::AppHandle,
+    clip_state: tauri::State<'_, ClipStateMutex>,
+    event_sender: tauri::State<'_, EventSender>,
+) -> Result<(), String> {
+    let mut clip_state_mutex = clip_state.clip_state.lock().await;
+    let res = clip_state_mutex.clear_clips(&app).await;
+    drop(clip_state_mutex);
+
+    if let Err(err) = res {
+        return Err(err.to_string());
+    }
+
+    event_sender.send(CopyClipEvent::RebuildTrayMenuEvent).await;
+    event_sender
+        .send(CopyClipEvent::SendNotificationEvent(
+            "Clip history cleared.".to_string(),
+        ))
+        .await;
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn change_favourite_clip(
     app: tauri::AppHandle,
