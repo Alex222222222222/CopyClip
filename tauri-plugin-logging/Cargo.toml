@@ -6,7 +6,7 @@ description = "logging plugin for my copyclip app"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "*", optional = true }
+tauri = { version = "2.11.5", optional = true }
 # used to setup logging
 fern = { version = "0.6", optional = true }
 log = { version = "*", optional = true }

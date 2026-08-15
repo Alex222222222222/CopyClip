@@ -1,8 +1,9 @@
 use log::{debug, error, info, warn};
 use tauri::{
-    AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
-    SystemTrayMenuItem, SystemTraySubmenu,
+    menu::{Menu, MenuEvent, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu},
+    AppHandle, Manager, Wry,
 };
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_logging::panic_app;
 
 use crate::{
@@ -11,16 +12,24 @@ use crate::{
     event::{event_sender, CopyClipEvent, EventSender},
 };
 
-/// create the tray
-pub fn create_tray(
-    page_len: i64,
-    pinned_clips_num: i64,
-    favourite_clips_num: i64,
-    paused: bool,
-) -> SystemTray {
-    let tray_menu = create_tray_menu(page_len, pinned_clips_num, favourite_clips_num, paused);
+#[derive(Default)]
+pub struct TrayMenuState {
+    pub menu: std::sync::Mutex<Option<Menu<Wry>>>,
+}
 
-    SystemTray::new().with_menu(tray_menu)
+fn append_item(
+    menu: &Menu<Wry>,
+    app: &AppHandle,
+    id: impl Into<tauri::menu::MenuId>,
+    text: impl AsRef<str>,
+    enabled: bool,
+    accelerator: Option<&str>,
+) -> tauri::Result<()> {
+    menu.append(&MenuItem::with_id(app, id, text, enabled, accelerator)?)
+}
+
+fn append_separator(menu: &Menu<Wry>, app: &AppHandle) -> tauri::Result<()> {
+    menu.append(&PredefinedMenuItem::separator(app)?)
 }
 
 /// create the tray menu
@@ -36,166 +45,173 @@ pub fn create_tray(
 /// - preferences
 /// - search
 /// - quit
-#[cfg(not(target_os = "windows"))]
 pub fn create_tray_menu(
+    app: &AppHandle,
     page_len: i64,
     pinned_clips_num: i64,
     favourite_clips_num: i64,
     paused: bool,
-) -> SystemTrayMenu {
-    // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
+) -> tauri::Result<Menu<Wry>> {
+    let tray_menu = Menu::new(app)?;
+    let favourite_menu = Submenu::with_id(app, "favourite", t!("tray_menu.favourite"), true)?;
 
-    let notice_select =
-        CustomMenuItem::new("notice_select".to_string(), t!("tray_menu.notice_select")).disabled();
-
-    let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
-    let prev_page = CustomMenuItem::new("prev_page".to_string(), t!("tray_menu.prev_page"))
-        .accelerator("CommandOrControl+A");
-    let next_page = CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page"))
-        .accelerator("CommandOrControl+D");
-    let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
-
-    let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
-    let search = CustomMenuItem::new("search".to_string(), t!("tray_menu.search"));
-    let text = if paused {
-        t!("tray_menu.resume_monitoring")
-    } else {
-        t!("tray_menu.pause_monitoring")
-    };
-    let pause = CustomMenuItem::new("pause".to_string(), text);
-    let clear_history =
-        CustomMenuItem::new("clear_history".to_string(), t!("tray_menu.clear_history"));
-
-    let quit = CustomMenuItem::new("quit".to_string(), t!("tray_menu.quit"));
-    let mut tray_menu = SystemTrayMenu::new()
-        .add_item(notice_select)
-        .add_native_item(SystemTrayMenuItem::Separator);
-
-    // add the pinned clips slot
-    for i in 0..pinned_clips_num {
-        let clip = CustomMenuItem::new("pinned_clip_".to_string() + &i.to_string(), "");
-        tray_menu = tray_menu.add_item(clip);
-    }
-    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
-
-    // add the label submenus
-    //    -default label: favourites
-    let mut favourite_menu = SystemTrayMenu::new();
-    for i in 0..favourite_clips_num {
-        let clip = CustomMenuItem::new("favourite_clip_".to_string() + &i.to_string(), "");
-        favourite_menu = favourite_menu.add_item(clip);
-    }
-    let favourite = SystemTraySubmenu::new(t!("tray_menu.favourite"), favourite_menu);
-    tray_menu = tray_menu.add_submenu(favourite);
-    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
-
-    // add the clips slot
-    for i in 0..page_len {
-        let clip = CustomMenuItem::new("tray_clip_".to_string() + &i.to_string(), "");
-        tray_menu = tray_menu.add_item(clip);
+    #[cfg(not(target_os = "windows"))]
+    {
+        append_item(
+            &tray_menu,
+            app,
+            "notice_select",
+            t!("tray_menu.notice_select"),
+            false,
+            None,
+        )?;
+        append_separator(&tray_menu, app)?;
+        for i in 0..pinned_clips_num {
+            append_item(&tray_menu, app, format!("pinned_clip_{i}"), "", true, None)?;
+        }
+        append_separator(&tray_menu, app)?;
+        for i in 0..favourite_clips_num {
+            favourite_menu.append(&MenuItem::with_id(
+                app,
+                format!("favourite_clip_{i}"),
+                "",
+                true,
+                None::<&str>,
+            )?)?;
+        }
+        tray_menu.append(&favourite_menu)?;
+        append_separator(&tray_menu, app)?;
+        for i in 0..page_len {
+            append_item(&tray_menu, app, format!("tray_clip_{i}"), "", true, None)?;
+        }
     }
 
-    tray_menu
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(page_info)
-        .add_item(prev_page)
-        .add_item(next_page)
-        .add_item(first_page)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(preferences)
-        .add_item(search)
-        .add_item(pause)
-        .add_item(clear_history)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(quit)
-}
+    append_separator(&tray_menu, app)?;
+    append_item(&tray_menu, app, "page_info", "", false, None)?;
+    append_item(
+        &tray_menu,
+        app,
+        "prev_page",
+        t!("tray_menu.prev_page"),
+        true,
+        Some("CommandOrControl+A"),
+    )?;
+    append_item(
+        &tray_menu,
+        app,
+        "next_page",
+        t!("tray_menu.next_page"),
+        true,
+        Some("CommandOrControl+D"),
+    )?;
+    append_item(
+        &tray_menu,
+        app,
+        "first_page",
+        t!("tray_menu.first_page"),
+        true,
+        None,
+    )?;
+    append_separator(&tray_menu, app)?;
+    append_item(
+        &tray_menu,
+        app,
+        "preferences",
+        t!("tray_menu.preferences"),
+        true,
+        None,
+    )?;
+    append_item(
+        &tray_menu,
+        app,
+        "search",
+        t!("tray_menu.search"),
+        true,
+        None,
+    )?;
+    append_item(
+        &tray_menu,
+        app,
+        "pause",
+        if paused {
+            t!("tray_menu.resume_monitoring")
+        } else {
+            t!("tray_menu.pause_monitoring")
+        },
+        true,
+        None,
+    )?;
+    append_item(
+        &tray_menu,
+        app,
+        "clear_history",
+        t!("tray_menu.clear_history"),
+        true,
+        None,
+    )?;
+    append_separator(&tray_menu, app)?;
+    append_item(&tray_menu, app, "quit", t!("tray_menu.quit"), true, None)?;
 
-#[cfg(target_os = "windows")]
-pub fn create_tray_menu(
-    page_len: i64,
-    pinned_clips_num: i64,
-    favourite_clips_num: i64,
-    paused: bool,
-) -> SystemTrayMenu {
-    // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
-
-    let notice_select =
-        CustomMenuItem::new("notice_select".to_string(), t!("tray_menu.notice_select")).disabled();
-
-    let page_info = CustomMenuItem::new("page_info".to_string(), "").disabled(); // Total clips: 0, Current page: 0/0
-    let prev_page = CustomMenuItem::new("prev_page".to_string(), t!("tray_menu.prev_page"))
-        .accelerator("CommandOrControl+A");
-    let next_page = CustomMenuItem::new("next_page".to_string(), t!("tray_menu.next_page"))
-        .accelerator("CommandOrControl+D");
-    let first_page = CustomMenuItem::new("first_page".to_string(), t!("tray_menu.first_page"));
-
-    let preferences = CustomMenuItem::new("preferences".to_string(), t!("tray_menu.preferences"));
-    let search = CustomMenuItem::new("search".to_string(), t!("tray_menu.search"));
-    let text = if paused {
-        t!("tray_menu.resume_monitoring")
-    } else {
-        t!("tray_menu.pause_monitoring")
-    };
-    let pause = CustomMenuItem::new("pause".to_string(), text);
-    let clear_history =
-        CustomMenuItem::new("clear_history".to_string(), t!("tray_menu.clear_history"));
-
-    let quit = CustomMenuItem::new("quit".to_string(), t!("tray_menu.quit"));
-    let mut tray_menu = SystemTrayMenu::new();
-    tray_menu = tray_menu
-        .add_item(quit)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(clear_history)
-        .add_item(pause)
-        .add_item(search)
-        .add_item(preferences)
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(first_page)
-        .add_item(next_page)
-        .add_item(prev_page)
-        .add_item(page_info)
-        .add_native_item(SystemTrayMenuItem::Separator);
-
-    // add the clips slot
-    for i in (0..page_len).rev() {
-        let clip = CustomMenuItem::new("tray_clip_".to_string() + &i.to_string(), "");
-        tray_menu = tray_menu.add_item(clip);
+    #[cfg(target_os = "windows")]
+    {
+        for i in (0..page_len).rev() {
+            append_item(&tray_menu, app, format!("tray_clip_{i}"), "", true, None)?;
+        }
+        append_separator(&tray_menu, app)?;
+        for i in (0..favourite_clips_num).rev() {
+            favourite_menu.append(&MenuItem::with_id(
+                app,
+                format!("favourite_clip_{i}"),
+                "",
+                true,
+                None::<&str>,
+            )?)?;
+        }
+        tray_menu.append(&favourite_menu)?;
+        append_separator(&tray_menu, app)?;
+        for i in (0..pinned_clips_num).rev() {
+            append_item(&tray_menu, app, format!("pinned_clip_{i}"), "", true, None)?;
+        }
+        append_separator(&tray_menu, app)?;
+        append_item(
+            &tray_menu,
+            app,
+            "notice_select",
+            t!("tray_menu.notice_select"),
+            false,
+            None,
+        )?;
     }
-    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
 
-    // add the label submenus
-    //    -default label: favourites
-    let mut favourite_menu = SystemTrayMenu::new();
-    for i in (0..favourite_clips_num).rev() {
-        let clip = CustomMenuItem::new("favourite_clip_".to_string() + &i.to_string(), "");
-        favourite_menu = favourite_menu.add_item(clip);
-    }
-    let favourite = SystemTraySubmenu::new(t!("tray_menu.favourite"), favourite_menu);
-
-    tray_menu = tray_menu
-        .add_submenu(favourite)
-        .add_native_item(SystemTrayMenuItem::Separator);
-
-    // add the pinned clips slot
-    for i in (0..pinned_clips_num).rev() {
-        let clip = CustomMenuItem::new("pinned_clip_".to_string() + &i.to_string(), "");
-        tray_menu = tray_menu.add_item(clip);
-    }
-    tray_menu = tray_menu.add_native_item(SystemTrayMenuItem::Separator);
-
-    tray_menu.add_item(notice_select)
+    Ok(tray_menu)
 }
 
 /// handle the tray event
-pub fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
-    match event {
-        SystemTrayEvent::MenuItemClick { id, .. } => {
-            event_sender(app, CopyClipEvent::TrayMenuItemClickEvent(id));
-        }
-        _ => {
-            // do nothing
-        }
-    }
+pub fn handle_tray_event(app: &AppHandle, event: MenuEvent) {
+    event_sender(
+        app,
+        CopyClipEvent::TrayMenuItemClickEvent(event.id().as_ref().to_string()),
+    );
+}
+
+pub fn tray_menu_item(app: &AppHandle, id: &str) -> Option<MenuItemKind<Wry>> {
+    app.state::<TrayMenuState>()
+        .menu
+        .lock()
+        .ok()
+        .and_then(|menu| menu.as_ref().and_then(|menu| menu.get(id)))
+}
+
+pub fn set_tray_menu_item_text(
+    app: &AppHandle,
+    id: &str,
+    text: impl AsRef<str>,
+) -> Result<(), String> {
+    let item = tray_menu_item(app, id).ok_or_else(|| format!("tray menu item `{id}` not found"))?;
+    let item = item
+        .as_menuitem()
+        .ok_or_else(|| format!("tray menu item `{id}` is not a text item"))?;
+    item.set_text(text).map_err(|error| error.to_string())
 }
 
 /// handle the menu item click
@@ -275,20 +291,19 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             debug!("Preferences clicked, Opening preferences window");
             // open the preferences window
             // test if the window is already open
-            let windows = app.windows();
-            let preferences_window = windows.get("preferences");
+            let preferences_window = app.get_webview_window("preferences");
             if let Some(preferences_window) = preferences_window {
                 let res = preferences_window.show();
                 if let Err(e) = res {
                     panic_app(&format!("Failed to show preferences window: {e}"));
                 }
             } else {
-                let app_handle = app.app_handle();
+                let app_handle = app.clone();
                 std::thread::spawn(move || {
-                    let preferences_window = tauri::WindowBuilder::new(
+                    let preferences_window = tauri::WebviewWindowBuilder::new(
                         &app_handle,
                         "preferences",
-                        tauri::WindowUrl::App("preferences".into()),
+                        tauri::WebviewUrl::App("preferences".into()),
                     )
                     .title("Copy Clip")
                     .build();
@@ -302,20 +317,19 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
             debug!("Search clicked, Opening search window");
             // open the preferences window
             // test if the window is already open
-            let windows = app.windows();
-            let preferences_window = windows.get("search");
+            let preferences_window = app.get_webview_window("search");
             if let Some(preferences_window) = preferences_window {
                 let res = preferences_window.show();
                 if let Err(e) = res {
                     panic_app(&format!("Failed to show search window: {e}"));
                 }
             } else {
-                let app_handle = app.app_handle();
+                let app_handle = app.clone();
                 std::thread::spawn(move || {
-                    let preferences_window = tauri::WindowBuilder::new(
+                    let preferences_window = tauri::WebviewWindowBuilder::new(
                         &app_handle,
                         "search",
-                        tauri::WindowUrl::App("search".into()),
+                        tauri::WebviewUrl::App("search".into()),
                     )
                     .title("Copy Clip")
                     .build();
@@ -327,12 +341,12 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
         }
         "clear_history" => {
             debug!("Clear history clicked, asking for confirmation");
-            let app_handle = app.app_handle();
-            tauri::api::dialog::ask(
-                None::<&tauri::Window>,
-                t!("tray_menu.clear_history"),
-                t!("tray_menu.clear_history_confirm"),
-                move |confirmed| {
+            let app_handle = app.clone();
+            app.dialog()
+                .message(t!("tray_menu.clear_history_confirm"))
+                .title(t!("tray_menu.clear_history"))
+                .buttons(MessageDialogButtons::YesNo)
+                .show(move |confirmed| {
                     if !confirmed {
                         return;
                     }
@@ -344,8 +358,7 @@ pub async fn handle_menu_item_click(app: &AppHandle, id: String) {
                             warn!("Failed to clear history: {}", e);
                         }
                     });
-                },
-            );
+                });
         }
         "pause" => {
             debug!("Pause clicked, Toggling pause monitoring");
