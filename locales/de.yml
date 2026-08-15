@@ -13,6 +13,8 @@ preferences:
   language: Sprache
   search_clip_per_batch: Such Clips pro Batch
   enable_auto_delete_duplications: Duplikate automatisch löschen
+  clear_history_button: Verlauf löschen
+  clear_history_confirm_button: Zum Bestätigen erneut klicken
 
 head_bar:
   preferences: Einstellungen
@@ -62,5 +64,7 @@ tray_menu:
   preferences: Einstellungen
   search: Suche
   quit: Beenden
+  clear_history: Verlauf löschen
+  clear_history_confirm: Dadurch werden alle Clips im Verlauf dauerhaft gelöscht, außer angehefteten Clips. Fortfahren?
   total_clips: Gesamtanzahl der Clips
   current_page: Aktuelle Seite

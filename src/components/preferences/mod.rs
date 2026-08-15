@@ -1,3 +1,4 @@
+pub mod clear_history_button;
 pub mod clips_per_page_config;
 pub mod clips_search_per_batch;
 pub mod dark_mode_switch;
