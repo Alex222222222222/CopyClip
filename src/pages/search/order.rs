@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc, sync::Mutex};
+use std::{cmp::Reverse, fmt::Display, rc::Rc, sync::Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -76,16 +76,16 @@ fn sort_search_res_asc(res: Rc<Mutex<Vec<ClipWithSearchInfo>>>, method: OrderMet
     let mut res = res.lock().unwrap();
     match method {
         OrderMethod::Time => {
-            res.sort_by(|a, b| a.clip.timestamp.cmp(&b.clip.timestamp));
+            res.sort_by_key(|item| item.clip.timestamp);
         }
         OrderMethod::FuzzyScore => {
-            res.sort_by(|a, b| a.score.cmp(&b.score));
+            res.sort_by_key(|item| item.score);
         }
         OrderMethod::Text => {
             res.sort_by(|a, b| a.clip.text.cmp(&b.clip.text));
         }
         OrderMethod::Size => {
-            res.sort_by(|a, b| a.len.cmp(&b.len));
+            res.sort_by_key(|item| item.len);
         }
     }
 }
@@ -94,16 +94,16 @@ fn sort_search_res_desc(res: Rc<Mutex<Vec<ClipWithSearchInfo>>>, method: OrderMe
     let mut res = res.lock().unwrap();
     match method {
         OrderMethod::Time => {
-            res.sort_by(|a, b| b.clip.timestamp.cmp(&a.clip.timestamp));
+            res.sort_by_key(|item| Reverse(item.clip.timestamp));
         }
         OrderMethod::FuzzyScore => {
-            res.sort_by(|a, b| b.score.cmp(&a.score));
+            res.sort_by_key(|item| Reverse(item.score));
         }
         OrderMethod::Text => {
             res.sort_by(|a, b| b.clip.text.cmp(&a.clip.text));
         }
         OrderMethod::Size => {
-            res.sort_by(|a, b| b.len.cmp(&a.len));
+            res.sort_by_key(|item| Reverse(item.len));
         }
     }
 }
