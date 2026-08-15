@@ -8,19 +8,6 @@ use yewdux::{functional::use_store, store::Store};
 
 use crate::invoke::invoke;
 
-#[derive(Debug, PartialEq, Clone, serde::Deserialize, serde::Serialize)]
-pub enum PinnedFilter {
-    All,
-    Pinned,
-    NotPinned,
-}
-
-impl Default for PinnedFilter {
-    fn default() -> Self {
-        Self::All
-    }
-}
-
 #[derive(Debug, PartialEq, Properties)]
 pub struct PinClipButtonProps {
     pub id: u64,
