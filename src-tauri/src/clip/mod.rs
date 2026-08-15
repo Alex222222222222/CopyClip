@@ -2,7 +2,8 @@ pub mod clip_data;
 pub mod monitor;
 pub mod search;
 
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
+use tauri_plugin_clipboard_manager::ClipboardExt;
 
 use crate::{
     error::Error,
@@ -22,8 +23,7 @@ pub fn get_system_timestamp() -> i64 {
 
 /// copy the clip to the clipboard
 pub fn copy_clip_to_clipboard_in(clip: &clip::Clip, app: &AppHandle) -> Result<(), Error> {
-    let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
-    match clipboard_manager.write_text((*clip.text).clone()) {
+    match app.clipboard().write_text((*clip.text).clone()) {
         Ok(_) => Ok(()),
         Err(e) => Err(Error::WriteToSystemClipboardErr(
             (*clip.text).clone(),

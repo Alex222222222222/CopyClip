@@ -11,9 +11,11 @@ use clip::{Clip, ClipType};
 use log::debug;
 use once_cell::sync::Lazy;
 use tauri::{async_runtime::Mutex, AppHandle, Manager};
+use tauri_plugin_clipboard_manager::ClipboardExt;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::copy_clip_to_clipboard_in;
+use crate::systray::set_tray_menu_item_text;
 
 /// The clip data to be shared between threads
 #[derive(Debug, Default, Clone)]
@@ -767,8 +769,6 @@ impl ClipState {
         // put text in
         for i in 0..current_page_clips.len() {
             let tray_id = "tray_clip_".to_string() + &i.to_string();
-            let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
-
             let c = current_page_clips.get(i);
             if c.is_none() {
                 continue;
@@ -777,7 +777,7 @@ impl ClipState {
 
             let text = c.text.clone();
             let text = trim_clip_text(text, max_clip_length);
-            let res = tray_clip_sub_menu.set_title(text);
+            let res = set_tray_menu_item_text(app, &tray_id, text);
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
@@ -786,8 +786,7 @@ impl ClipState {
         // clean out the rest of the tray
         for i in current_page_clips.len()..clips_per_page as usize {
             let tray_id = "tray_clip_".to_string() + &i.to_string();
-            let tray_clip_sub_menu = app.tray_handle().get_item(&tray_id);
-            let res = tray_clip_sub_menu.set_title("".to_string());
+            let res = set_tray_menu_item_text(app, &tray_id, "");
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
@@ -811,7 +810,6 @@ impl ClipState {
         current_page: u64,
         whole_pages: u64,
     ) -> Result<(), Error> {
-        let tray_page_info_item = app.tray_handle().get_item("page_info");
         let tray_page_info_title = format!(
             "{}: {}, {}: {}/{}",
             t!("tray_menu.total_clips"),
@@ -820,7 +818,7 @@ impl ClipState {
             current_page + 1,
             whole_pages + 1
         );
-        let res = tray_page_info_item.set_title(tray_page_info_title);
+        let res = set_tray_menu_item_text(app, "page_info", tray_page_info_title);
         if res.is_err() {
             return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
         }
@@ -857,9 +855,7 @@ impl ClipState {
 
             let pinned_clip = pinned_clip.text;
             let pinned_clip = trim_clip_text(pinned_clip, max_clip_length);
-            let pinned_clip_item: tauri::SystemTrayMenuItemHandle =
-                app.tray_handle().get_item(&format!("pinned_clip_{}", i));
-            let res = pinned_clip_item.set_title(pinned_clip);
+            let res = set_tray_menu_item_text(app, &format!("pinned_clip_{i}"), pinned_clip);
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
@@ -896,9 +892,7 @@ impl ClipState {
             let favourite_clip_text = favourite_clip.text.clone();
             let favourite_clip_text = trim_clip_text(favourite_clip_text, max_clip_length);
             let favourite_clip_id = "favourite_clip_".to_string() + &i.to_string();
-            let favourite_clip_item: tauri::SystemTrayMenuItemHandle =
-                app.tray_handle().get_item(&favourite_clip_id);
-            let res = favourite_clip_item.set_title(favourite_clip_text);
+            let res = set_tray_menu_item_text(app, &favourite_clip_id, favourite_clip_text);
             if res.is_err() {
                 return Err(Error::SetSystemTrayTitleErr(res.err().unwrap().to_string()));
             }
@@ -971,19 +965,7 @@ impl ClipState {
 
 /// The current clip text in the system clipboard
 fn clip_data_from_system_clipboard(app: &AppHandle) -> Result<Arc<String>, Error> {
-    let clipboard_manager = app.state::<tauri_plugin_clipboard::ClipboardManager>();
-    let has_text = match clipboard_manager.has_text() {
-        Ok(has_text) => has_text,
-        Err(err) => {
-            return Err(Error::ReadFromSystemClipboardErr(err.to_string()));
-        }
-    };
-    if !has_text {
-        // TODO unimplemented for other types of clipboard
-        return Ok(Arc::new("".to_string()));
-    }
-
-    match clipboard_manager.read_text() {
+    match app.clipboard().read_text() {
         Ok(clip) => Ok(Arc::new(clip)),
         Err(err) => Err(Error::ReadFromSystemClipboardErr(err.to_string())),
     }

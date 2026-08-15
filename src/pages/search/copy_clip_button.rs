@@ -1,7 +1,7 @@
 use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, Callback, Html, Properties};
-use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconData};
 
 use crate::invoke::invoke;
 
@@ -32,7 +32,7 @@ pub fn copy_clip_button(props: &CopyClipButtonProps) -> Html {
                 class="font-bold w-full"
                 onclick={copy_clip_button_on_click}
             >
-                <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList} class="mx-auto mt-0.5"/>
+                <Icon data={IconData::HEROICONS_OUTLINE_CLIPBOARD_DOCUMENT_LIST} class="mx-auto mt-0.5"/>
             </button>
         </td>
     }

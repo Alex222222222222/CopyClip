@@ -143,7 +143,7 @@ fn create_regexp_function(db: &Connection) -> Result<(), Error> {
 /// get the app data dir and create it if it does not exist
 fn get_and_create_app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, Error> {
     // get the app data dir
-    let app_data_dir = app.path_resolver().app_data_dir();
+    let app_data_dir = app.path().app_data_dir().ok();
     if app_data_dir.is_none() {
         return Err(Error::GetAppDataDirErr);
     }
@@ -174,7 +174,7 @@ fn get_and_create_database(app_data_dir: std::path::PathBuf) -> Result<Connectio
 
 /// get the current version from the tauri config
 fn get_current_version(app: &AppHandle) -> Result<String, Error> {
-    let current_version = app.config().package.version.clone();
+    let current_version = app.config().version.clone();
     if current_version.is_none() {
         return Err(Error::GetVersionFromTauriErr);
     }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_logging::LogLevelFilter;
 
 use crate::{config::Config, error};
@@ -15,7 +15,7 @@ struct ConfigBefore {
 
 pub fn upgrade(app: &AppHandle) -> Result<(), error::Error> {
     // find the config file
-    let data_dir = app.path_resolver().app_data_dir();
+    let data_dir = app.path().app_data_dir().ok();
     if data_dir.is_none() {
         return Err(error::Error::GetAppDataDirErr);
     }

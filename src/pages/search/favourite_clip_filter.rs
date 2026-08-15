@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use yew::{function_component, html, platform::spawn_local, Callback, Html, Properties};
-use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconData};
 use yewdux::dispatch::Dispatch;
 
 use crate::pages::search::{search_clip::search_clips, search_state::SearchState};
@@ -57,7 +57,7 @@ pub fn favourite_clip_filter(props: &FavouriteClipFilterProps) -> Html {
                 class="mx-auto mt-2.5"
                 onclick={favourite_filter_on_click}
             >
-                <Icon icon_id={IconId::BootstrapHeartHalf} class=""/>
+                <Icon data={IconData::BOOTSTRAP_HEART_HALF} class=""/>
             </button>
     }
 }

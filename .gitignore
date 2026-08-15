@@ -8,3 +8,4 @@ tailwind.css
 .vim
 
 node_modules
+/src-tauri/gen/schemas/

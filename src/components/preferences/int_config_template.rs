@@ -78,7 +78,7 @@ pub fn int_config_template(props: &IntConfigTemplateProps) -> Html {
     html! {
         <div class="flex flex-row justify-between">
             <label htmlFor={format!("{}-input-box", label)} class="text-xl my-2">
-                {t!{&label}}
+                {t!{label.clone()}}
             </label>
             <input
                 id={format!("{}-input-box", label)}

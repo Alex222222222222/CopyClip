@@ -1,13 +1,14 @@
 use log::{debug, error};
 use tauri::async_runtime::{Receiver, Sender};
 
-use tauri::{api::notification::Notification, AppHandle, Manager};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_logging::panic_app;
+use tauri_plugin_notification::NotificationExt;
 
 use crate::clip::clip_data::ClipStateMutex;
 use crate::{
     config::ConfigMutex,
-    systray::{create_tray_menu, handle_menu_item_click},
+    systray::{create_tray_menu, handle_menu_item_click, TrayMenuState},
 };
 
 /// all the events that can be sent to the event daemon
@@ -80,7 +81,7 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
         }
         let event = event.unwrap();
         debug!("Get event: {:?}", event);
-        let app = app.app_handle();
+        let app = app.clone();
         match event {
             // rebuild the tray menu
             CopyClipEvent::RebuildTrayMenuEvent => tauri::async_runtime::spawn(async move {
@@ -111,17 +112,29 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 let paused = paused.config.lock().await.pause_monitoring;
                 drop(clip_data);
 
-                let res = app.tray_handle().set_menu(create_tray_menu(
+                let menu = match create_tray_menu(
+                    &app,
                     page_len as i64,
                     pinned_clips as i64,
                     favourite_clips as i64,
                     paused,
-                ));
-                if res.is_err() {
-                    panic_app(&format!(
-                        "Failed to set tray menu, error: {}",
-                        res.err().unwrap()
-                    ));
+                ) {
+                    Ok(menu) => menu,
+                    Err(error) => {
+                        panic_app(&format!("Failed to create tray menu: {error}"));
+                        return;
+                    }
+                };
+                let Some(tray) = app.tray_by_id("main") else {
+                    panic_app("Failed to find the main tray icon");
+                    return;
+                };
+                if let Err(error) = tray.set_menu(Some(menu.clone())) {
+                    panic_app(&format!("Failed to set tray menu: {error}"));
+                    return;
+                }
+                if let Ok(mut current_menu) = app.state::<TrayMenuState>().menu.lock() {
+                    *current_menu = Some(menu);
                 }
 
                 let clip_data = app.state::<ClipStateMutex>();
@@ -183,10 +196,12 @@ pub async fn event_daemon(mut rx: Receiver<CopyClipEvent>, app: &AppHandle) {
                 #[cfg(debug_assertions)]
                 log::debug!("Notification: {}", msg);
 
-                let res = Notification::new(&app.config().tauri.bundle.identifier)
+                let res = app
+                    .notification()
+                    .builder()
                     .title(msg)
                     .icon("icons/clip.png")
-                    .notify(&app);
+                    .show();
                 if let Err(err) = res {
                     #[cfg(debug_assertions)]
                     println!("Error: {}", err);

@@ -16,9 +16,9 @@ pub fn panic_app(msg: &str) {
 /// Initializes the plugin.
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("logging")
-        .setup(|app_handle: &AppHandle<R>| {
+        .setup(|app_handle: &AppHandle<R>, _api| {
             // set up the logger
-            match logging::setup_logger(&app_handle.path_resolver()) {
+            match logging::setup_logger(app_handle) {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e.to_string().into()),
             }

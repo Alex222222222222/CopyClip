@@ -2,7 +2,7 @@ use std::fs;
 
 use log::warn;
 use serde::{Deserialize, Serialize};
-use tauri::{async_runtime::Mutex, AppHandle};
+use tauri::{async_runtime::Mutex, AppHandle, Manager};
 use tauri_plugin_logging::LogLevelFilter;
 
 use crate::error;
@@ -101,7 +101,7 @@ pub fn load_config(app: &AppHandle) -> Config {
     // if config file does not exist, create it
     // if config file exists, load it
 
-    let data_dir = app.path_resolver().app_data_dir();
+    let data_dir = app.path().app_data_dir().ok();
     let data_dir = match data_dir {
         Some(d) => d,
         None => {
@@ -207,7 +207,7 @@ impl Config {
     /// if the config file does not exist, create it
     /// if the config file exist, overwrite it
     pub fn save_config(&self, app: &AppHandle) -> Result<(), error::Error> {
-        let data_dir = app.path_resolver().app_data_dir();
+        let data_dir = app.path().app_data_dir().ok();
         if data_dir.is_none() {
             return Err(error::Error::GetAppDataDirErr);
         }

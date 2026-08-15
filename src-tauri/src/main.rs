@@ -7,18 +7,20 @@ use copy_clip::{
     database::{init_database_connection, DatabaseStateMutex},
     event::{event_daemon, event_sender, CopyClipEvent, EventSender},
     export,
-    systray::handle_tray_event,
+    systray::{handle_tray_event, TrayMenuState},
 };
 use log::{error, info};
 use rust_i18n::set_locale;
-use tauri::{async_runtime::Mutex, Manager, SystemTray};
+use tauri::{async_runtime::Mutex, Manager};
 use tauri_plugin_logging::panic_app;
 
 const EVENT_CHANNEL_SIZE: usize = 1000;
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_clipboard::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_logging::init())
         // .invoke_handler(tauri::generate_handler![on_button_clicked])
         .manage(ConfigMutex {
@@ -26,10 +28,11 @@ fn main() {
         })
         .manage(ClipStateMutex::default())
         .manage(DatabaseStateMutex::default())
+        .manage(TrayMenuState::default())
         .setup(|app| {
             // set up the database connection and create the table
             // will also init the clip data state
-            let app_handle = app.handle();
+            let app_handle = app.handle().clone();
             let connection = match init_database_connection(&app_handle) {
                 Ok(connection) => connection,
                 Err(err) => {
@@ -48,7 +51,7 @@ fn main() {
             rx.recv().unwrap();
 
             // load the config info from the config file
-            let app_handle = app.handle();
+            let app_handle = app.handle().clone();
             // tx and rx is used to wait until the prepare finished
             let (tx, rx) = std::sync::mpsc::channel::<()>();
             tauri::async_runtime::spawn(async move {
@@ -62,7 +65,7 @@ fn main() {
             rx.recv().unwrap();
 
             // set the i18n
-            let app_handle = app.handle();
+            let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let config_mutex = app_handle.state::<ConfigMutex>();
                 let config_mutex = config_mutex.config.lock().await;
@@ -72,7 +75,7 @@ fn main() {
             });
 
             // set up event sender and receiver
-            let app_handle = app.handle();
+            let app_handle = app.handle().clone();
             let (event_tx, event_rx) =
                 tauri::async_runtime::channel::<CopyClipEvent>(EVENT_CHANNEL_SIZE);
             app.manage(EventSender::new(event_tx));
@@ -82,7 +85,7 @@ fn main() {
             });
 
             // set up the clip board monitor daemon
-            let app_handle = app.handle();
+            let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 // the daemon to monitor the system clip board change and trigger the tray update
                 clip::monitor::monitor_clip_board(&app_handle).await;
@@ -96,9 +99,7 @@ fn main() {
 
             Ok(())
         })
-        // tauri setup the system tray before the app.setup
-        .system_tray(SystemTray::new())
-        .on_system_tray_event(handle_tray_event)
+        .on_menu_event(handle_tray_event)
         .invoke_handler(tauri::generate_handler![
             config::command::get_per_page_data,
             config::command::set_per_page_data,
@@ -128,7 +129,7 @@ fn main() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                let windows = app_handle.windows();
+                let windows = app_handle.webview_windows();
                 for (_, window) in windows {
                     let res = window.close();
                     panic_app(&format!(

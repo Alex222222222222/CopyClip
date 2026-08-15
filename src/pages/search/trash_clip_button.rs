@@ -2,7 +2,7 @@
 use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, Callback, Html, Properties};
-use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconData};
 
 use crate::invoke::invoke;
 
@@ -47,7 +47,7 @@ pub fn trash_clip_button(props: &TrashClipButtonProps) -> Html {
                 class="font-bold w-full"
                 onclick={trash_clip_button_on_click}
             >
-                <Icon icon_id={IconId::BootstrapTrash} class="mx-auto mt-0.5"/>
+                <Icon data={IconData::BOOTSTRAP_TRASH} class="mx-auto mt-0.5"/>
             </button>
         </td>
     }

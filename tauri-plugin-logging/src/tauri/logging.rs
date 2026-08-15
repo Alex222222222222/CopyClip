@@ -1,7 +1,7 @@
 use std::{fmt::Display, fs, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tauri::PathResolver;
+use tauri::{AppHandle, Manager, Runtime};
 
 use log::warn;
 
@@ -108,8 +108,8 @@ impl From<String> for LogLevelFilter {
     }
 }
 
-pub fn setup_logger(path_resolver: &PathResolver) -> Result<(), fern::InitError> {
-    let path = get_user_log_path(path_resolver);
+pub fn setup_logger<R: Runtime>(app: &AppHandle<R>) -> Result<(), fern::InitError> {
+    let path = get_user_log_path(app);
     if path.is_none() {
         return Ok(());
     }
@@ -130,7 +130,7 @@ pub fn setup_logger(path_resolver: &PathResolver) -> Result<(), fern::InitError>
     // at this stage the user config is still not loaded, so we needed to manually get the config.
     // user config is loaded after the database config to prevent issue with backward compatibility
     // however, we only need the log level, so there should be no issue with the backward compatibility
-    let level = get_user_log_level(path_resolver);
+    let level = get_user_log_level(app);
     log = log.level(level);
 
     #[cfg(debug_assertions)]
@@ -150,9 +150,8 @@ pub fn setup_logger(path_resolver: &PathResolver) -> Result<(), fern::InitError>
 }
 
 /// get the app log path
-pub fn get_user_log_path(path_resolver: &PathResolver) -> Option<PathBuf> {
-    let log_dir = path_resolver.app_log_dir();
-    let mut log_dir = log_dir?;
+pub fn get_user_log_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    let mut log_dir = app.path().app_log_dir().ok()?;
 
     // test if log_dir exist
     if !log_dir.exists() {
@@ -170,16 +169,16 @@ pub fn get_user_log_path(path_resolver: &PathResolver) -> Option<PathBuf> {
 }
 
 /// get the user log level
-fn get_user_log_level(path_resolver: &PathResolver) -> log::LevelFilter {
+fn get_user_log_level<R: Runtime>(app: &AppHandle<R>) -> log::LevelFilter {
     // warn in this functions will not go to the correct place as the logger is not yet setup
 
-    let data_dir = path_resolver.app_data_dir();
-    if data_dir.is_none() {
-        warn!("can not find app data dir");
-        return log::LevelFilter::Info;
-    }
-
-    let data_dir = data_dir.unwrap();
+    let data_dir = match app.path().app_data_dir() {
+        Ok(data_dir) => data_dir,
+        Err(_) => {
+            warn!("can not find app data dir");
+            return log::LevelFilter::Info;
+        }
+    };
     let mut config_file = data_dir.clone();
     config_file.push("config.json");
 
