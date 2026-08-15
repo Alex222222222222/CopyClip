@@ -1,6 +1,6 @@
 use std::rc::Rc;
 use yew::{function_component, html, platform::spawn_local, Callback, Html, Properties};
-use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconData};
 use yewdux::dispatch::Dispatch;
 
 use crate::pages::search::{search_clip::search_clips, search_state::SearchState};
@@ -61,7 +61,7 @@ pub fn pin_clip_filter(props: &PinClipFilterProps) -> Html {
                 class="mx-auto mt-2.5"
                 onclick={pin_filter_on_click}
             >
-                <Icon icon_id={IconId::BootstrapPinAngleFill} class=""/>
+                <Icon data={IconData::BOOTSTRAP_PIN_ANGLE_FILL} class=""/>
             </button>
     }
 }

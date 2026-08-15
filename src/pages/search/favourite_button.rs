@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, Callback, Html, Properties};
-use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconData};
 use yewdux::prelude::use_store;
 use yewdux::prelude::Store;
 
@@ -71,9 +71,9 @@ pub fn favourite_clip_button(props: &FavouriteClipButtonProps) -> Html {
     });
 
     let icon = if favourite.content.contains(&id) {
-        IconId::BootstrapHeartFill
+        IconData::BOOTSTRAP_HEART_FILL
     } else {
-        IconId::BootstrapHeart
+        IconData::BOOTSTRAP_HEART
     };
 
     html! {
@@ -82,7 +82,7 @@ pub fn favourite_clip_button(props: &FavouriteClipButtonProps) -> Html {
                 class="font-bold w-full"
                 onclick={copy_clip_button_on_click}
             >
-                <Icon icon_id={icon} class="mx-auto mt-0.5"/>
+                <Icon data={icon} class="mx-auto mt-0.5"/>
             </button>
         </td>
     }

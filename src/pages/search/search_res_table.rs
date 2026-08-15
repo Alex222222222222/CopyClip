@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use yew::{function_component, html, Html, Properties};
-use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconData};
 
 use crate::pages::search::{
     copy_clip_button::CopyClipButton, favourite_button::FavouriteClipButton,
@@ -42,11 +42,11 @@ pub fn search_res_table_html(props: &SearchResTableProps) -> Html {
                         <th class="border border-gray-200">{ "Len" }</th>
                         // the time of the clip
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::LucideTimer} class="mx-auto mt-0.5"/>
+                            <Icon data={IconData::LUCIDE_TIMER} class="mx-auto mt-0.5"/>
                         </th>
                         // favourite or not, use heart icon
                         <th class="border border-gray-200">
-                            /* <Icon icon_id={IconId::BootstrapHeartHalf} class="mx-auto mt-0.5"/> */
+                            /* <Icon data={IconData::BOOTSTRAP_HEART_HALF} class="mx-auto mt-0.5"/> */
                             <FavouriteClipFilter
                             favourite_filter_dispatch={props.favourite_filter_dispatch.clone()}
                             search_args={props.search_args.clone()}
@@ -65,13 +65,13 @@ pub fn search_res_table_html(props: &SearchResTableProps) -> Html {
                         </th>
                         // copy the clip button icon
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::HeroiconsOutlineClipboardDocumentList} class="mx-auto mt-0.5"/>
+                            <Icon data={IconData::HEROICONS_OUTLINE_CLIPBOARD_DOCUMENT_LIST} class="mx-auto mt-0.5"/>
                         </th>
                         // only part of the clip, if the user want to see the whole clip, he can click the link which will lead to the clip page
                         <th class="border border-gray-200">{ "Clip" }</th>
                         // delete the clip button icon
                         <th class="border border-gray-200">
-                            <Icon icon_id={IconId::BootstrapTrash} class="mx-auto mt-0.5"/>
+                            <Icon data={IconData::BOOTSTRAP_TRASH} class="mx-auto mt-0.5"/>
                         </th>
                     </tr>
                 </thead>

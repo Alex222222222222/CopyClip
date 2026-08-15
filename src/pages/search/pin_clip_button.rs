@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen_futures::spawn_local;
 use yew::{function_component, html, use_effect_with, Callback, Html, Properties};
-use yew_icons::{Icon, IconId};
+use yew_icons::{Icon, IconData};
 use yewdux::{functional::use_store, store::Store};
 
 use crate::invoke::invoke;
@@ -89,9 +89,9 @@ pub fn pin_clip_button(props: &PinClipButtonProps) -> Html {
 
     let pinned_1 = pinned_statue.pinned.contains(&id);
 
-    let mut icon = IconId::BootstrapPinAngleFill;
+    let mut icon = IconData::BOOTSTRAP_PIN_ANGLE_FILL;
     if !pinned_1 {
-        icon = IconId::BootstrapPinAngle
+        icon = IconData::BOOTSTRAP_PIN_ANGLE
     }
 
     html! {
@@ -100,7 +100,7 @@ pub fn pin_clip_button(props: &PinClipButtonProps) -> Html {
                 class="font-bold w-full"
                 onclick={pin_clip_button_on_click}
             >
-                <Icon icon_id={icon} class="mx-auto mt-0.5"/>
+                <Icon data={icon} class="mx-auto mt-0.5"/>
             </button>
         </td>
     }

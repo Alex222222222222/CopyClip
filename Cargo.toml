@@ -31,18 +31,13 @@ web-sys = { version = "0.3", features = [
   "MediaQueryList",
   "DomTokenList",
 ] }
-yew = { version = "0.21", features = ["csr"] }
-yewdux = "0.11"
-yew-router = "0.18"
-yew_icons = { version = "0.8", features = [
-  "HeroiconsOutlineClipboardDocumentList",
-  "BootstrapTrash",
-  "LucideTimer",
-  "BootstrapHeartHalf",
-  "BootstrapHeartFill",
-  "BootstrapHeart",
-  "BootstrapPinAngle",
-  "BootstrapPinAngleFill"
+yew = { version = "0.23", features = ["csr"] }
+yewdux = "0.13"
+yew-router = "0.20"
+yew_icons = { version = "0.10", features = [
+  "bootstrap",
+  "heroicons_outline",
+  "lucide"
 ] }
 # for logging
 tauri-plugin-logging = {path = "./tauri-plugin-logging", features = ["api"]}
