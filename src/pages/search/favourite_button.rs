@@ -10,19 +10,6 @@ use yewdux::prelude::Store;
 
 use crate::invoke::invoke;
 
-#[derive(Debug, PartialEq, Clone, serde::Deserialize, serde::Serialize)]
-pub enum FavouriteFilter {
-    All,
-    Favourite,
-    NotFavourite,
-}
-
-impl Default for FavouriteFilter {
-    fn default() -> Self {
-        Self::All
-    }
-}
-
 #[derive(Debug, PartialEq, Properties)]
 pub struct FavouriteClipButtonProps {
     pub id: u64,
